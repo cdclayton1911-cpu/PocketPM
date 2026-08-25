@@ -119,9 +119,9 @@ The Express API shares this system Node. Changing it can break that service, so
 check before moving on — this is the step where a Node change would show up:
 
 ```bash
-systemctl status <express-service-name> --no-pager
+systemctl status pocketpm-proxy --no-pager
 curl -s https://api.pocketpm.fyi/health      # expect {"status":"ok",...}
-journalctl -u <express-service-name> -n 30 --no-pager
+journalctl -u pocketpm-proxy -n 30 --no-pager
 ```
 
 If the API is broken by the change, roll Node back to the version you recorded
@@ -130,7 +130,7 @@ above:
 ```bash
 apt-cache madison nodejs | head            # list available versions
 apt-get install -y nodejs=<previous-version>
-systemctl restart <express-service-name>
+systemctl restart pocketpm-proxy
 curl -s https://api.pocketpm.fyi/health
 ```
 
