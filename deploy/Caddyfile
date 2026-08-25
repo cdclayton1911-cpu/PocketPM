@@ -1,0 +1,89 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# Pocket PM — /etc/caddy/Caddyfile
+#
+# ⚠  THE pb AND api BLOCKS BELOW ARE RECONSTRUCTED, NOT COPIED.
+#
+# They were inferred from HTTP headers observed live against the running
+# services, because the real /etc/caddy/Caddyfile was not available when this
+# was written. Evidence behind each is noted inline.
+#
+# BEFORE USING THIS FILE: open your real /etc/caddy/Caddyfile and replace the
+# pb and api blocks below with the genuine ones, verbatim. Only the
+# app.pocketpm.fyi block is intended to be new.
+#
+#     diff <(sudo cat /etc/caddy/Caddyfile) deploy/Caddyfile
+#
+# The one change this file is actually meant to make:
+#     app.pocketpm.fyi:  root * /var/www/pocketpm + file_server
+#                    ->  reverse_proxy 127.0.0.1:3001
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+# ── PocketBase ───────────────────────────────────────────────────────────────
+# RECONSTRUCTED — weak evidence.
+# Observed: GET / returns 404 with "via: 1.1 Caddy" and NO CORS headers;
+# OPTIONS / returns 204. The absence of Access-Control-* on a normal response
+# suggests this block does NOT set CORS headers in Caddy (PocketBase sets its
+# own), but does answer preflight. Verify against the real file.
+pb.pocketpm.fyi {
+	@options method OPTIONS
+	respond @options 204
+
+	reverse_proxy 127.0.0.1:8090
+}
+
+
+# ── Express API ──────────────────────────────────────────────────────────────
+# RECONSTRUCTED — strong evidence.
+# These exact header values were observed on live responses from
+# api.pocketpm.fyi, and OPTIONS returns 204:
+#   access-control-allow-origin:  *
+#   access-control-allow-methods: GET, POST, PATCH, DELETE, OPTIONS
+#   access-control-allow-headers: Content-Type, Authorization, X-PB-Token
+#   access-control-max-age:       86400
+api.pocketpm.fyi {
+	header {
+		Access-Control-Allow-Origin "*"
+		Access-Control-Allow-Methods "GET, POST, PATCH, DELETE, OPTIONS"
+		Access-Control-Allow-Headers "Content-Type, Authorization, X-PB-Token"
+		Access-Control-Max-Age "86400"
+	}
+
+	@options method OPTIONS
+	respond @options 204
+
+	reverse_proxy 127.0.0.1:3000
+}
+
+
+# ── Web app (Next.js) ────────────────────────────────────────────────────────
+# THIS IS THE CHANGE. Previously:
+#
+#     app.pocketpm.fyi {
+#         root * /var/www/pocketpm
+#         file_server
+#     }
+#
+# The old prototype stays on disk at /var/www/pocketpm as a rollback target —
+# do not delete it. To roll back, restore the previous Caddyfile from the backup
+# taken in SETUP.md and reload Caddy.
+app.pocketpm.fyi {
+	reverse_proxy 127.0.0.1:3001 {
+		# Next.js reads these to build absolute URLs and to see the real client
+		# IP rather than the loopback address Caddy connects from.
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	# Next.js already gzips its own responses; this adds zstd and covers static
+	# assets it serves uncompressed. Safe to delete if you prefer to match the
+	# previous setup exactly.
+	encode zstd gzip
+
+	log {
+		output file /var/log/caddy/pocketpm-web.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}

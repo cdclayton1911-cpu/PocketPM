@@ -1,0 +1,52 @@
+[Unit]
+Description=Pocket PM web (Next.js)
+Documentation=https://github.com/cdclayton1911-cpu/PocketPM
+# Start after the network is genuinely up, not merely configured.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# Dedicated unprivileged account; created in SETUP.md. Never run this as root.
+User=pocketpm
+Group=pocketpm
+
+WorkingDirectory=/opt/pocketpm-web
+
+# Application configuration. See .env.example for the full list of keys.
+# Must be root-owned and chmod 600 — it is read before privileges are dropped.
+EnvironmentFile=/etc/pocketpm-web.env
+
+# The bind address is passed explicitly rather than via PORT/HOSTNAME in the
+# EnvironmentFile, so there is exactly one source of truth for it. Binding to
+# 127.0.0.1 is load-bearing: it keeps Next.js unreachable from the internet, so
+# Caddy stays the only public entry point. Do not change this to 0.0.0.0.
+ExecStart=/usr/bin/npm start -- --hostname 127.0.0.1 --port 3001
+
+Restart=always
+RestartSec=5
+
+# Give Next.js a chance to finish in-flight requests before SIGKILL.
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pocketpm-web
+
+# ── Hardening ────────────────────────────────────────────────────────────────
+# Deliberately moderate. ProtectSystem=full leaves /opt writable, which Next.js
+# needs for .next/cache at runtime; ProtectSystem=strict would require an
+# explicit ReadWritePaths and is a common cause of confusing boot failures.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target
