@@ -17,13 +17,27 @@ Run every command as `root` (or with `sudo`) on the droplet.
 
 ## ⚠ Read before you start
 
-**1. The `pb` and `api` blocks in `deploy/Caddyfile` are reconstructed, not
-copied.** They were inferred from HTTP headers observed against the live
-services. Before step 7, replace them with the real blocks from your existing
-`/etc/caddy/Caddyfile`, verbatim. Diff first:
+**1. `deploy/Caddyfile` is an exact copy of your live `/etc/caddy/Caddyfile`,
+with one change.** The `pb` and `api` blocks are byte-for-byte identical. The
+only edit is inside the `app.pocketpm.fyi` block:
+
+```diff
+  app.pocketpm.fyi {
+-     root * /var/www/pocketpm
+-     file_server
++     reverse_proxy 127.0.0.1:3001
+      encode gzip
+  }
+```
+
+`encode gzip` is kept as-is. No `header_up` directives were added — Caddy's
+`reverse_proxy` already sets `X-Forwarded-For`, `X-Forwarded-Proto`, and
+`X-Forwarded-Host` by default.
+
+Still diff before installing, in case the live file has changed since:
 
 ```bash
-diff <(cat /etc/caddy/Caddyfile) /opt/pocketpm-web/deploy/Caddyfile
+diff /etc/caddy/Caddyfile /opt/pocketpm-web/deploy/Caddyfile
 ```
 
 **2. Node version.** These steps install **Node 20 LTS**. This box also runs
