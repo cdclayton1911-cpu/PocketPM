@@ -1,0 +1,129 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Theme ported from prototype/pocket_pm_v9.html (:root, lines 9-20).
+ * Light theme only — the prototype has no dark mode, so none is invented here.
+ */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-heading: var(--font-sans);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Status/badge palette — matches the prototype's badge classes exactly:
+     bsuc=success  bwrn=warning  binf=info(primary)  bdan=danger(destructive)
+     bnet=neutral  btea=teal */
+  --color-success: var(--ppm-green);
+  --color-success-subtle: var(--ppm-green-l);
+  --color-warning: var(--ppm-warn);
+  --color-warning-subtle: var(--ppm-warn-l);
+  --color-caution: var(--ppm-orange);
+  --color-caution-subtle: var(--ppm-orange-l);
+  --color-danger: var(--destructive);
+  --color-danger-subtle: var(--ppm-red-l);
+  --color-info: var(--primary);
+  --color-info-subtle: var(--accent);
+  --color-neutral: var(--ppm-text-secondary);
+  --color-neutral-subtle: var(--ppm-surface-subtle);
+  --color-teal: var(--ppm-teal);
+  --color-teal-subtle: var(--ppm-teal-l);
+
+  /* Exact prototype radii (r4/r6/r8/r12), alongside shadcn's own --radius-* scale */
+  --radius-r4: 4px;
+  --radius-r6: 6px;
+  --radius-r8: 8px;
+  --radius-r12: 12px;
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  /* --- Prototype tokens, ported verbatim (pocket_pm_v9.html:9-20) --- */
+  --ppm-surface: #ffffff;         /* --bp */
+  --ppm-surface-subtle: #f8f9fa;  /* --bs */
+  --ppm-surface-tint: #f1f3f5;    /* --bt */
+  --ppm-text-primary: #1a1a1a;    /* --tp */
+  --ppm-text-secondary: #6c757d;  /* --ts */
+  --ppm-text-tertiary: #adb5bd;   /* --tt */
+  --ppm-border: #e9ecef;          /* --bl */
+  --ppm-border-strong: #dee2e6;   /* --bm */
+  --ppm-blue: #1565c0;
+  --ppm-blue-l: #ebf2fb;
+  --ppm-blue-d: #0d47a1;
+  --ppm-teal: #00796b;
+  --ppm-teal-l: #e0f2f1;
+  --ppm-green: #2e7d32;
+  --ppm-green-l: #e8f5e9;
+  --ppm-orange: #e65100;
+  --ppm-orange-l: #fff3e0;
+  --ppm-red: #c62828;
+  --ppm-red-l: #ffebee;
+  --ppm-warn: #f57f17;
+  --ppm-warn-l: #fffde7;
+
+  /* --- shadcn semantic slots, mapped from the tokens above --- */
+  --background: var(--ppm-surface-tint);
+  --foreground: var(--ppm-text-primary);
+  --card: var(--ppm-surface);
+  --card-foreground: var(--ppm-text-primary);
+  --popover: var(--ppm-surface);
+  --popover-foreground: var(--ppm-text-primary);
+  --primary: var(--ppm-blue);
+  --primary-foreground: #ffffff;
+  --secondary: var(--ppm-surface-subtle);
+  --secondary-foreground: var(--ppm-text-primary);
+  --muted: var(--ppm-surface-subtle);
+  --muted-foreground: var(--ppm-text-secondary);
+  --accent: var(--ppm-blue-l);
+  --accent-foreground: var(--ppm-blue-d);
+  --destructive: var(--ppm-red);
+  --destructive-foreground: #ffffff;
+  --border: var(--ppm-border);
+  --input: var(--ppm-border-strong);
+  --ring: var(--ppm-blue);
+  --radius: 0.5rem;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
