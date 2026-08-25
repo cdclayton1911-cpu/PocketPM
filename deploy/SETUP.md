@@ -267,9 +267,22 @@ differences are inside the `app.pocketpm.fyi` block:
 diff /etc/caddy/Caddyfile /opt/pocketpm-web/deploy/Caddyfile
 ```
 
-If the `pb` or `api` blocks differ, **stop** and edit
-`/opt/pocketpm-web/deploy/Caddyfile` so those blocks match your real ones
-exactly. They are reconstructed, and only your live file is authoritative.
+Expected output — three lines, all within the app block:
+
+```
+2,3c2,4
+<     root * /var/www/pocketpm
+<     file_server
+---
+>     # Was: root * /var/www/pocketpm + file_server (the single-file prototype).
+>     # The prototype remains on disk at /var/www/pocketpm as the rollback target.
+>     reverse_proxy 127.0.0.1:3001
+```
+
+If anything in the `pb` or `api` blocks differs, **stop.** The live file is
+always authoritative — the copy in this repo was taken at a point in time and
+may be stale. Edit `/opt/pocketpm-web/deploy/Caddyfile` to match your live one
+before continuing.
 
 Once the diff is limited to the app block:
 
