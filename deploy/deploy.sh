@@ -50,6 +50,17 @@ command -v npm  >/dev/null || die "npm is not installed. See deploy/SETUP.md"
 
 cd "$APP_DIR"
 
+# Next.js 16 requires Node >= 20.9. Fail here with a clear message rather than
+# partway through a build with an obscure syntax error.
+NODE_MAJOR=$(node -p 'process.versions.node.split(".")[0]')
+NODE_MINOR=$(node -p 'process.versions.node.split(".")[1]')
+if (( NODE_MAJOR < 20 )) || (( NODE_MAJOR == 20 && NODE_MINOR < 9 )); then
+	die "Node $(node -v) is too old — Next.js 16 requires >= 20.9. See deploy/SETUP.md step 2."
+fi
+if (( NODE_MAJOR > 20 )); then
+	warn "Node $(node -v) is newer than the expected 20 LTS — proceeding, but this is untested here"
+fi
+
 ok "node $(node -v), npm $(npm -v)"
 
 # Refuse to clobber uncommitted edits made directly on the server. Override

@@ -26,11 +26,19 @@ services. Before step 7, replace them with the real blocks from your existing
 diff <(cat /etc/caddy/Caddyfile) /opt/pocketpm-web/deploy/Caddyfile
 ```
 
-**2. Node version.** These steps install **Node 26.x**, per the requirement that
-the droplet match the local build environment. Note that Node 26 is a *Current*
-release, not LTS until October 2026. Next.js 16 also runs on Node 20/22/24 LTS —
-if you would rather run LTS on a production box, substitute `setup_22.x` or
-`setup_24.x` in step 2 and rebuild. Nothing else in this guide changes.
+**2. Node version.** These steps install **Node 20 LTS**. This box also runs
+PocketBase and the Express API, and a *Current* release is the wrong risk
+profile for it. Next.js 16 requires Node 20.9 or newer, so 20 LTS is supported.
+
+The app is developed locally against Node 26. That difference is tolerable
+because `package-lock.json` pins every dependency and the build is verified on
+the droplet before the service restarts — but it does mean **the production
+build must be verified on the droplet, not assumed from a local build**. Step 6
+does exactly that.
+
+**3. Changing the system Node affects every service on this box.** PocketBase is
+a Go binary and is unaffected, but the Express API runs on the same system Node.
+After any Node change, verify it explicitly — see step 2.
 
 ---
 
@@ -63,24 +71,60 @@ echo '/swapfile none swap sw 0 0' >> /etc/fstab
 
 ---
 
-## 2. Install Node 26.x
+## 2. Install Node 20 LTS
+
+**First, record what is already installed.** You need this to roll back, and to
+know whether you are changing anything for the Express API:
 
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_26.x | bash -
+node -v 2>/dev/null || echo "no system node"
+which node npm
+systemctl list-units --type=service | grep -iE 'express|api|pocketpm'
+```
+
+If a Node is already present and the Express API depends on it, read the
+verification step at the bottom of this section **before** upgrading.
+
+Install:
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
 apt-get install -y nodejs
 ```
 
-Verify — the major version must be 26:
+Verify — the major version must be 20, and at least 20.9 for Next.js 16:
 
 ```bash
-node -v    # expect v26.x.x
+node -v    # expect v20.x.x, minimum v20.9.0
 npm -v
 ```
 
-> If the Express API on this box is pinned to an older Node, confirm it still
-> runs after this. Both services share one system Node. If they need different
-> versions, that is a case for `nvm` per service user, or containerising one of
-> them — out of scope here, but don't discover it in production.
+### Verify the Express API still runs
+
+The Express API shares this system Node. Changing it can break that service, so
+check before moving on — this is the step where a Node change would show up:
+
+```bash
+systemctl status <express-service-name> --no-pager
+curl -s https://api.pocketpm.fyi/health      # expect {"status":"ok",...}
+journalctl -u <express-service-name> -n 30 --no-pager
+```
+
+If the API is broken by the change, roll Node back to the version you recorded
+above:
+
+```bash
+apt-cache madison nodejs | head            # list available versions
+apt-get install -y nodejs=<previous-version>
+systemctl restart <express-service-name>
+curl -s https://api.pocketpm.fyi/health
+```
+
+If the two services genuinely need different Node versions, run one under `nvm`
+as its own service user, or containerise it. Don't discover that in production.
+
+> PocketBase is a Go binary with no Node dependency and is unaffected by
+> anything in this section.
 
 ---
 

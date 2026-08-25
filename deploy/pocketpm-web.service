@@ -8,6 +8,10 @@ Wants=network-online.target
 [Service]
 Type=simple
 
+# Expects Node 20 LTS (minimum 20.9, required by Next.js 16), installed system
+# wide — see deploy/SETUP.md step 2. The Express API on this host shares the
+# same system Node, so verify that service after any Node change.
+
 # Dedicated unprivileged account; created in SETUP.md. Never run this as root.
 User=pocketpm
 Group=pocketpm
