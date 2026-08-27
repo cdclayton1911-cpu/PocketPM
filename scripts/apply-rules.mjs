@@ -1,0 +1,423 @@
+#!/usr/bin/env node
+// ═══════════════════════════════════════════════════════════════════════════
+// Pocket PM — apply PocketBase API rules
+//
+// Adds project-scoped authorization to the child collections that currently
+// use a bare `@request.auth.id != ""`, which lets ANY authenticated user read
+// and write EVERY record across ALL projects.
+//
+//   node scripts/apply-rules.mjs --dry-run
+//   PB_EMAIL=you@example.com PB_PASS=... node scripts/apply-rules.mjs
+//   PB_EMAIL=... PB_PASS=... node scripts/apply-rules.mjs --verify-tenancy
+//
+// Requires PocketBase >= 0.23 (uses the _superusers auth endpoint; the legacy
+// /api/admins endpoint was removed).
+//
+// Safe to re-run: collections already matching their target are left untouched.
+// Every current rule is snapshotted to scripts/rules-backup-<ts>.json first.
+// ═══════════════════════════════════════════════════════════════════════════
+
+import { writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const PB_URL = process.env.PB_URL || "https://pb.pocketpm.fyi";
+const PB_EMAIL = process.env.PB_EMAIL || "";
+const PB_PASS = process.env.PB_PASS || "";
+
+const DRY_RUN = process.argv.includes("--dry-run");
+const VERIFY_TENANCY = process.argv.includes("--verify-tenancy");
+// invitations is reported by default and only rewritten when asked explicitly,
+// because the fix changes how invite acceptance works. See INVITATIONS_PROPOSED.
+const FIX_INVITATIONS = process.argv.includes("--fix-invitations");
+
+const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
+
+// ── output ───────────────────────────────────────────────────────────────────
+const C = {
+  reset: "\x1b[0m", green: "\x1b[32m", yellow: "\x1b[33m",
+  red: "\x1b[31m", cyan: "\x1b[36m", bold: "\x1b[1m", dim: "\x1b[2m",
+};
+const ok = (m) => console.log(`${C.green}  ✓${C.reset}  ${m}`);
+const skip = (m) => console.log(`${C.yellow}  –${C.reset}  ${m}`);
+const fail = (m) => console.log(`${C.red}  ✗${C.reset}  ${m}`);
+const info = (m) => console.log(`${C.dim}     ${m}${C.reset}`);
+const head = (m) => console.log(`\n${C.bold}${m}${C.reset}`);
+
+// ── the rule we are applying ────────────────────────────────────────────────
+//
+// Identical to the rule `tasks` already uses, which is the one child collection
+// that was scoped correctly. Reads as: you must be signed in, AND the parent
+// project must either be owned by you or list you as a member.
+const PROJECT_SCOPED =
+  '@request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)';
+
+// The 14 child collections carrying a `project` relation that are currently
+// unscoped. Every rule (list/view/create/update/delete) becomes PROJECT_SCOPED.
+const TARGETS = [
+  "aia_notices",
+  "budget_items",
+  "change_orders",
+  "daily_logs",
+  "deficiencies",
+  "dfow",
+  "drawings",
+  "pay_applications",
+  "punch_list",
+  "rfis",
+  "safety_observations",
+  "schedule_items",
+  "subcontractors",
+  "submittals",
+];
+
+// Deliberately NOT touched. Documented so nobody "fixes" these later by mistake.
+const EXCLUDED = {
+  projects:
+    "already correct — owner/members scoped, delete restricted to the owner",
+  tasks:
+    "already correct — this is the pattern being copied to the others",
+  ai_sessions:
+    "user = @request.auth.id is STRICTER than project scoping; narrowing it further would be a behaviour change, not a fix",
+  users:
+    'auth collection. NOTE: createRule is "" = public signup, anyone can register. Normal for self-serve, but confirm it is intended.',
+};
+
+// ── invitations: reported, not changed by default ────────────────────────────
+//
+// Handled separately because its current rules look actively unsafe, and the
+// correct fix changes invite-acceptance behaviour — so it needs a decision
+// rather than a silent rewrite.
+//
+//   listRule: `@request.auth.id != ""`
+//     Any authenticated user can list EVERY invitation, token included.
+//
+//   viewRule: `@request.auth.id != "" || token != ""`
+//     `token` here refers to the RECORD's field, and token is a required field,
+//     so `token != ""` is true for every record — which appears to make every
+//     invitation viewable by anyone. (Worth confirming against a real record
+//     once one exists; the collection is currently empty.)
+//
+// Together those look like invite tokens can be harvested and used to join
+// projects uninvited.
+//
+// The intent was presumably "whoever holds the invite link can view that one
+// invitation". That needs a comparison against the REQUEST's token, not the
+// record's own field. Proposed:
+const INVITATIONS_PROPOSED = {
+  listRule: PROJECT_SCOPED,
+  viewRule: `${PROJECT_SCOPED} || @request.query.token = token`,
+  createRule: PROJECT_SCOPED,
+  updateRule: PROJECT_SCOPED,
+  deleteRule: PROJECT_SCOPED,
+};
+
+const RULE_KEYS = ["listRule", "viewRule", "createRule", "updateRule", "deleteRule"];
+
+// ── http ─────────────────────────────────────────────────────────────────────
+async function api(method, path, body, token) {
+  const res = await fetch(`${PB_URL}${path}`, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: token } : {}),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  const text = await res.text();
+  let data = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = { raw: text };
+  }
+  return { ok: res.ok, status: res.status, data };
+}
+
+// ── auth ─────────────────────────────────────────────────────────────────────
+async function authenticate() {
+  if (!PB_EMAIL || !PB_PASS) {
+    fail("PB_EMAIL and PB_PASS are required.");
+    info("PB_EMAIL=you@example.com PB_PASS=yourpass node scripts/apply-rules.mjs");
+    process.exit(1);
+  }
+
+  const res = await api("POST", "/api/collections/_superusers/auth-with-password", {
+    identity: PB_EMAIL,
+    password: PB_PASS,
+  });
+
+  if (res.ok && res.data.token) {
+    ok(`authenticated as ${PB_EMAIL}`);
+    return res.data.token;
+  }
+
+  if (res.status === 404) {
+    fail("/api/collections/_superusers/auth-with-password returned 404.");
+    info("That endpoint requires PocketBase >= 0.23. This server looks older.");
+    info("Upgrade PocketBase, or use an older script targeting /api/admins.");
+    process.exit(1);
+  }
+
+  fail(`authentication failed (${res.status}): ${JSON.stringify(res.data).slice(0, 200)}`);
+  process.exit(1);
+}
+
+// ── main ─────────────────────────────────────────────────────────────────────
+async function main() {
+  console.log(`\n${C.bold}${C.cyan}Pocket PM — apply PocketBase API rules${C.reset}`);
+  console.log(`${C.dim}Target: ${PB_URL}${C.reset}`);
+  if (DRY_RUN) console.log(`${C.yellow}DRY RUN — nothing will be written${C.reset}`);
+
+  const token = await authenticate();
+
+  head("Fetching current rules");
+  const list = await api("GET", "/api/collections?perPage=200", null, token);
+  if (!list.ok) {
+    fail(`could not list collections (${list.status})`);
+    process.exit(1);
+  }
+  const collections = list.data.items || [];
+  const byName = Object.fromEntries(collections.map((c) => [c.name, c]));
+  ok(`${collections.length} collections`);
+
+  // Snapshot before touching anything.
+  const backup = collections.map((c) => ({
+    name: c.name,
+    id: c.id,
+    ...Object.fromEntries(RULE_KEYS.map((k) => [k, c[k]])),
+  }));
+  if (!DRY_RUN) {
+    const path = join(SCRIPT_DIR, `rules-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
+    writeFileSync(path, JSON.stringify(backup, null, 2));
+    ok(`backup written to ${path}`);
+  } else {
+    info("(dry run — no backup written)");
+  }
+
+  head(`Applying project scoping to ${TARGETS.length} collections`);
+
+  let changed = 0;
+  let unchanged = 0;
+  let failed = 0;
+
+  for (const name of TARGETS) {
+    const col = byName[name];
+    if (!col) {
+      fail(`${name} — not found on this server`);
+      failed++;
+      continue;
+    }
+
+    const alreadyCorrect = RULE_KEYS.every((k) => col[k] === PROJECT_SCOPED);
+    if (alreadyCorrect) {
+      skip(`${name} — already scoped, no change`);
+      unchanged++;
+      continue;
+    }
+
+    if (DRY_RUN) {
+      console.log(`${C.cyan}  →${C.reset}  ${name}`);
+      for (const k of RULE_KEYS) {
+        if (col[k] !== PROJECT_SCOPED) {
+          info(`${k}:`);
+          info(`  ${C.red}- ${col[k] === null ? "null (admin only)" : col[k]}${C.reset}`);
+          info(`  ${C.green}+ ${PROJECT_SCOPED}${C.reset}`);
+        }
+      }
+      changed++;
+      continue;
+    }
+
+    const patch = Object.fromEntries(RULE_KEYS.map((k) => [k, PROJECT_SCOPED]));
+    const res = await api("PATCH", `/api/collections/${col.id}`, patch, token);
+    if (res.ok) {
+      ok(`${name} — all 5 rules project-scoped`);
+      changed++;
+    } else {
+      fail(`${name} — PATCH failed (${res.status}): ${JSON.stringify(res.data).slice(0, 160)}`);
+      failed++;
+    }
+  }
+
+  // ── invitations ────────────────────────────────────────────────────────────
+  head("invitations — needs a decision");
+
+  const inv = byName["invitations"];
+  if (!inv) {
+    fail("invitations not found on this server");
+  } else {
+    console.log(`${C.red}  Current rules look unsafe:${C.reset}`);
+    info(`listRule: ${inv.listRule}`);
+    info("  -> any authenticated user can list EVERY invitation, token included");
+    info(`viewRule: ${inv.viewRule}`);
+    info("  -> `token` is the RECORD's field and is required, so `token != \"\"`");
+    info("     is true for every record — this appears to make every invitation");
+    info("     viewable by anyone. Confirm against a real record; none exist yet.");
+    console.log(`${C.green}  Proposed:${C.reset}`);
+    for (const [k, v] of Object.entries(INVITATIONS_PROPOSED)) info(`${k}: ${v}`);
+    info("(viewRule keeps token-based acceptance, but only for the holder of");
+    info(" that specific token, via @request.query.token rather than the field)");
+
+    if (!FIX_INVITATIONS) {
+      skip("not changed — re-run with --fix-invitations to apply the above");
+    } else if (DRY_RUN) {
+      skip("--fix-invitations noted, but this is a dry run");
+    } else {
+      const res = await api("PATCH", `/api/collections/${inv.id}`, INVITATIONS_PROPOSED, token);
+      if (res.ok) {
+        ok("invitations — rules applied");
+        changed++;
+      } else {
+        fail(`invitations — PATCH failed (${res.status}): ${JSON.stringify(res.data).slice(0, 160)}`);
+        failed++;
+      }
+    }
+  }
+
+  head("Deliberately not modified");
+  for (const [name, why] of Object.entries(EXCLUDED)) {
+    console.log(`${C.dim}  ${name.padEnd(14)}${C.reset} ${why}`);
+  }
+
+  if (DRY_RUN) {
+    console.log(`\n${C.yellow}Dry run: ${changed} would change, ${unchanged} already correct.${C.reset}\n`);
+    return;
+  }
+
+  // ── verification: read back ────────────────────────────────────────────────
+  //
+  // This is the check that actually proves the write landed. Note what is NOT
+  // asserted: that an unauthenticated read returns 403. It cannot. PocketBase
+  // applies a non-null list rule as a FILTER, so an unauthenticated list of a
+  // properly-scoped collection returns 200 with an empty result set. Only
+  // `listRule: null` yields 403, and that is admin-only — it would break the
+  // app for every real user. Do not add such a check.
+  head("Verification — reading rules back");
+
+  const after = await api("GET", "/api/collections?perPage=200", null, token);
+  const afterByName = Object.fromEntries((after.data.items || []).map((c) => [c.name, c]));
+
+  let verified = 0;
+  let mismatched = 0;
+  for (const name of TARGETS) {
+    const col = afterByName[name];
+    if (!col) {
+      fail(`${name} — missing on read-back`);
+      mismatched++;
+      continue;
+    }
+    const bad = RULE_KEYS.filter((k) => col[k] !== PROJECT_SCOPED);
+    if (bad.length === 0) {
+      verified++;
+    } else {
+      fail(`${name} — still wrong: ${bad.join(", ")}`);
+      mismatched++;
+    }
+  }
+  if (mismatched === 0) ok(`all ${verified} collections verified project-scoped`);
+
+  if (VERIFY_TENANCY) await verifyTenancy(token);
+
+  console.log(
+    `\n${mismatched || failed ? C.red : C.green}Done — ${changed} changed, ${unchanged} unchanged, ${failed} failed, ${mismatched} mismatched.${C.reset}\n`,
+  );
+  if (mismatched || failed) process.exit(1);
+}
+
+// ── cross-tenant probe ───────────────────────────────────────────────────────
+//
+// Creates two throwaway users, a project each, and one subcontractor record
+// each, then asserts user A cannot see or fetch user B's record. Cleans up
+// after itself. This is what genuinely proves the scoping works — the
+// read-back above only proves the rule strings were stored.
+async function verifyTenancy(adminToken) {
+  head("Verification — cross-tenant probe");
+  info("creates two throwaway users and removes them afterwards");
+
+  const stamp = Date.now();
+  const made = { users: [], projects: [] };
+
+  const mkUser = async (n) => {
+    const email = `__tenancy-probe-${stamp}-${n}@example.invalid`;
+    const password = `probe-${stamp}-${n}-Aa1!`;
+    const create = await api("POST", "/api/collections/users/records", {
+      email, password, passwordConfirm: password, name: `probe ${n}`,
+    }, adminToken);
+    if (!create.ok) throw new Error(`could not create probe user ${n}: ${JSON.stringify(create.data).slice(0, 160)}`);
+    made.users.push(create.data.id);
+
+    const auth = await api("POST", "/api/collections/users/auth-with-password", {
+      identity: email, password,
+    });
+    if (!auth.ok) throw new Error(`could not authenticate probe user ${n}`);
+    return { id: create.data.id, token: auth.data.token };
+  };
+
+  try {
+    const a = await mkUser("a");
+    const b = await mkUser("b");
+    ok("two probe users created");
+
+    const mkProjectWithRecord = async (user, label) => {
+      const proj = await api("POST", "/api/collections/projects/records", {
+        name: `probe ${label} ${stamp}`, owner: user.id,
+      }, user.token);
+      if (!proj.ok) throw new Error(`could not create project ${label}: ${JSON.stringify(proj.data).slice(0, 160)}`);
+      made.projects.push(proj.data.id);
+
+      const sub = await api("POST", "/api/collections/subcontractors/records", {
+        project: proj.data.id, company_name: `probe co ${label}`, trade: "probe",
+      }, user.token);
+      if (!sub.ok) throw new Error(`could not create subcontractor ${label}: ${JSON.stringify(sub.data).slice(0, 160)}`);
+      return { project: proj.data.id, record: sub.data.id };
+    };
+
+    const aData = await mkProjectWithRecord(a, "a");
+    const bData = await mkProjectWithRecord(b, "b");
+    ok("one project + one subcontractor per user");
+
+    let pass = true;
+
+    // A lists subcontractors — must see exactly its own.
+    const aList = await api("GET", "/api/collections/subcontractors/records?perPage=100", null, a.token);
+    const ids = (aList.data.items || []).map((r) => r.id);
+    if (ids.length === 1 && ids[0] === aData.record) {
+      ok(`user A lists exactly its own record (1 of 2)`);
+    } else {
+      fail(`user A sees ${ids.length} record(s) — expected exactly 1 (its own)`);
+      if (ids.includes(bData.record)) fail("  user A can see user B's record — SCOPING IS NOT WORKING");
+      pass = false;
+    }
+
+    // A fetches B's record directly by id — must be denied.
+    const aViewB = await api("GET", `/api/collections/subcontractors/records/${bData.record}`, null, a.token);
+    if (aViewB.status === 404 || aViewB.status === 403) {
+      ok(`user A cannot fetch user B's record directly (${aViewB.status})`);
+    } else {
+      fail(`user A fetched user B's record (${aViewB.status}) — SCOPING IS NOT WORKING`);
+      pass = false;
+    }
+
+    if (pass) ok("cross-tenant isolation confirmed");
+    else fail("cross-tenant isolation FAILED");
+  } catch (err) {
+    fail(`probe error: ${err.message}`);
+  } finally {
+    head("Cleaning up probe data");
+    for (const id of made.projects) {
+      // Child records cascade-delete with the project.
+      await api("DELETE", `/api/collections/projects/records/${id}`, null, adminToken);
+    }
+    for (const id of made.users) {
+      await api("DELETE", `/api/collections/users/records/${id}`, null, adminToken);
+    }
+    ok(`removed ${made.projects.length} project(s) and ${made.users.length} user(s)`);
+  }
+}
+
+main().catch((err) => {
+  fail(`error: ${err.message}`);
+  console.error(err);
+  process.exit(1);
+});
