@@ -26,10 +26,13 @@
 // Axis 2 is the one that catches a bare `@request.auth.id != ""` rule, which
 // every authenticated user satisfies regardless of which project they belong to.
 //
-// Baseline recorded 2026-08-27, before scripts/apply-rules.mjs was applied:
-//   axis 1: all PASS
-//   axis 2: all FAIL — B listed A's record, fetched it (200, body returned),
-//           and PATCHed it (200)
+// History:
+//   2026-08-27, before scripts/apply-rules.mjs — axis 1 all PASS, axis 2 all
+//     FAIL: B listed A's record, fetched it (200, body returned), PATCHed it
+//     (200). The rule was a bare `@request.auth.id != ""`, which every
+//     authenticated user satisfies regardless of project.
+//   2026-08-28, after the rules were applied — all PASS. B sees only its own
+//     record; fetch and PATCH of A's record both 404.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const PB = process.env.PB_URL || "https://pb.pocketpm.fyi";
@@ -139,7 +142,7 @@ try {
 
   // ---- 3. THE DISCRIMINATING TEST: cross-tenant, both authenticated ----
   line("\n=== 3. cross-tenant (both authenticated) — subcontractors ===");
-  line("    rule is `@request.auth.id != \"\"` with no project reference");
+  line("    the axis that catches an unscoped rule; see the header note");
 
   const bList = await api("GET", "/api/collections/subcontractors/records?perPage=100", null, B.token);
   const bIds = (bList.data.items || []).map((r) => r.id);

@@ -147,7 +147,6 @@ function promptPassword(promptText) {
     // Suppress echo: swallow everything except the prompt itself.
     const onWrite = (chunk, encoding, callback) => {
       if (chunk.toString() !== promptText) {
-        // eslint-disable-next-line no-underscore-dangle
         rl.output.write("", encoding, callback);
         return;
       }
