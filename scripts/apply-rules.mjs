@@ -20,6 +20,7 @@
 import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createInterface } from "node:readline";
 
 const PB_URL = process.env.PB_URL || "https://pb.pocketpm.fyi";
 const PB_EMAIL = process.env.PB_EMAIL || "";
@@ -135,31 +136,90 @@ async function api(method, path, body, token) {
 }
 
 // ── auth ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Prompt for the password with echo suppressed.
+ *
+ * Preferred over passing PB_PASS on the command line: it keeps the secret out
+ * of shell history and the process list, and avoids shell quoting mangling
+ * characters like $, !, or backticks.
+ */
+function promptPassword(promptText) {
+  return new Promise((resolve, reject) => {
+    if (!process.stdin.isTTY) {
+      reject(new Error("no TTY available — set PB_PASS instead"));
+      return;
+    }
+    const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
+    // Suppress echo: swallow everything except the prompt itself.
+    const onWrite = (chunk, encoding, callback) => {
+      if (chunk.toString() !== promptText) {
+        // eslint-disable-next-line no-underscore-dangle
+        rl.output.write("", encoding, callback);
+        return;
+      }
+      process.stdout.constructor.prototype.write.call(rl.output, chunk, encoding, callback);
+    };
+    rl.output.write = onWrite;
+    process.stdout.write(promptText);
+    rl.question("", (answer) => {
+      rl.output.write = process.stdout.constructor.prototype.write.bind(rl.output);
+      process.stdout.write("\n");
+      rl.close();
+      resolve(answer);
+    });
+  });
+}
+
 async function authenticate() {
-  if (!PB_EMAIL || !PB_PASS) {
-    fail("PB_EMAIL and PB_PASS are required.");
-    info("PB_EMAIL=you@example.com PB_PASS=yourpass node scripts/apply-rules.mjs");
+  if (!PB_EMAIL) {
+    fail("PB_EMAIL is required.");
+    info("PB_EMAIL=you@example.com node scripts/apply-rules.mjs");
+    info("This must be the SUPERUSER account (the pb.pocketpm.fyi/_/ login),");
+    info("not an app user in the `users` collection — they are separate on 0.23+.");
     process.exit(1);
   }
 
-  const res = await api("POST", "/api/collections/_superusers/auth-with-password", {
-    identity: PB_EMAIL,
-    password: PB_PASS,
-  });
+  // Prefer an interactive prompt; fall back to PB_PASS for CI.
+  let password = PB_PASS;
+  if (!password) {
+    try {
+      password = await promptPassword(`Password for ${PB_EMAIL}: `);
+    } catch (err) {
+      fail(err.message);
+      process.exit(1);
+    }
+  }
+  if (!password) {
+    fail("no password entered");
+    process.exit(1);
+  }
+
+  const endpoint = "/api/collections/_superusers/auth-with-password";
+  const res = await api("POST", endpoint, { identity: PB_EMAIL, password });
 
   if (res.ok && res.data.token) {
-    ok(`authenticated as ${PB_EMAIL}`);
+    ok(`authenticated as ${PB_EMAIL} (${res.data.record?.collectionName ?? "_superusers"})`);
     return res.data.token;
   }
 
   if (res.status === 404) {
-    fail("/api/collections/_superusers/auth-with-password returned 404.");
-    info("That endpoint requires PocketBase >= 0.23. This server looks older.");
-    info("Upgrade PocketBase, or use an older script targeting /api/admins.");
+    fail(`${endpoint} returned 404.`);
+    info("That endpoint requires PocketBase >= 0.23, where admins became the");
+    info("_superusers collection. This server looks older than that.");
     process.exit(1);
   }
 
+  // Enough detail to spot a typo or a truncated value without printing the secret.
   fail(`authentication failed (${res.status}): ${JSON.stringify(res.data).slice(0, 200)}`);
+  info(`endpoint: POST ${PB_URL}${endpoint}`);
+  info(`identity: ${PB_EMAIL}`);
+  info(`password: ${password.length} characters received`);
+  info("");
+  info("PocketBase returns the same error for an unknown account and a wrong");
+  info("password, so check both:");
+  info(`  - can you log in at ${PB_URL}/_/ with exactly these?`);
+  info("  - is this the superuser account, not an app user?");
   process.exit(1);
 }
 
