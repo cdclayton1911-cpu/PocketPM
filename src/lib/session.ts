@@ -1,4 +1,6 @@
-// Server-only. See the note at the top of lib/pocketbase.ts.
+// Server-only: importing this from a client component is a BUILD ERROR. It
+// reads the session cookie and speaks to PocketBase on the user's behalf.
+import "server-only";
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";

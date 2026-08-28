@@ -1,12 +1,7 @@
-// NOTE: this module must only ever be imported from server code — route
-// handlers, server components, server actions. It talks to PocketBase with the
-// user's token; importing it from a client component would ship that to the
-// browser.
-//
-// The `server-only` package turns that into a build error rather than a
-// convention. It is not installed (adding dependencies needs sign-off), so this
-// comment is the only guard. Worth adding: `npm i server-only`, then
-// `import "server-only";` at the top of this file and lib/session.ts.
+// Server-only: importing this from a client component is a BUILD ERROR, not a
+// convention. It talks to PocketBase with the caller's token and must never be
+// bundled for the browser.
+import "server-only";
 
 import PocketBase from "pocketbase";
 

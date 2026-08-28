@@ -7,8 +7,14 @@
 // and write EVERY record across ALL projects.
 //
 //   node scripts/apply-rules.mjs --dry-run
-//   PB_EMAIL=you@example.com PB_PASS=... node scripts/apply-rules.mjs
-//   PB_EMAIL=... PB_PASS=... node scripts/apply-rules.mjs --verify-tenancy
+//   node scripts/apply-rules.mjs
+//   node scripts/apply-rules.mjs --verify-tenancy
+//
+// Credentials come from .env.local (gitignored):
+//   PB_ADMIN_EMAIL=...   the pb.pocketpm.fyi/_/ superuser login
+//   PB_ADMIN_PASS=...
+// Falls back to a prompt if they are absent, or to PB_ADMIN_* / PB_* in the
+// environment for CI.
 //
 // Requires PocketBase >= 0.23 (uses the _superusers auth endpoint; the legacy
 // /api/admins endpoint was removed).
@@ -17,19 +23,54 @@
 // Every current rule is snapshotted to scripts/rules-backup-<ts>.json first.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline";
 
-const PB_URL = process.env.PB_URL || "https://pb.pocketpm.fyi";
-const PB_EMAIL = process.env.PB_EMAIL || "";
-const PB_PASS = process.env.PB_PASS || "";
+const SCRIPT_DIR_EARLY = dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Load .env.local into process.env without a dependency.
+ *
+ * Hand-rolled rather than `process.loadEnvFile` (Node 20.12+) or dotenv: the
+ * droplet targets Node 20 LTS and this avoids both a version cliff and a new
+ * package. Existing process.env values win, so an explicit
+ * `PB_ADMIN_PASS=… node scripts/…` still overrides the file.
+ */
+function loadEnvLocal() {
+  const path = join(SCRIPT_DIR_EARLY, "..", ".env.local");
+  if (!existsSync(path)) return;
+  for (const raw of readFileSync(path, "utf8").split("\n")) {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) continue;
+    const eq = line.indexOf("=");
+    if (eq === -1) continue;
+    const key = line.slice(0, eq).trim();
+    let value = line.slice(eq + 1).trim();
+    // Strip one layer of matching quotes, so PB_ADMIN_PASS="a b" works.
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (key && !(key in process.env)) process.env[key] = value;
+  }
+}
+
+loadEnvLocal();
+
+const PB_URL = process.env.PB_URL || process.env.NEXT_PUBLIC_PB_URL || "https://pb.pocketpm.fyi";
+// PB_ADMIN_* is the documented name; PB_* is kept working so older invocations
+// and CI configs do not silently start prompting.
+const PB_EMAIL = process.env.PB_ADMIN_EMAIL || process.env.PB_EMAIL || "";
+const PB_PASS = process.env.PB_ADMIN_PASS || process.env.PB_PASS || "";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 const VERIFY_TENANCY = process.argv.includes("--verify-tenancy");
 
-const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
+const SCRIPT_DIR = SCRIPT_DIR_EARLY;
 
 // ── output ───────────────────────────────────────────────────────────────────
 const C = {
@@ -165,8 +206,11 @@ function promptPassword(promptText) {
 
 async function authenticate() {
   if (!PB_EMAIL) {
-    fail("PB_EMAIL is required.");
-    info("PB_EMAIL=you@example.com node scripts/apply-rules.mjs");
+    fail("No superuser email found.");
+    info("Add to .env.local (gitignored):");
+    info("  PB_ADMIN_EMAIL=you@example.com");
+    info("  PB_ADMIN_PASS=your-superuser-password");
+    info("");
     info("This must be the SUPERUSER account (the pb.pocketpm.fyi/_/ login),");
     info("not an app user in the `users` collection — they are separate on 0.23+.");
     process.exit(1);
