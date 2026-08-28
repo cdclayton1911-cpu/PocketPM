@@ -1,0 +1,218 @@
+[
+  {
+    "name": "users",
+    "id": "_pb_users_auth_",
+    "listRule": "@request.auth.id != \"\"",
+    "viewRule": "@request.auth.id != \"\"",
+    "createRule": "",
+    "updateRule": "id = @request.auth.id",
+    "deleteRule": "id = @request.auth.id"
+  },
+  {
+    "name": "projects",
+    "id": "ui9hu4jeh0s5dq4",
+    "listRule": "@request.auth.id != \"\" && (owner = @request.auth.id || members.id ?= @request.auth.id)",
+    "viewRule": "@request.auth.id != \"\" && (owner = @request.auth.id || members.id ?= @request.auth.id)",
+    "createRule": "@request.auth.id != \"\"",
+    "updateRule": "@request.auth.id != \"\" && (owner = @request.auth.id || members.id ?= @request.auth.id)",
+    "deleteRule": "owner = @request.auth.id"
+  },
+  {
+    "name": "invitations",
+    "id": "ncz88s7upveom9p",
+    "listRule": "@request.auth.id != \"\"",
+    "viewRule": "@request.auth.id != \"\" || token != \"\"",
+    "createRule": "@request.auth.id != \"\"",
+    "updateRule": "@request.auth.id != \"\"",
+    "deleteRule": "@request.auth.id != \"\""
+  },
+  {
+    "name": "tasks",
+    "id": "3zpkwggerwhwhmp",
+    "listRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "viewRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "createRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "updateRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "deleteRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)"
+  },
+  {
+    "name": "subcontractors",
+    "id": "xmf1r0zjxs5dm5w",
+    "listRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "viewRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "createRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "updateRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "deleteRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)"
+  },
+  {
+    "name": "rfis",
+    "id": "yweyapclmckqox9",
+    "listRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "viewRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "createRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "updateRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "deleteRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)"
+  },
+  {
+    "name": "submittals",
+    "id": "f24jwxkiedtfljh",
+    "listRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "viewRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "createRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "updateRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "deleteRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)"
+  },
+  {
+    "name": "punch_list",
+    "id": "lfyjpgz6y3vbbyu",
+    "listRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "viewRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "createRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "updateRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "deleteRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)"
+  },
+  {
+    "name": "change_orders",
+    "id": "f17h1a1wsr66d2k",
+    "listRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "viewRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "createRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "updateRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "deleteRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)"
+  },
+  {
+    "name": "pay_applications",
+    "id": "957pix5olzi6pc2",
+    "listRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "viewRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "createRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "updateRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "deleteRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)"
+  },
+  {
+    "name": "schedule_items",
+    "id": "mg3up5z2gnu8ree",
+    "listRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "viewRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "createRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "updateRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "deleteRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)"
+  },
+  {
+    "name": "dfow",
+    "id": "2uedn8tuwek96fu",
+    "listRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "viewRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "createRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "updateRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "deleteRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)"
+  },
+  {
+    "name": "deficiencies",
+    "id": "43lnr0vdrssojh3",
+    "listRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "viewRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "createRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "updateRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "deleteRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)"
+  },
+  {
+    "name": "daily_logs",
+    "id": "xtfgjuwgmrs0h6y",
+    "listRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "viewRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "createRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "updateRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "deleteRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)"
+  },
+  {
+    "name": "safety_observations",
+    "id": "9pxx40pjt8lqops",
+    "listRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "viewRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "createRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "updateRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "deleteRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)"
+  },
+  {
+    "name": "drawings",
+    "id": "rh7hc4vz0poc2f1",
+    "listRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "viewRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "createRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "updateRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "deleteRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)"
+  },
+  {
+    "name": "aia_notices",
+    "id": "jz6pfx17wb787m6",
+    "listRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "viewRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "createRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "updateRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "deleteRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)"
+  },
+  {
+    "name": "budget_items",
+    "id": "oabh2nq2h6b556v",
+    "listRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "viewRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "createRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "updateRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "deleteRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)"
+  },
+  {
+    "name": "ai_sessions",
+    "id": "ihk9k21htsrfqjm",
+    "listRule": "user = @request.auth.id",
+    "viewRule": "user = @request.auth.id",
+    "createRule": "@request.auth.id != \"\"",
+    "updateRule": "user = @request.auth.id",
+    "deleteRule": "user = @request.auth.id"
+  },
+  {
+    "name": "_superusers",
+    "id": "pbc_3142635823",
+    "listRule": null,
+    "viewRule": null,
+    "createRule": null,
+    "updateRule": null,
+    "deleteRule": null
+  },
+  {
+    "name": "_externalAuths",
+    "id": "pbc_2281828961",
+    "listRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId",
+    "viewRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId",
+    "createRule": null,
+    "updateRule": null,
+    "deleteRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId"
+  },
+  {
+    "name": "_mfas",
+    "id": "pbc_2279338944",
+    "listRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId",
+    "viewRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId",
+    "createRule": null,
+    "updateRule": null,
+    "deleteRule": null
+  },
+  {
+    "name": "_otps",
+    "id": "pbc_1638494021",
+    "listRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId",
+    "viewRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId",
+    "createRule": null,
+    "updateRule": null,
+    "deleteRule": null
+  },
+  {
+    "name": "_authOrigins",
+    "id": "pbc_4275539003",
+    "listRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId",
+    "viewRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId",
+    "createRule": null,
+    "updateRule": null,
+    "deleteRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId"
+  }
+]
