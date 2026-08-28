@@ -28,9 +28,6 @@ const PB_PASS = process.env.PB_PASS || "";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 const VERIFY_TENANCY = process.argv.includes("--verify-tenancy");
-// invitations is reported by default and only rewritten when asked explicitly,
-// because the fix changes how invite acceptance works. See INVITATIONS_PROPOSED.
-const FIX_INVITATIONS = process.argv.includes("--fix-invitations");
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -53,8 +50,8 @@ const head = (m) => console.log(`\n${C.bold}${m}${C.reset}`);
 const PROJECT_SCOPED =
   '@request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)';
 
-// The 14 child collections carrying a `project` relation that are currently
-// unscoped. Every rule (list/view/create/update/delete) becomes PROJECT_SCOPED.
+// The 15 child collections carrying a `project` relation. Every rule
+// (list/view/create/update/delete) becomes PROJECT_SCOPED.
 const TARGETS = [
   "aia_notices",
   "budget_items",
@@ -63,6 +60,9 @@ const TARGETS = [
   "deficiencies",
   "dfow",
   "drawings",
+  // invitations is locked to project members with NO token path in the rules.
+  // See the note below the EXCLUDED block for why.
+  "invitations",
   "pay_applications",
   "punch_list",
   "rfis",
@@ -81,37 +81,30 @@ const EXCLUDED = {
   ai_sessions:
     "user = @request.auth.id is STRICTER than project scoping; narrowing it further would be a behaviour change, not a fix",
   users:
-    'auth collection. NOTE: createRule is "" = public signup, anyone can register. Normal for self-serve, but confirm it is intended.',
+    'auth collection. createRule is "" = public self-serve signup. Intended.',
 };
 
-// ── invitations: reported, not changed by default ────────────────────────────
+// ── invitations ──────────────────────────────────────────────────────────────
 //
-// Handled separately because its current rules look actively unsafe, and the
-// correct fix changes invite-acceptance behaviour — so it needs a decision
-// rather than a silent rewrite.
+// Locked to project members on all five rules, exactly like the other child
+// collections. There is deliberately NO token path in the rules.
 //
-//   listRule: `@request.auth.id != ""`
-//     Any authenticated user can list EVERY invitation, token included.
+// What was wrong before:
+//   listRule  `@request.auth.id != ""`
+//             any authenticated user could list EVERY invitation, token included
+//   viewRule  `@request.auth.id != "" || token != ""`
+//             `token` is the RECORD's field and is required, so `token != ""`
+//             is true for every record — effectively public
 //
-//   viewRule: `@request.auth.id != "" || token != ""`
-//     `token` here refers to the RECORD's field, and token is a required field,
-//     so `token != ""` is true for every record — which appears to make every
-//     invitation viewable by anyone. (Worth confirming against a real record
-//     once one exists; the collection is currently empty.)
+// A rejected fix was `@request.query.token = token`, which would let the link
+// holder view their own invitation. It was rejected because it puts a bearer
+// credential in a URL, where it leaks into server access logs, browser history,
+// and Referer headers.
 //
-// Together those look like invite tokens can be harvested and used to join
-// projects uninvited.
-//
-// The intent was presumably "whoever holds the invite link can view that one
-// invitation". That needs a comparison against the REQUEST's token, not the
-// record's own field. Proposed:
-const INVITATIONS_PROPOSED = {
-  listRule: PROJECT_SCOPED,
-  viewRule: `${PROJECT_SCOPED} || @request.query.token = token`,
-  createRule: PROJECT_SCOPED,
-  updateRule: PROJECT_SCOPED,
-  deleteRule: PROJECT_SCOPED,
-};
+// Instead, invite acceptance will go through a POST route handler that reads
+// the token from the REQUEST BODY and validates it server-side with an admin
+// client. The collection stays closed to non-members; the handler is the only
+// way in. To be designed when team invites are built.
 
 const RULE_KEYS = ["listRule", "viewRule", "createRule", "updateRule", "deleteRule"];
 
@@ -297,41 +290,6 @@ async function main() {
     } else {
       fail(`${name} — PATCH failed (${res.status}): ${JSON.stringify(res.data).slice(0, 160)}`);
       failed++;
-    }
-  }
-
-  // ── invitations ────────────────────────────────────────────────────────────
-  head("invitations — needs a decision");
-
-  const inv = byName["invitations"];
-  if (!inv) {
-    fail("invitations not found on this server");
-  } else {
-    console.log(`${C.red}  Current rules look unsafe:${C.reset}`);
-    info(`listRule: ${inv.listRule}`);
-    info("  -> any authenticated user can list EVERY invitation, token included");
-    info(`viewRule: ${inv.viewRule}`);
-    info("  -> `token` is the RECORD's field and is required, so `token != \"\"`");
-    info("     is true for every record — this appears to make every invitation");
-    info("     viewable by anyone. Confirm against a real record; none exist yet.");
-    console.log(`${C.green}  Proposed:${C.reset}`);
-    for (const [k, v] of Object.entries(INVITATIONS_PROPOSED)) info(`${k}: ${v}`);
-    info("(viewRule keeps token-based acceptance, but only for the holder of");
-    info(" that specific token, via @request.query.token rather than the field)");
-
-    if (!FIX_INVITATIONS) {
-      skip("not changed — re-run with --fix-invitations to apply the above");
-    } else if (DRY_RUN) {
-      skip("--fix-invitations noted, but this is a dry run");
-    } else {
-      const res = await api("PATCH", `/api/collections/${inv.id}`, INVITATIONS_PROPOSED, token);
-      if (res.ok) {
-        ok("invitations — rules applied");
-        changed++;
-      } else {
-        fail(`invitations — PATCH failed (${res.status}): ${JSON.stringify(res.data).slice(0, 160)}`);
-        failed++;
-      }
     }
   }
 

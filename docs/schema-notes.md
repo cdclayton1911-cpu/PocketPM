@@ -80,3 +80,33 @@ collections (`_superusers`, `_authOrigins`, `_mfas`, `_otps`).
 The server is now 0.23+ (`/api/collections/_superusers/auth-with-password`
 responds; the legacy `/api/admins/auth-with-password` returns 404). Any tooling
 that reads the export must handle the newer format.
+
+## invitations: no token path in the API rules
+
+`invitations` is locked to project members on all five rules, identical to the
+other child collections. There is deliberately **no token clause**.
+
+What was wrong originally:
+
+```
+listRule  @request.auth.id != ""
+          any authenticated user could list every invitation, token included
+viewRule  @request.auth.id != "" || token != ""
+          `token` is the record's own field and is required, so `token != ""`
+          is true for every record — effectively public
+```
+
+A fix of `@request.query.token = token` was considered and **rejected**: an
+invite token is a bearer credential, and a query string puts it into server
+access logs, browser history, and `Referer` headers.
+
+Invite acceptance will instead go through a `POST` route handler that reads the
+token from the **request body** and validates it server-side with an admin
+client. The collection stays closed to non-members; that handler is the only way
+in. To be designed when team invites are built.
+
+## users.createRule is intentionally open
+
+`users.createRule` is `""` — public self-serve signup. This is deliberate, not
+an oversight. Anyone can register an account; what they can then *see* is
+governed by the project-scoped rules on every other collection.
