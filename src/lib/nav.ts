@@ -122,7 +122,9 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "AI Tools",
     items: [
       { href: "/assistant", label: "PM Assistant", icon: Bot },
-      { href: "/daily-log", label: "Daily Log AI", icon: ClipboardList },
+      // Labelled "Daily Log", not the prototype's "Daily Log AI": the module is
+      // CRUD-only until the AI modules have credits. See docs/ai.md.
+      { href: "/daily-log", label: "Daily Log", icon: ClipboardList },
     ],
   },
 ];

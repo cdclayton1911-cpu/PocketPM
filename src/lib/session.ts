@@ -5,7 +5,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { createClient, type PbAuthResponse } from "@/lib/pocketbase";
+import { createClient, isPbError, type PbAuthResponse } from "@/lib/pocketbase";
 import type { User } from "@/types";
 
 /** Cookie holding the PocketBase auth token. Never readable from client JS. */
@@ -116,7 +116,25 @@ export async function getSession(): Promise<Session | null> {
     }
 
     return { user: refreshed.record, token: refreshed.token || token };
-  } catch {
+  } catch (err) {
+    // Distinguish "PocketBase rejected this token" from "PocketBase could not
+    // be reached". Treating both as no-session logs a signed-in user out on a
+    // network blip or an upstream 5xx — observed during the daily-log
+    // verification, where a token that PocketBase accepted directly still
+    // produced a 401 from this app.
+    //
+    // Only a 401/403 is evidence the token is bad. On anything else the token
+    // is kept: it has already passed the local expiry check, and every call
+    // that actually touches data is verified by PocketBase anyway, so a truly
+    // invalid token still fails there rather than being trusted here.
+    if (!isPbError(err) || (err.status !== 401 && err.status !== 403)) {
+      // No session for this request — the user record could not be fetched and
+      // synthesising a partial one would put a blank name in the topbar and a
+      // wrong id in front of PocketBase. But the cookie is left alone, so the
+      // next request recovers instead of the user being signed out for good.
+      return null;
+    }
+
     // Invalid, revoked, or the user was deleted.
     try {
       await clearSessionCookie();
