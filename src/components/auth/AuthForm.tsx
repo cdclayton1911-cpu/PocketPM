@@ -7,7 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { FieldErrors } from "@/lib/validation/auth";
-import { fieldErrorsFromZod, loginSchema, signupSchema } from "@/lib/validation/auth";
+import {
+  fieldErrorsFromZod,
+  loginSchema,
+  passwordResetConfirmSchema,
+  passwordResetRequestSchema,
+  signupSchema,
+} from "@/lib/validation/auth";
 
 /**
  * Schemas are selected by key rather than passed as a prop: a Zod schema is a
@@ -18,6 +24,8 @@ import { fieldErrorsFromZod, loginSchema, signupSchema } from "@/lib/validation/
 const SCHEMAS = {
   login: loginSchema,
   signup: signupSchema,
+  passwordResetRequest: passwordResetRequestSchema,
+  passwordResetConfirm: passwordResetConfirmSchema,
 } as const;
 
 export type AuthSchemaKey = keyof typeof SCHEMAS;
@@ -38,8 +46,23 @@ interface AuthFormProps {
   endpoint: string;
   submitLabel: string;
   pendingLabel: string;
-  /** Where to go on success. Already validated server-side before reaching here. */
-  redirectTo: string;
+  /**
+   * Where to go on success. Already validated server-side before reaching here.
+   * Ignored when `successMessage` is set.
+   */
+  redirectTo?: string;
+  /**
+   * Values merged into the payload that the user does not type — the reset
+   * token from the emailed link. Validated by the same schema as the rest.
+   */
+  hidden?: Record<string, string>;
+  /**
+   * Show this instead of navigating on success.
+   *
+   * The reset-request form has nowhere to send the user: it deliberately cannot
+   * tell whether an account existed, so it can only acknowledge the request.
+   */
+  successMessage?: string;
 }
 
 export function AuthForm({
@@ -49,16 +72,22 @@ export function AuthForm({
   submitLabel,
   pendingLabel,
   redirectTo,
+  hidden,
+  successMessage,
 }: AuthFormProps) {
   const router = useRouter();
   const [errors, setErrors] = useState<FieldErrors>({});
   const [pending, setPending] = useState(false);
+  const [done, setDone] = useState(false);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrors({});
 
-    const raw = Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>;
+    const raw = {
+      ...(Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>),
+      ...hidden,
+    };
 
     // Validate with the same schema the server uses — this is a convenience for
     // the user, not a security boundary. The route handler validates again.
@@ -83,14 +112,31 @@ export function AuthForm({
         return;
       }
 
+      if (successMessage) {
+        setDone(true);
+        setPending(false);
+        return;
+      }
+
       // The session cookie is set by the response; refresh so server components
       // re-run and see it, then navigate.
-      router.replace(redirectTo);
+      router.replace(redirectTo ?? "/dashboard");
       router.refresh();
     } catch {
       setErrors({ form: "Could not reach the server. Check your connection." });
       setPending(false);
     }
+  }
+
+  if (done && successMessage) {
+    return (
+      <p
+        role="status"
+        className="rounded-r6 border-l-[3px] border-success bg-success-subtle px-3 py-2 text-sm text-success"
+      >
+        {successMessage}
+      </p>
+    );
   }
 
   return (

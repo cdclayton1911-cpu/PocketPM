@@ -32,6 +32,37 @@ export const signupSchema = z
 
 export type SignupInput = z.infer<typeof signupSchema>;
 
+/** Asking for a reset link. Email only — never reveals whether it exists. */
+export const passwordResetRequestSchema = z.object({
+  email: z.string().min(1, "Email is required").email("Enter a valid email address"),
+});
+
+export type PasswordResetRequestInput = z.infer<typeof passwordResetRequestSchema>;
+
+/**
+ * Setting a new password with a reset token.
+ *
+ * The token comes from the emailed link and is carried through the form as a
+ * hidden value. It is not validated for shape here beyond being non-empty:
+ * PocketBase is the only thing that can say whether a token is genuine and
+ * unexpired, and a regex that guesses at its format would reject valid tokens
+ * if that format ever changed.
+ */
+export const passwordResetConfirmSchema = z
+  .object({
+    token: z.string().min(1, "This reset link is missing its token"),
+    password: z
+      .string()
+      .min(PASSWORD_MIN, `Password must be at least ${PASSWORD_MIN} characters`),
+    passwordConfirm: z.string().min(1, "Confirm your password"),
+  })
+  .refine((v) => v.password === v.passwordConfirm, {
+    message: "Passwords do not match",
+    path: ["passwordConfirm"],
+  });
+
+export type PasswordResetConfirmInput = z.infer<typeof passwordResetConfirmSchema>;
+
 /** Field-keyed errors, the shape both the API and the form speak. */
 export type FieldErrors = Record<string, string>;
 

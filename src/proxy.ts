@@ -21,7 +21,7 @@ import { NextResponse, type NextRequest } from "next/server";
 const SESSION_COOKIE = "pb_auth";
 
 /** Reachable without a session. Everything else under the matcher is guarded. */
-const PUBLIC_PATHS = ["/login", "/signup"];
+const PUBLIC_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password"];
 
 /** Signed-in users are bounced away from these back into the app. */
 const AUTH_ONLY_PATHS = ["/login", "/signup"];
