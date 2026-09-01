@@ -1,5 +1,9 @@
-import { PlaceholderPage } from "@/components/shared/PlaceholderPage";
+import { ScannerClient } from "@/components/aia-scanner/ScannerClient";
 
-export default function Page() {
-  return <PlaceholderPage title="Contract Clause Risk Scanner" />;
+/**
+ * Needs no project data: the clause is pasted in. Left as a plain server
+ * component so the route still requires a session via the (app) layout.
+ */
+export default function ScannerPage() {
+  return <ScannerClient />;
 }

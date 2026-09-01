@@ -49,7 +49,14 @@ export type AiFailure =
   /** Anything else: overloaded, network failure, timeout, malformed response. */
   | { kind: "unavailable"; message: string };
 
-export type AiResult = { ok: true; text: string } | { ok: false; failure: AiFailure };
+export interface AiUsage {
+  input_tokens: number;
+  output_tokens: number;
+}
+
+export type AiResult =
+  | { ok: true; text: string; usage: AiUsage }
+  | { ok: false; failure: AiFailure };
 
 /**
  * Built once and reused, so the SDK's connection pooling actually applies.
@@ -130,6 +137,8 @@ export async function complete(args: {
   system: string;
   prompt: string;
   maxTokens: number;
+  /** Prior turns, oldest first. The API is stateless, so they are resent. */
+  history?: { role: "user" | "assistant"; content: string }[];
 }): Promise<AiResult> {
   const anthropic = getClient();
   if (!anthropic) return { ok: false, failure: { kind: "not_configured" } };
@@ -143,7 +152,7 @@ export async function complete(args: {
       // "medium" rather than the default "high": these are drafting tasks, and
       // effort is the first lever that trades tokens for depth.
       output_config: { effort: "medium" },
-      messages: [{ role: "user", content: args.prompt }],
+      messages: [...(args.history ?? []), { role: "user", content: args.prompt }],
     });
   } catch (error) {
     return { ok: false, failure: toFailure(error) };
@@ -171,5 +180,12 @@ export async function complete(args: {
     return { ok: false, failure: { kind: "unavailable", message: "Empty response" } };
   }
 
-  return { ok: true, text };
+  return {
+    ok: true,
+    text,
+    usage: {
+      input_tokens: message.usage.input_tokens,
+      output_tokens: message.usage.output_tokens,
+    },
+  };
 }

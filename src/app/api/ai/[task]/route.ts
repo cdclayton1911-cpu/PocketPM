@@ -159,6 +159,7 @@ export async function POST(request: Request, { params }: RouteContext<"/api/ai/[
   const result = await complete({
     system: `${BASE_SYSTEM}\n\n${definition.system}${await projectContext(session.token)}`,
     prompt: definition.prompt(parsed.data as never),
+    history: definition.history?.(parsed.data as never),
     maxTokens: definition.maxTokens,
   });
 
@@ -168,5 +169,5 @@ export async function POST(request: Request, { params }: RouteContext<"/api/ai/[
     return response;
   }
 
-  return NextResponse.json({ task, text: result.text }, { headers });
+  return NextResponse.json({ task, text: result.text, usage: result.usage }, { headers });
 }

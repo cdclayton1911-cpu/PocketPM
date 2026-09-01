@@ -36,6 +36,8 @@ export interface AiTask {
   schema: z.ZodType;
   /** Builds the user turn from validated input. */
   prompt: (input: never) => string;
+  /** Prior conversation turns, for the tasks that are conversations. */
+  history?: (input: never) => { role: "user" | "assistant"; content: string }[];
   maxTokens: number;
 }
 
@@ -45,6 +47,7 @@ function define<S extends z.ZodType>(task: {
   system: string;
   schema: S;
   prompt: (input: z.infer<S>) => string;
+  history?: (input: z.infer<S>) => { role: "user" | "assistant"; content: string }[];
   maxTokens: number;
 }): AiTask {
   return task as unknown as AiTask;
@@ -59,8 +62,25 @@ export const AI_TASKS = {
     system:
       "Answer the project manager's question about this project. Where the " +
       "answer depends on project records you were not given, say so.",
-    schema: z.object({ message: text(8000) }),
+    schema: z.object({
+      message: text(8000),
+      /**
+       * Prior turns, oldest first. The Messages API is stateless, so the
+       * client resends them. Capped at 40 so one long conversation cannot
+       * quietly become an expensive request.
+       */
+      history: z
+        .array(
+          z.object({
+            role: z.enum(["user", "assistant"]),
+            content: z.string().max(20000),
+          }),
+        )
+        .max(40)
+        .optional(),
+    }),
     prompt: (input) => input.message,
+    history: (input) => input.history ?? [],
     maxTokens: 4000,
   }),
 
@@ -138,10 +158,13 @@ export const AI_TASKS = {
     schema: z.object({
       clause_text: text(30000),
       document_type: z.string().trim().max(60).optional(),
+      /** Narrows the review; "Full risk review" when absent. */
+      focus: z.string().trim().max(60).optional(),
     }),
     prompt: (input) =>
       [
         input.document_type ? `Document: ${input.document_type}` : null,
+        input.focus ? `Focus the review on: ${input.focus}` : null,
         "Clause text:",
         input.clause_text,
       ]
@@ -263,6 +286,96 @@ export const AI_TASKS = {
         .filter(Boolean)
         .join("\n"),
     maxTokens: 3000,
+  }),
+
+  /**
+   * Three tasks below are NOT among the eleven the architecture PDF lists.
+   * They are prompts in this app's own registry, not endpoints on someone
+   * else's service, and each backs one of the seven AI modules that the PDF's
+   * eleven do not cover. Flagged rather than slipped in.
+   */
+
+  /** Backs /safety-plans. A written site plan, not the per-activity AHA above. */
+  "safety-plan": define({
+    system:
+      "Write a site-specific written safety plan. Cover, in this order: scope " +
+      "and site description, responsibilities by role, the hazard-specific " +
+      "programmes for the activities listed, training and orientation " +
+      "requirements, inspection frequency, and emergency response. Name a 29 " +
+      "CFR 1926 subpart only for an activity you were actually given, and write " +
+      "'verify applicable standard' where you are not certain. Mark anything " +
+      "the contractor must supply as [BRACKETED].",
+    schema: z.object({
+      project_name: text(200),
+      activities: z.array(z.string().trim().max(200)).min(1).max(20),
+      square_feet: z.number().positive().optional(),
+      peak_workforce: z.number().int().positive().optional(),
+    }),
+    prompt: (input) =>
+      [
+        `Project: ${input.project_name}`,
+        input.square_feet ? `Size: ${input.square_feet.toLocaleString()} sf` : null,
+        input.peak_workforce ? `Peak workforce: ${input.peak_workforce}` : null,
+        `High-risk activities on this project:\n${input.activities.map((a) => `- ${a}`).join("\n")}`,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    maxTokens: 8000,
+  }),
+
+  /**
+   * Backs /aia/library.
+   *
+   * Deliberately narrow. A summary of a standard AIA form written from the
+   * model's own memory is precisely the case where article numbers get
+   * fabricated, which BASE_SYSTEM forbids. So this asks for what the form is
+   * *for* and what to check in the executed copy — never a clause-by-clause
+   * recital.
+   */
+  "aia-brief": define({
+    system:
+      "Brief a contractor on a standard AIA document. Cover what the form is " +
+      "for, when it is used, what it obliges the contractor to do in general " +
+      "terms, and the provisions most often modified to the contractor's " +
+      "disadvantage. DO NOT quote or number articles: the executed contract is " +
+      "the only authority and it is frequently amended. Instead, end with a " +
+      "checklist of what to verify in the executed copy, and say that pasting " +
+      "the actual clause into the Clause Risk Scanner is the way to get a " +
+      "reading on the real language.",
+    schema: z.object({
+      document_code: text(20),
+      document_title: text(200),
+    }),
+    prompt: (input) => `Document: ${input.document_code} — ${input.document_title}`,
+    maxTokens: 3000,
+  }),
+
+  /**
+   * Backs /aia/register. Distinct from the computed operational risks on the
+   * AIA dashboard: this reads contract *language*, that one reads records.
+   */
+  "risk-register": define({
+    system:
+      "Build a contract risk register from the provisions supplied. One row " +
+      "per provision: the subject, a high/medium/low rating, what the standard " +
+      "AIA position on that subject generally is, how the supplied language " +
+      "departs from it, and the action to take. Quote only language present in " +
+      "the input, and give an article number only where the input gives one. " +
+      "Where a jurisdiction-specific statute may apply, say it must be checked " +
+      "with counsel rather than naming one.",
+    schema: z.object({
+      provisions: text(30000),
+      contract_type: z.string().trim().max(120).optional(),
+    }),
+    prompt: (input) =>
+      [
+        input.contract_type ? `Contract: ${input.contract_type}` : null,
+        "Provisions to review:",
+        input.provisions,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    maxTokens: 8000,
   }),
 
   "punch-list": define({

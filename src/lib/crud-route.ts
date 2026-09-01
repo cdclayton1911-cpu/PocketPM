@@ -35,6 +35,15 @@ export interface CrudRouteOptions<K extends CollectionName> {
   defaultSort?: string;
   /** Values merged into every create, e.g. `{ status: "pending_docs" }`. */
   createDefaults?: Record<string, unknown>;
+  /**
+   * Field to stamp with the signed-in user's id on create, e.g. "user".
+   *
+   * Injected server-side alongside `project` and equally un-overridable. Some
+   * collections scope their rules by owner rather than by project membership —
+   * `ai_sessions` is `user = @request.auth.id` — and a client-supplied value
+   * there would let a caller create records attributed to someone else.
+   */
+  ownerField?: string;
 }
 
 function unauthorized() {
@@ -50,7 +59,14 @@ async function parseBody(request: Request) {
 }
 
 export function createCollectionRoute<K extends CollectionName>(options: CrudRouteOptions<K>) {
-  const { collection, createSchema, updateSchema, defaultSort = "-created", createDefaults } = options;
+  const {
+    collection,
+    createSchema,
+    updateSchema,
+    defaultSort = "-created",
+    createDefaults,
+    ownerField,
+  } = options;
 
   async function GET(request: Request) {
     const session = await getSession();
@@ -106,7 +122,8 @@ export function createCollectionRoute<K extends CollectionName>(options: CrudRou
       const record = await pb.collection(collection).create<RecordOf<K>>({
         ...createDefaults,
         ...parsed.data,
-        // Last, so it cannot be overridden by anything in the body.
+        // Last, so neither can be overridden by anything in the body.
+        ...(ownerField ? { [ownerField]: session.user.id } : {}),
         project: projectId,
       });
       return NextResponse.json({ record }, { status: 201 });

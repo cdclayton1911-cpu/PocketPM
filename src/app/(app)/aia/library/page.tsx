@@ -1,5 +1,6 @@
-import { PlaceholderPage } from "@/components/shared/PlaceholderPage";
+import { LibraryClient } from "@/components/aia-library/LibraryClient";
 
-export default function Page() {
-  return <PlaceholderPage title="AIA Document Library" />;
+/** Reference data plus an AI briefing; no project records are involved. */
+export default function LibraryPage() {
+  return <LibraryClient />;
 }

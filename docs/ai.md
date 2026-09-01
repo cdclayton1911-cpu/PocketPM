@@ -76,14 +76,62 @@ The same warning is on the module itself, so it is in front of whoever edits it.
 
 ## Tasks
 
-`chat`, `rfi-draft`, `co-pricing`, `safety-analysis`, `contract-review`,
-`toolbox-talk`, `daily-log`, `estimate`, `notice-draft`, `prequalification`,
-`punch-list` — the eleven the PDF lists, behind one route.
+Fourteen, behind one route. Eleven are the endpoints the architecture PDF listed
+for the Railway tier: `chat`, `rfi-draft`, `co-pricing`, `safety-analysis`,
+`contract-review`, `toolbox-talk`, `daily-log`, `estimate`, `notice-draft`,
+`prequalification`, `punch-list`.
 
-None has a UI yet: the seven AI modules are waiting on credits. `daily-log`
-ships as CRUD-only, with no generate button, because the log is useful without
-generation. The task is registered so that module can gain a button without the
-handler changing.
+Three are **not** in the PDF and were added to back modules its eleven do not
+cover — flagged rather than slipped in:
+
+| Task | Backs | Why it is separate |
+|---|---|---|
+| `safety-plan` | `/safety-plans` | A written site plan is a different document from the per-activity hazard analysis `safety-analysis` produces. |
+| `aia-brief` | `/aia/library` | Deliberately narrow — see below. |
+| `risk-register` | `/aia/register` | Reads contract *language*; the dashboard's register reads *records*. |
+
+### The seven AI modules
+
+| Route | Task(s) | Grounded in |
+|---|---|---|
+| `/assistant` | `chat` | Multi-turn, history resent each request (stateless API), capped at 40 turns |
+| `/estimating` | `estimate` | Scope description + project location |
+| `/prequal` | `prequalification` | The subcontractor's own registry record |
+| `/safety-plans` | `safety-plan`, `safety-analysis`, `toolbox-talk` | Project name/size + selected activities |
+| `/aia/scanner` | `contract-review` | Pasted clause text |
+| `/aia/library` | `aia-brief` | Static AIA form list (`src/lib/aia-documents.ts`) |
+| `/aia/register` | `risk-register` | Pasted contract provisions, history from `ai_sessions` |
+
+Every generation is saved to `ai_sessions`, with `user` and `project` stamped
+server-side — the collection's rules are `user = @request.auth.id`, so a
+client-supplied `user` would let a caller file records under someone else's name.
+
+### Three places the prototype promised more than this delivers
+
+**Estimating is not priced from a cost database.** The prototype said "RS Means
+benchmarks applied by location". There is no RS Means data here and no licence
+for it. The module produces an order-of-magnitude breakdown with its assumptions
+stated and a list of what it would need to price properly. Presenting
+model-generated numbers as cost-database output would be the most expensive kind
+of wrong this app could be.
+
+**The library briefs, it does not recite.** The prototype offered "an AI-powered
+summary of key contractor obligations" per AIA form. Reciting a standard form
+from memory is exactly where article numbers get fabricated, and executed copies
+are routinely amended. So `aia-brief` explains what a form is *for* and what to
+verify in the signed copy, cites no articles, and points at the scanner for a
+reading on real language.
+
+**The risk register is generated, not hardcoded.** The prototype's version was
+ten fixed rows about a demo project, naming a specific state anti-indemnity
+statute. Nothing appears in this one that was not derived from provisions the
+user pasted in.
+
+### Output is not rendered as Markdown
+
+The model emits Markdown; `AiOutput` shows it pre-wrapped, so asterisks and
+hashes appear literally. Rendering it properly means `react-markdown`, which is
+not in the approved stack — a dependency conversation, not something to slip in.
 
 ## Transport
 
