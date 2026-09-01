@@ -110,3 +110,38 @@ in. To be designed when team invites are built.
 `users.createRule` is `""` — public self-serve signup. This is deliberate, not
 an oversight. Anyone can register an account; what they can then *see* is
 governed by the project-scoped rules on every other collection.
+
+## KNOWN ISSUE — users.listRule is too broad
+
+**Fix this when team invites are built. Deliberately not changed before then.**
+
+```
+users.listRule  @request.auth.id != ""
+users.viewRule  @request.auth.id != ""
+```
+
+Any authenticated user can enumerate **every user across every company**.
+PocketBase hides `password` and `tokenKey`, and `emailVisibility` defaults to
+`false` so addresses stay hidden, but `name`, `company_name`, `phone`, `role`,
+and `avatar` are all readable. That is a cross-tenant user directory.
+
+It is left alone for now because something has to be able to list candidate
+users when assigning project members, and narrowing it before that feature
+exists risks breaking it in a way nothing would catch.
+
+**Target:** narrow to *users who share a project with me*, roughly:
+
+```
+@request.auth.id != "" && (
+  id = @request.auth.id ||
+  @collection.projects.members.id ?= @request.auth.id ||
+  @collection.projects.owner = @request.auth.id
+)
+```
+
+That expression is **untested** — PocketBase's `@collection` back-reference
+syntax needs verifying against 0.40 before it is applied, and the self-view
+clause (`id = @request.auth.id`) matters so a user can always read their own
+record. Verify with `scripts/verify-tenancy.mjs` extended to cover `users`:
+account B must not see account A when they share no project, and must see them
+once they do.

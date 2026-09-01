@@ -12,8 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { dropEmptyNumbers, Field, NativeSelect } from "@/components/shared/FormField";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { fieldErrorsFromZod, type FieldErrors } from "@/lib/validation/auth";
 import { projectSchema } from "@/lib/validation/project";
 import { PROJECT_CONTRACT_TYPE, PROJECT_STATUS, type Project } from "@/types";
@@ -36,10 +36,10 @@ export function ProjectDialog({ open, onOpenChange, project }: ProjectDialogProp
     event.preventDefault();
     setErrors({});
 
-    const raw = Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>;
-    // An untouched number input submits "", which coerces to 0; drop it so the
-    // field stays genuinely unset rather than becoming a real zero.
-    if (raw.contract_value === "") delete raw.contract_value;
+    const raw = dropEmptyNumbers(
+      Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>,
+      ["contract_value"],
+    );
 
     const schema = editing ? projectSchema.partial() : projectSchema;
     const parsed = schema.safeParse(raw);
@@ -185,46 +185,3 @@ export function ProjectDialog({ open, onOpenChange, project }: ProjectDialogProp
   );
 }
 
-function Field({
-  id,
-  label,
-  error,
-  children,
-}: {
-  id: string;
-  label: string;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={id} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-        {label}
-      </Label>
-      {children}
-      {error ? <p className="text-xs text-danger">{error}</p> : null}
-    </div>
-  );
-}
-
-/**
- * Plain <select>. shadcn's Select is a Radix listbox that does not submit with
- * FormData, and this form reads values straight off the form.
- */
-function NativeSelect({
-  options,
-  ...props
-}: React.SelectHTMLAttributes<HTMLSelectElement> & { options: readonly string[] }) {
-  return (
-    <select
-      {...props}
-      className="h-9 w-full rounded-r6 border border-input bg-card px-2 text-sm text-foreground disabled:opacity-50"
-    >
-      {options.map((option) => (
-        <option key={option} value={option}>
-          {option}
-        </option>
-      ))}
-    </select>
-  );
-}

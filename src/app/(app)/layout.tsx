@@ -1,5 +1,7 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
+import { QueryProvider } from "@/components/providers/QueryProvider";
+import { Toaster } from "@/components/ui/sonner";
 import { readActiveProjectId, resolveActiveProject } from "@/lib/active-project";
 import { createClient } from "@/lib/pocketbase";
 import { requireSession } from "@/lib/session";
@@ -33,12 +35,18 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const activeProject = resolveActiveProject(projects, await readActiveProjectId());
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar projects={projects} activeProject={activeProject} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar user={session.user} />
-        <main className="flex-1 overflow-y-auto bg-background p-4">{children}</main>
+    // QueryProvider wraps the shell so every module shares one cache — a query
+    // invalidated in one place is refetched everywhere it is displayed.
+    <QueryProvider>
+      <div className="flex h-screen overflow-hidden">
+        <Sidebar projects={projects} activeProject={activeProject} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <Topbar user={session.user} />
+          <main className="flex-1 overflow-y-auto bg-background p-4">{children}</main>
+        </div>
       </div>
-    </div>
+      {/* Mutation failures surface here rather than failing silently. */}
+      <Toaster position="bottom-right" />
+    </QueryProvider>
   );
 }
