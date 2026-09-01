@@ -61,7 +61,24 @@ let client: Anthropic | null = null;
 function getClient(): Anthropic | null {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
-  client ??= new Anthropic({ apiKey, maxRetries: MAX_RETRIES, timeout: TIMEOUT_MS });
+
+  /**
+   * Identity-linked API keys must name the workspace they act in; without it
+   * every endpoint returns a 400, including `GET /v1/models`. A plain workspace
+   * key needs no header, so this is set only when configured.
+   *
+   * The workspace id is an identifier, not a credential — but it lives beside
+   * the key in the server environment because that is where the rest of this
+   * client's configuration is.
+   */
+  const workspaceId = process.env.ANTHROPIC_WORKSPACE_ID?.trim();
+
+  client ??= new Anthropic({
+    apiKey,
+    maxRetries: MAX_RETRIES,
+    timeout: TIMEOUT_MS,
+    ...(workspaceId ? { defaultHeaders: { "anthropic-workspace-id": workspaceId } } : {}),
+  });
   return client;
 }
 
@@ -90,6 +107,13 @@ function toFailure(error: unknown): AiFailure {
   // this account has actually been in that state.
   if (error instanceof Anthropic.BadRequestError && /credit balance/i.test(error.message)) {
     return { kind: "credentials", message: error.message };
+  }
+
+  // A 400 naming the workspace header is a configuration fault: the key is
+  // identity-linked and ANTHROPIC_WORKSPACE_ID is unset or wrong. Retrying
+  // never fixes it, so it must not read as a transient outage.
+  if (error instanceof Anthropic.BadRequestError && /anthropic-workspace-id/i.test(error.message)) {
+    return { kind: "not_configured" };
   }
 
   if (error instanceof Anthropic.APIError) {

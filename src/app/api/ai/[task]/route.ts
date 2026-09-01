@@ -45,7 +45,7 @@ function failureResponse(failure: AiFailure): NextResponse {
       // plainly rather than rendering as a mystery error — the operator fix is
       // to set ANTHROPIC_API_KEY and restart.
       return NextResponse.json(
-        { errors: { form: "AI is not configured on this server (no API key set)." } },
+        { errors: { form: "AI is not configured on this server." } },
         { status: 503 },
       );
     case "credentials":
