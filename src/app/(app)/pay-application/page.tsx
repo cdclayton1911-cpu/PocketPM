@@ -1,5 +1,9 @@
-import { PlaceholderPage } from "@/components/shared/PlaceholderPage";
+import { PayApplicationClient } from "@/components/pay-application/PayApplicationClient";
+import { NoProject } from "@/components/shared/NoProject";
+import { loadModuleData } from "@/lib/module-page";
 
-export default function Page() {
-  return <PlaceholderPage title="Pay Application (G702/G703)" />;
+export default async function PayApplicationPage() {
+  const { activeProject, items } = await loadModuleData("pay_applications", { sort: "-app_number" });
+  if (!activeProject) return <NoProject what="pay applications" />;
+  return <PayApplicationClient projectId={activeProject.id} initialData={items} />;
 }
