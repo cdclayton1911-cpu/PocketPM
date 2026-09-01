@@ -1,5 +1,9 @@
-import { PlaceholderPage } from "@/components/shared/PlaceholderPage";
+import { PunchListClient } from "@/components/punch-list/PunchListClient";
+import { NoProject } from "@/components/shared/NoProject";
+import { loadModuleData } from "@/lib/module-page";
 
-export default function Page() {
-  return <PlaceholderPage title="Punch List" />;
+export default async function PunchListPage() {
+  const { activeProject, items } = await loadModuleData("punch_list");
+  if (!activeProject) return <NoProject what="punch list" />;
+  return <PunchListClient projectId={activeProject.id} initialData={items} />;
 }
