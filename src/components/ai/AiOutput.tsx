@@ -3,16 +3,17 @@
 import { Check, Copy, Sparkles } from "lucide-react";
 import { useState } from "react";
 
+import { MarkdownView } from "@/components/ai/MarkdownView";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 /**
  * The output half of an AI module: idle, running, failed, or a result.
  *
- * The text is rendered pre-wrapped rather than as Markdown. The model emits
- * Markdown and this shows the asterisks and hashes literally, which is honest
- * but not pretty. Rendering it properly means `react-markdown`, which is not in
- * the approved stack — a dependency conversation, not something to slip in.
+ * The result is rendered as Markdown (see MarkdownView for the safety notes —
+ * this text can echo contract language the user pasted). The Copy button
+ * deliberately copies the raw Markdown, not the rendered text: it usually goes
+ * into a document that understands it.
  */
 export function AiOutput({
   title,
@@ -77,8 +78,8 @@ export function AiOutput({
           </p>
         ) : text ? (
           <>
-            <div className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap text-[13px] leading-relaxed text-foreground">
-              {text}
+            <div className="max-h-[60vh] overflow-y-auto">
+              <MarkdownView>{text}</MarkdownView>
             </div>
             <p className="mt-3 border-t pt-2 text-[11px] text-muted-foreground">
               A draft for review, not a decision — check every figure and reference against the

@@ -3,6 +3,7 @@
 import { Bot, Send, User } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { MarkdownView } from "@/components/ai/MarkdownView";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -128,7 +129,15 @@ export function AssistantClient({ project }: { project: Project }) {
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   {turn.role === "user" ? "You" : "Assistant"}
                 </p>
-                <div className="whitespace-pre-wrap text-[13px] leading-relaxed">{turn.content}</div>
+                {turn.role === "assistant" ? (
+                  <MarkdownView>{turn.content}</MarkdownView>
+                ) : (
+                  // The user's own words are shown exactly as typed; running
+                  // them through Markdown would reformat what they wrote.
+                  <div className="whitespace-pre-wrap text-[13px] leading-relaxed">
+                    {turn.content}
+                  </div>
+                )}
               </div>
             </div>
           ))}
