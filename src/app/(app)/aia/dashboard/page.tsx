@@ -1,5 +1,11 @@
-import { PlaceholderPage } from "@/components/shared/PlaceholderPage";
+import { AiaDashboardView } from "@/components/aia-dashboard/AiaDashboardView";
+import { NoProject } from "@/components/shared/NoProject";
+import { loadAggregate } from "@/lib/aggregate";
 
-export default function Page() {
-  return <PlaceholderPage title="AIA Contract Intelligence" />;
+const COLLECTIONS = ["aia_notices", "change_orders", "pay_applications", "subcontractors"] as const;
+
+export default async function AiaDashboardPage() {
+  const { activeProject, data, failed } = await loadAggregate(COLLECTIONS);
+  if (!activeProject) return <NoProject what="contract dashboard" />;
+  return <AiaDashboardView project={activeProject} data={data} failed={failed} />;
 }
