@@ -1,5 +1,9 @@
-import { PlaceholderPage } from "@/components/shared/PlaceholderPage";
+import { AiaNoticesClient } from "@/components/aia-notices/AiaNoticesClient";
+import { NoProject } from "@/components/shared/NoProject";
+import { loadModuleData } from "@/lib/module-page";
 
-export default function Page() {
-  return <PlaceholderPage title="Notices & Deadlines" />;
+export default async function AiaNoticesPage() {
+  const { activeProject, items } = await loadModuleData("aia_notices", { sort: "notice_deadline" });
+  if (!activeProject) return <NoProject what="contract notices" />;
+  return <AiaNoticesClient projectId={activeProject.id} initialData={items} />;
 }
