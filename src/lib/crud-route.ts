@@ -4,7 +4,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import type { z } from "zod";
 
-import { readActiveProjectId } from "@/lib/active-project";
+import { resolveActiveProjectId } from "@/lib/active-project";
 import { createClient, isPbError, pbFieldErrors } from "@/lib/pocketbase";
 import { getSession } from "@/lib/session";
 import { fieldErrorsFromZod } from "@/lib/validation/auth";
@@ -72,7 +72,7 @@ export function createCollectionRoute<K extends CollectionName>(options: CrudRou
     const session = await getSession();
     if (!session) return unauthorized();
 
-    const projectId = await readActiveProjectId();
+    const projectId = await resolveActiveProjectId(session.token);
     if (!projectId) {
       // No active project is a normal state (a brand-new account), not an error.
       return NextResponse.json({ items: [] });
@@ -99,7 +99,7 @@ export function createCollectionRoute<K extends CollectionName>(options: CrudRou
     const session = await getSession();
     if (!session) return unauthorized();
 
-    const projectId = await readActiveProjectId();
+    const projectId = await resolveActiveProjectId(session.token);
     if (!projectId) {
       return NextResponse.json(
         { errors: { form: "Select or create a project first" } },

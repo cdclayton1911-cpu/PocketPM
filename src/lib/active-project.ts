@@ -3,6 +3,7 @@ import "server-only";
 
 import { cookies } from "next/headers";
 
+import { createClient } from "@/lib/pocketbase";
 import type { Project } from "@/types";
 
 /**
@@ -59,4 +60,25 @@ export function resolveActiveProject(
     ? projects.find((project) => project.id === cookieValue)
     : undefined;
   return fromCookie ?? projects[0];
+}
+
+/**
+ * The active project id for a request, resolved the same way a page resolves it.
+ *
+ * Route handlers must NOT read the cookie alone. The cookie is only set when a
+ * project is created or explicitly switched to, so a user who signs in on a
+ * second browser or device has projects but no cookie — while every module page
+ * happily falls back to `projects[0]` via resolveActiveProject(). Trusting the
+ * bare cookie in the API made the two disagree: pages rendered a project's
+ * records, then the client's first refetch returned an empty list and every
+ * create failed with "Select or create a project first".
+ *
+ * Costs one extra list call per request. Worth it to have exactly one
+ * definition of "the active project" instead of two that drift.
+ */
+export async function resolveActiveProjectId(token: string): Promise<string | null> {
+  const cookieValue = await readActiveProjectId();
+  const pb = createClient(token);
+  const projects = await pb.collection("projects").getFullList<Project>({ sort: "-created" });
+  return resolveActiveProject(projects, cookieValue)?.id ?? null;
 }

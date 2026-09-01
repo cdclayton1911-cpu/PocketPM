@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { readActiveProjectId } from "@/lib/active-project";
+import { resolveActiveProjectId } from "@/lib/active-project";
 import { complete, type AiFailure } from "@/lib/ai/anthropic";
 import { AI_TASKS, BASE_SYSTEM, isAiTaskName } from "@/lib/ai/tasks";
 import { createClient } from "@/lib/pocketbase";
@@ -81,7 +81,7 @@ function failureResponse(failure: AiFailure): NextResponse {
  * client claimed — including another tenant's name and contract value.
  */
 async function projectContext(token: string): Promise<string> {
-  const projectId = await readActiveProjectId();
+  const projectId = await resolveActiveProjectId(token);
   if (!projectId) return "";
   try {
     const pb = createClient(token);
