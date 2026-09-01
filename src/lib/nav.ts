@@ -11,7 +11,6 @@ import {
   CreditCard,
   DollarSign,
   FileText,
-  FlagTriangleRight,
   HardHat,
   Handshake,
   HelpCircle,
@@ -19,7 +18,6 @@ import {
   Library,
   type LucideIcon,
   Microscope,
-  Notebook,
   Repeat,
   Ruler,
   ScrollText,
@@ -48,8 +46,12 @@ export interface NavGroup {
 }
 
 /**
- * The 27 modules, grouped exactly as in prototype/pocket_pm_v9.html.
- * Prototype nav ids are mapped to the real App Router paths.
+ * The navigable modules, grouped as in prototype/pocket_pm_v9.html, with
+ * prototype nav ids mapped to real App Router paths.
+ *
+ * 25 of the prototype's 27. Two are deliberately not listed because they have
+ * no backing collection — see the inline notes below. Listing a module that
+ * cannot store anything would be a menu entry that leads nowhere.
  */
 export const NAV_GROUPS: NavGroup[] = [
   {
@@ -78,7 +80,10 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Quality (CQM-C)",
     items: [
       { href: "/dfow", label: "DFOW Manager", icon: Search },
-      { href: "/inspection", label: "3-Phase Inspection", icon: Notebook },
+      // 3-Phase Inspection is intentionally absent: it has no backing
+      // collection. The prototype's version was static HTML checkboxes, and
+      // DFOW already tracks the preparatory/initial/follow-up phases it would
+      // duplicate. See docs/schema-notes.md.
       { href: "/deficiency", label: "Deficiency Tracker", icon: AlertTriangle },
       { href: "/pdca", label: "PDCA Dashboard", icon: BarChart3 },
     ],
@@ -100,7 +105,10 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/aia/register", label: "Risk Register", icon: AlertTriangle },
       { href: "/aia/notices", label: "Notices & Deadlines", icon: Bell },
       { href: "/aia/subcontracts", label: "Subcontracts", icon: Handshake },
-      { href: "/aia/closeout", label: "Closeout Docs", icon: FlagTriangleRight },
+      // Closeout Docs is intentionally absent: the `closeout_items` collection
+      // named in the architecture PDF does not exist on the deployed
+      // PocketBase, so there is nowhere to store the tracker's rows.
+      // See docs/schema-notes.md.
     ],
   },
   {

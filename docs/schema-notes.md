@@ -145,3 +145,39 @@ clause (`id = @request.auth.id`) matters so a user can always read their own
 record. Verify with `scripts/verify-tenancy.mjs` extended to cover `users`:
 account B must not see account A when they share no project, and must see them
 once they do.
+
+## Two modules dropped from the navigation
+
+`3-Phase Inspection` and `AIA Closeout Docs` are no longer listed in the
+sidebar. Both were present in the prototype; neither has anywhere to store data.
+
+**Closeout Docs** needs `closeout_items`, which does not exist on the deployed
+PocketBase (see the 404 above). Its tracker is twelve document rows — G704,
+G706, G706A, G707, lien waivers, O&M manuals, as-builts, and so on — and there
+is no collection to hold them.
+
+**3-Phase Inspection** has no collection either. In the prototype it was static
+HTML checkboxes that persisted nothing. Its subject matter — the preparatory,
+initial, and follow-up phases of a definable feature of work — is already
+tracked by `dfow` (`phase`, `prep_date`, `init_date`, `complete_date`) and by
+`deficiencies` for what those inspections find. Rebuilding it as its own module
+would duplicate that state in two places that could disagree.
+
+Both were dropped from the nav rather than shipped as empty shells, because a
+menu entry that leads to a page which cannot save anything is worse than no
+entry at all.
+
+**To restore either**, add the collection and re-add the entry to
+`src/lib/nav.ts`:
+
+- Closeout: add a `closeout_items` collection (project relation, document name,
+  AIA form number, responsible party, required-by date, status) and build the
+  module on the existing CRUD scaffold.
+- Inspection: decide first whether it is a genuine collection —
+  `inspection_checklists` with per-phase items — or a richer view over `dfow`.
+  The second is probably right, and would not need a schema change.
+
+The placeholder route files remain at `src/app/(app)/inspection/` and
+`src/app/(app)/aia/closeout/`. They are unreachable from the UI but still
+resolve by direct URL, so restoring a module means replacing a page rather than
+creating a route.
