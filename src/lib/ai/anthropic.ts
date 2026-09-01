@@ -2,27 +2,17 @@
 // the key is the one secret in this app whose leak is immediately spendable.
 import "server-only";
 
+import Anthropic from "@anthropic-ai/sdk";
+
 /**
- * Minimal Anthropic Messages API client.
- *
- * ## Why raw fetch and not @anthropic-ai/sdk
- *
- * The official SDK is the better choice and would give typed errors, retries,
- * and streaming helpers for free. It is not installed because the project brief
- * says to ask before adding a dependency that is not in the approved stack, and
- * that has not been asked yet. Everything Anthropic-specific is confined to this
- * one file so the swap is a rewrite of ~80 lines and nothing else.
+ * Anthropic Messages API client.
  *
  * ## Not streaming
  *
  * These are single-shot drafting calls with modest `max_tokens` (2k–8k), well
  * inside the request timeout. Streaming becomes worth its complexity when the AI
- * modules gain token-by-token UI; hand-rolling an SSE parser before there is a
- * consumer for it would be speculative.
+ * modules gain token-by-token UI; there is no consumer for it yet.
  */
-
-const API_URL = "https://api.anthropic.com/v1/messages";
-const API_VERSION = "2023-06-01";
 
 /**
  * Claude Opus 5. Thinking is on by default on this model, so the `thinking`
@@ -33,6 +23,19 @@ const MODEL = "claude-opus-5";
 
 /** Guards against an upstream hang holding a Next.js request open. */
 const TIMEOUT_MS = 120_000;
+
+/**
+ * Retries per request, on top of the original attempt.
+ *
+ * The SDK retries connection errors, 408, 409, 429, and 5xx with exponential
+ * backoff and honours `retry-after`. It does NOT retry a 400 or 401, which is
+ * right: a malformed request and a bad key do not improve on a second attempt.
+ *
+ * Two, not more: this runs inside a user's request, and the per-user hourly
+ * quota already counts the attempt, so a long retry chain would hold a
+ * connection open without buying much.
+ */
+const MAX_RETRIES = 2;
 
 export type AiFailure =
   /** ANTHROPIC_API_KEY is not set on this server. */
@@ -48,16 +51,55 @@ export type AiFailure =
 
 export type AiResult = { ok: true; text: string } | { ok: false; failure: AiFailure };
 
-interface AnthropicResponse {
-  content?: { type: string; text?: string }[];
-  stop_reason?: string;
-  stop_details?: { explanation?: string } | null;
+/**
+ * Built once and reused, so the SDK's connection pooling actually applies.
+ * Lazy rather than at module scope: the key is read at first use, which keeps
+ * importing this module harmless when it is unset.
+ */
+let client: Anthropic | null = null;
+
+function getClient(): Anthropic | null {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
+  client ??= new Anthropic({ apiKey, maxRetries: MAX_RETRIES, timeout: TIMEOUT_MS });
+  return client;
 }
 
-/** Anthropic's error envelope: `{ type: "error", error: { type, message } }`. */
-function readUpstreamError(body: unknown): { type: string; message: string } {
-  const error = (body as { error?: { type?: string; message?: string } })?.error;
-  return { type: error?.type ?? "unknown", message: error?.message ?? "" };
+/** Test seam: drops the memoised client so a changed key is picked up. */
+export function resetAnthropicClient(): void {
+  client = null;
+}
+
+function toFailure(error: unknown): AiFailure {
+  // Most specific first. `error.error` carries Anthropic's own envelope.
+  if (error instanceof Anthropic.RateLimitError) {
+    const header = error.headers?.get("retry-after");
+    const retryAfter = header ? Number(header) : NaN;
+    return {
+      kind: "upstream_rate_limited",
+      retryAfter: Number.isFinite(retryAfter) ? retryAfter : undefined,
+    };
+  }
+
+  if (error instanceof Anthropic.AuthenticationError || error instanceof Anthropic.PermissionDeniedError) {
+    return { kind: "credentials", message: error.message };
+  }
+
+  // An exhausted credit balance arrives as a 400 whose message names it —
+  // separated from other bad requests because the operator fix is different and
+  // this account has actually been in that state.
+  if (error instanceof Anthropic.BadRequestError && /credit balance/i.test(error.message)) {
+    return { kind: "credentials", message: error.message };
+  }
+
+  if (error instanceof Anthropic.APIError) {
+    return { kind: "unavailable", message: error.message };
+  }
+
+  return {
+    kind: "unavailable",
+    message: error instanceof Error ? error.message : "Could not reach Anthropic",
+  };
 }
 
 export async function complete(args: {
@@ -65,85 +107,39 @@ export async function complete(args: {
   prompt: string;
   maxTokens: number;
 }): Promise<AiResult> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return { ok: false, failure: { kind: "not_configured" } };
+  const anthropic = getClient();
+  if (!anthropic) return { ok: false, failure: { kind: "not_configured" } };
 
-  let response: Response;
+  let message: Anthropic.Message;
   try {
-    response = await fetch(API_URL, {
-      method: "POST",
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": API_VERSION,
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: args.maxTokens,
-        system: args.system,
-        // "medium" rather than the default "high": these are drafting tasks, and
-        // effort is the first lever that trades tokens for depth.
-        output_config: { effort: "medium" },
-        messages: [{ role: "user", content: args.prompt }],
-      }),
+    message = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: args.maxTokens,
+      system: args.system,
+      // "medium" rather than the default "high": these are drafting tasks, and
+      // effort is the first lever that trades tokens for depth.
+      output_config: { effort: "medium" },
+      messages: [{ role: "user", content: args.prompt }],
     });
   } catch (error) {
-    return {
-      ok: false,
-      failure: {
-        kind: "unavailable",
-        message: error instanceof Error ? error.message : "Could not reach Anthropic",
-      },
-    };
+    return { ok: false, failure: toFailure(error) };
   }
 
-  const body: unknown = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    const { type, message } = readUpstreamError(body);
-
-    if (response.status === 429) {
-      const header = response.headers.get("retry-after");
-      const retryAfter = header ? Number(header) : undefined;
-      return {
-        ok: false,
-        failure: {
-          kind: "upstream_rate_limited",
-          retryAfter: Number.isFinite(retryAfter) ? retryAfter : undefined,
-        },
-      };
-    }
-
-    // 401 is a bad key. An exhausted credit balance arrives as a 400 whose
-    // message names it — worth separating, because the operator fix is
-    // different and this account has actually been in that state.
-    if (response.status === 401 || response.status === 403 || /credit balance/i.test(message)) {
-      return { ok: false, failure: { kind: "credentials", message } };
-    }
-
-    return {
-      ok: false,
-      failure: { kind: "unavailable", message: message || `${type} (HTTP ${response.status})` },
-    };
-  }
-
-  const data = body as AnthropicResponse;
-
-  if (data.stop_reason === "refusal") {
+  // stop_details is populated only for a refusal, so guard before reading it.
+  if (message.stop_reason === "refusal") {
     return {
       ok: false,
       failure: {
         kind: "refused",
-        message: data.stop_details?.explanation || "Claude declined this request.",
+        message: message.stop_details?.explanation || "Claude declined this request.",
       },
     };
   }
 
   // Thinking blocks share the content array; only text blocks are the answer.
-  const text = (data.content ?? [])
-    .filter((block) => block.type === "text" && typeof block.text === "string")
-    .map((block) => block.text as string)
+  const text = message.content
+    .filter((block): block is Anthropic.TextBlock => block.type === "text")
+    .map((block) => block.text)
     .join("")
     .trim();
 

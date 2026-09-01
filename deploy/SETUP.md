@@ -394,3 +394,17 @@ Express API are unaffected throughout — no rollback step touches them.
 | Env var not picked up | systemd reads `/etc/pocketpm-web.env` at start only: `systemctl restart pocketpm-web` |
 | Old prototype still showing | Cloudflare cache — purge it |
 | `npm ci` fails on lockfile | `package-lock.json` is out of sync with `package.json`; fix and commit locally, don't edit on the server |
+
+
+## Before you run a second app instance
+
+The AI endpoint's per-user rate limiter (`src/lib/rate-limit.ts`) keeps its
+counters **in the app process's memory**. The unit file here starts exactly one
+`next start` process, which is the shape it is correct for.
+
+Run two, and each keeps its own counters: the effective AI quota becomes the
+configured limit times the number of instances, silently. Before scaling out —
+or running a blue/green deploy where both instances serve at once — move the
+limiter to shared state (PocketBase, or Redis as a dependency decision).
+
+See `docs/ai.md` for the full note.

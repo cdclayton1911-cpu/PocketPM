@@ -45,19 +45,34 @@ Neither was ever deployed.
 
 Every response carries `RateLimit-Limit` / `-Remaining` / `-Reset`.
 
-## Two things to know before relying on it
+## Rate limiting: single-instance only
 
-**The limiter is in-process memory.** Correct for the current deployment — one
-`next start` behind Caddy — and wrong the moment there is a second instance,
-because each would grant the full quota. It also resets on restart. See the note
-at the top of `src/lib/rate-limit.ts`.
+**The limiter holds its counters in the app process's memory** (`src/lib/rate-limit.ts`).
 
-**A successful completion is unverified.** The Anthropic account is out of
-credit, so no request in testing has reached the model. What *is* verified
-empirically, against the running app: `401` unauthenticated, `404` on an unknown
-task, `400` on bad input, `503` with no key configured, and `429` on the 21st
-request in an hour with a correct `Retry-After`. The parsing of a successful
-response is written from the API contract and has not been exercised.
+This is acceptable for the current deployment and only for it: one `next start`
+process bound to loopback behind Caddy, as configured in
+`deploy/pocketpm-web.service`. In that shape there is exactly one counter per
+user and the quota means what it says.
+
+It stops being correct as soon as there is more than one instance:
+
+- **Two or more app processes** — a load-balanced pair, a blue/green overlap
+  during a deploy, `next start` run twice by mistake — each keep their own
+  counters, so the effective quota is the configured limit multiplied by the
+  number of instances. Nothing warns you; the limit silently loosens.
+- **Serverless or per-request isolates** — counters would not survive between
+  requests at all, and the limiter would effectively be off.
+- **Restarts** — counters reset, so a deploy grants everyone a fresh quota. A
+  small free-credit gift rather than a security problem, but worth knowing when
+  reading usage figures.
+
+**Before running a second instance, this must move to shared state.** PocketBase
+can hold the counters with no new dependency, at the cost of a write per AI
+request; Redis would be the better fit and is a dependency decision. Neither is
+built, deliberately — a distributed limiter that is never deployed distributed
+is complexity with no payer.
+
+The same warning is on the module itself, so it is in front of whoever edits it.
 
 ## Tasks
 
@@ -70,16 +85,22 @@ ships as CRUD-only, with no generate button, because the log is useful without
 generation. The task is registered so that module can gain a button without the
 handler changing.
 
-## Not the official SDK
+## Transport
 
-`src/lib/ai/anthropic.ts` calls the Messages API with `fetch`.
-`@anthropic-ai/sdk` would be better — typed errors, retries, streaming helpers —
-but it is not in the brief's approved stack and adding it needs a decision.
-Everything Anthropic-specific is in that one file so the swap is contained.
+`src/lib/ai/anthropic.ts` uses `@anthropic-ai/sdk`, which gives typed error
+classes, `retry-after`-aware backoff, and connection reuse. The client is built
+once and memoised; the key is read at first use, so importing the module with no
+key set is harmless.
 
-Not streaming, either: these are single-shot drafting calls of 2k–8k tokens, well
-inside the timeout. Streaming earns its complexity once a module renders tokens
-as they arrive.
+Retries are capped at 2 on top of the original attempt. The SDK retries
+connection errors, 408, 409, 429, and 5xx, and deliberately does not retry 400
+or 401 — a malformed request and a bad key do not improve on a second try. The
+cap is low because this runs inside a user's request and the hourly quota has
+already counted the attempt.
+
+Not streaming: these are single-shot drafting calls of 2k–8k tokens, well inside
+the timeout. Streaming earns its complexity once a module renders tokens as they
+arrive.
 
 ## Retiring the Express route
 
