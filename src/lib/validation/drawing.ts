@@ -10,11 +10,11 @@ const isoDate = z
 /**
  * Drawing register metadata.
  *
- * The `file` field is deliberately absent. PocketBase file uploads need
- * multipart/form-data, and the CRUD route factory speaks JSON — so this module
- * manages the register (sheet numbers, revisions, status) while PDF upload
- * waits for a multipart-aware upload route. Accepting a `file` string here
- * would let a client point a record at an arbitrary stored filename.
+ * `file` is still absent from this schema, and deliberately so even though
+ * uploads now work. The PDF arrives as a multipart part, not as a value: the
+ * route factory pulls file parts out before Zod sees the body, and PocketBase
+ * assigns the stored name. Accepting a `file` string here would let a client
+ * point a record at an arbitrary already-stored filename.
  */
 export const drawingSchema = z.object({
   sheet_number: z.string().trim().min(1, "Sheet number is required").max(40),

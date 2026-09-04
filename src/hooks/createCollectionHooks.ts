@@ -18,6 +18,35 @@ import type { BaseRecord, CollectionName, RecordOf } from "@/types";
  * value is still the third positional argument to onError.
  */
 
+/** Input a mutation accepts: plain fields, or FormData when files are attached. */
+export type MutationInput = Record<string, unknown> | FormData;
+
+/**
+ * Build the fetch init for either shape.
+ *
+ * Content-Type is deliberately NOT set for FormData: the browser has to add it
+ * itself so it can include the multipart boundary. Setting it by hand produces
+ * a request the server cannot parse.
+ */
+function requestInit(method: string, input: MutationInput): RequestInit {
+  if (input instanceof FormData) return { method, body: input };
+  return {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  };
+}
+
+/** Scalar fields only, for the optimistic row. Files have no local preview. */
+function optimisticFields(input: MutationInput): Record<string, unknown> {
+  if (!(input instanceof FormData)) return input;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of input.entries()) {
+    if (typeof value === "string" && !key.endsWith("-")) out[key] = value;
+  }
+  return out;
+}
+
 async function readError(res: Response): Promise<string> {
   const data = (await res.json().catch(() => ({}))) as { errors?: FieldErrors };
   return data.errors?.form ?? Object.values(data.errors ?? {})[0] ?? "Something went wrong";
@@ -88,18 +117,17 @@ export function createCollectionHooks<K extends CollectionName>(
   function useCreate(projectId: string) {
     const { queryClient, key, snapshot, rollback, resync } = useOptimistic(projectId);
     return useMutation({
-      mutationFn: async (input: Record<string, unknown>): Promise<Record_> => {
-        const res = await fetch(`/api/${path}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(input),
-        });
+      mutationFn: async (input: MutationInput): Promise<Record_> => {
+        const res = await fetch(`/api/${path}`, requestInit("POST", input));
         if (!res.ok) throw new Error(await readError(res));
         return ((await res.json()) as { record: Record_ }).record;
       },
       onMutate: async (input) => {
         const previous = await snapshot();
-        const optimistic = { ...input, id: `optimistic-${Date.now()}` } as unknown as Record_;
+        const optimistic = {
+          ...optimisticFields(input),
+          id: `optimistic-${Date.now()}`,
+        } as unknown as Record_;
         queryClient.setQueryData<Record_[]>(key, (old) => [optimistic, ...(old ?? [])]);
         return { previous };
       },
@@ -125,21 +153,18 @@ export function createCollectionHooks<K extends CollectionName>(
         input,
       }: {
         id: string;
-        input: Record<string, unknown>;
+        input: MutationInput;
       }): Promise<Record_> => {
-        const res = await fetch(`/api/${path}/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(input),
-        });
+        const res = await fetch(`/api/${path}/${id}`, requestInit("PATCH", input));
         if (!res.ok) throw new Error(await readError(res));
         return ((await res.json()) as { record: Record_ }).record;
       },
       onMutate: async ({ id, input }) => {
         const previous = await snapshot();
+        const fields = optimisticFields(input);
         queryClient.setQueryData<Record_[]>(key, (old) =>
           (old ?? []).map((row) =>
-            (row as unknown as BaseRecord).id === id ? { ...row, ...input } : row,
+            (row as unknown as BaseRecord).id === id ? { ...row, ...fields } : row,
           ),
         );
         return { previous };

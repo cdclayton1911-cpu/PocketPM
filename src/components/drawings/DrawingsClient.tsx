@@ -1,6 +1,6 @@
 "use client";
 
-import { FileWarning, Ruler } from "lucide-react";
+import { FileDown, FileWarning, Ruler } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { CollectionView } from "@/components/shared/CollectionView";
@@ -76,6 +76,25 @@ export function DrawingsClient({
     { key: "discipline", header: "Discipline", cell: (r) => r.discipline || "—" },
     { key: "rev", header: "Rev", align: "right", cell: (r) => r.revision || "—" },
     { key: "date", header: "Rev date", cell: (r) => r.rev_date || "—" },
+    {
+      key: "file",
+      header: "File",
+      cell: (r) =>
+        r.file ? (
+          <a
+            href={`/api/files/drawings/${r.id}/${encodeURIComponent(r.file)}`}
+            className="inline-flex items-center gap-1 text-primary hover:underline"
+            title={r.file}
+          >
+            <FileDown className="size-3.5" aria-hidden />
+            PDF
+          </a>
+        ) : (
+          // Distinguished from "—": the sheet is registered but the drawing
+          // itself is not in the system, which is the thing worth noticing.
+          <span className="text-muted-foreground">Not uploaded</span>
+        ),
+    },
     {
       key: "status",
       header: "Status",

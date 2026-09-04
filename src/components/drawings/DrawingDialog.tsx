@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 
+import { FileField, formHasFiles } from "@/components/shared/FileField";
 import { Field, NativeSelect } from "@/components/shared/FormField";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,15 +41,44 @@ export function DrawingDialog({
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrors({});
-    const raw = Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>;
+
+    const form = new FormData(event.currentTarget);
+
+    // Validate the metadata only. The PDF is not something Zod can check — the
+    // route enforces size, count, and type against the generated schema spec.
+    const raw = Object.fromEntries(
+      [...form.entries()].filter(([, v]) => typeof v === "string"),
+    ) as Record<string, string>;
     const parsed = (editing ? drawingSchema.partial() : drawingSchema).safeParse(raw);
     if (!parsed.success) {
       setErrors(fieldErrorsFromZod(parsed.error));
       return;
     }
+
+    /**
+     * Send multipart only when a file is actually involved, so the ordinary
+     * metadata edit stays on the JSON path.
+     *
+     * The payload is rebuilt from the validated data rather than reusing the
+     * raw FormData: Zod applies trimming and defaults, and sending the raw
+     * fields would quietly discard both.
+     */
+    let input: FormData | Record<string, unknown> = parsed.data;
+    if (formHasFiles(form)) {
+      const payload = new FormData();
+      for (const [key, value] of Object.entries(parsed.data)) {
+        if (value !== undefined && value !== null) payload.append(key, String(value));
+      }
+      for (const [key, value] of form.entries()) {
+        if (value instanceof File && value.size > 0) payload.append(key, value);
+        else if (key.endsWith("-") && typeof value === "string" && value) payload.append(key, value);
+      }
+      input = payload;
+    }
+
     onOpenChange(false);
-    if (editing && drawing) update.mutate({ id: drawing.id, input: parsed.data });
-    else create.mutate(parsed.data);
+    if (editing && drawing) update.mutate({ id: drawing.id, input });
+    else create.mutate(input);
   }
 
   return (
@@ -99,6 +129,16 @@ export function DrawingDialog({
           <Field id="notes" label="Notes" error={errors.notes}>
             <Textarea id="notes" name="notes" rows={2} defaultValue={drawing?.notes ?? ""} disabled={pending} />
           </Field>
+
+          <FileField
+            collection="drawings"
+            field="file"
+            label="Drawing file (PDF)"
+            existing={drawing?.file ? [drawing.file] : []}
+            recordId={drawing?.id}
+            disabled={pending}
+            hint="One PDF, up to 100 MB. The sheet record is useful without it, but the drawing is the record."
+          />
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
