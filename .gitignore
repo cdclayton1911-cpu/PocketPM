@@ -51,3 +51,7 @@ next-env.d.ts
 # E2E build output
 /.next-e2e/
 /.cache/
+
+# Pending: needs a credential with GitHub `workflow` scope (see docs/testing.md).
+# Remove this line and commit the file once `gh auth refresh -s workflow` is done.
+.github/workflows/ci.yml
