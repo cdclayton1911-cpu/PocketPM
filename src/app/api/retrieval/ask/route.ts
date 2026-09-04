@@ -80,10 +80,18 @@ export async function POST(request: Request) {
   }
 
   const limit = rateLimit(`ai:${session.user.id}`, LIMIT, WINDOW_MS);
+  // Same headers /api/ai/[task] returns, on every response rather than only on
+  // a refusal — a client cannot show remaining quota it is never told about,
+  // and the two AI endpoints sharing one quota should report it the same way.
+  const rateHeaders = {
+    "RateLimit-Limit": String(LIMIT),
+    "RateLimit-Remaining": String(limit.remaining),
+    "RateLimit-Reset": String(limit.retryAfter),
+  };
   if (!limit.ok) {
     return NextResponse.json(
       { errors: { form: `AI request limit reached (${LIMIT} per hour).` } },
-      { status: 429, headers: { "Retry-After": String(limit.retryAfter) } },
+      { status: 429, headers: { ...rateHeaders, "Retry-After": String(limit.retryAfter) } },
     );
   }
 
@@ -123,12 +131,15 @@ export async function POST(request: Request) {
   if (selection.items.length === 0) {
     // No upstream call: there is nothing to reason about, and spending a
     // request to be told "no documents" is waste.
-    return NextResponse.json({
-      answer: "No revisions match those filters, so there is nothing to report on.",
-      selected: 0,
-      total: selection.total,
-      spent_ai_call: false,
-    });
+    return NextResponse.json(
+      {
+        answer: "No revisions match those filters, so there is nothing to report on.",
+        selected: 0,
+        total: selection.total,
+        spent_ai_call: false,
+      },
+      { headers: rateHeaders },
+    );
   }
 
   const task = AI_TASKS["document-status"];
@@ -146,14 +157,17 @@ export async function POST(request: Request) {
       result.failure.kind === "not_configured"
         ? "AI is not configured on this server."
         : "The AI service did not respond. The document list above is still accurate.";
-    return NextResponse.json({ errors: { form: message } }, { status: 502 });
+    return NextResponse.json({ errors: { form: message } }, { status: 502, headers: rateHeaders });
   }
 
-  return NextResponse.json({
-    answer: result.text,
-    selected: selection.selected,
-    total: selection.total,
-    usage: result.usage,
-    spent_ai_call: true,
-  });
+  return NextResponse.json(
+    {
+      answer: result.text,
+      selected: selection.selected,
+      total: selection.total,
+      usage: result.usage,
+      spent_ai_call: true,
+    },
+    { headers: rateHeaders },
+  );
 }
