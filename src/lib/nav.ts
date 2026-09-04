@@ -11,6 +11,7 @@ import {
   CreditCard,
   DollarSign,
   FileText,
+  FolderSearch,
   HardHat,
   Handshake,
   HelpCircle,
@@ -68,6 +69,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Construction CM",
     items: [
+      { href: "/documents", label: "Document Finder", icon: FolderSearch },
       { href: "/drawings", label: "Drawings", icon: Ruler },
       { href: "/submittals", label: "Submittals", icon: FileText },
       { href: "/rfis", label: "RFIs", icon: HelpCircle },

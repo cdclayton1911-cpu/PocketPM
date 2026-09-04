@@ -62,6 +62,40 @@ only, and everything stays on the droplet. It is useful on its own and it is the
 selection layer stage 2 would call — so none of that work is wasted while this
 question is open.
 
+## What metadata-only stage 2 actually sends
+
+`POST /api/retrieval/ask` is built and is deliberately narrower than stage 2
+proper. It sends **no file contents** — no PDF, no extracted text, no page
+image. The Files API is not used and nothing is uploaded or stored at Anthropic.
+
+But "metadata only" is not "nothing". `renderTable` in
+`src/app/api/retrieval/ask/route.ts` is the single place that decides what
+crosses the boundary, and it currently sends, per matching revision:
+
+| Field | Example | Disclosive? |
+|---|---|---|
+| parent label | `RFI 017 — Beam/duct conflict at grid C` | **yes — a title can say a lot** |
+| parent type | `rfi` | no |
+| revision number | `Rev 1` | no |
+| status | `superseded` | no |
+| current flag | `CURRENT` | no |
+| issue date | `2026-08-15` | no |
+| spec section | `05 12 00` | mildly |
+| file present | `attached` / `MISSING` | no |
+
+The first row is the one to think about. *"RFI 017 — Beam/duct conflict at grid
+C"* tells a reader there is a coordination problem at a specific location, and a
+submittal description can name a subcontractor.
+
+This is the same **kind** of disclosure the other AI modules already make — they
+send project name, contract value, city, owner, and architect — at larger
+volume. It is a smaller disclosure than the document itself by a wide margin.
+
+**Narrowing it is one line.** Dropping `parent_label` and `spec_section` from
+`renderTable` leaves identifiers only, and answers become *"Rev 1 of
+05120-001"* with no indication of what that covers. That is the tradeoff to
+decide, and it does not need to wait for the full Files API answer.
+
 ## If the answer is yes
 
 Then the ordering is: update the customer-facing terms first, add the sub-

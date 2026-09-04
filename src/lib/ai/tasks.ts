@@ -295,6 +295,41 @@ export const AI_TASKS = {
    * eleven do not cover. Flagged rather than slipped in.
    */
 
+  /**
+   * Backs the document finder's "ask" box — status and chronology answers over
+   * a project's revision history.
+   *
+   * **Metadata only.** It is given a table of revision numbers, statuses,
+   * dates, and parent identifiers, and never the contents of any document. The
+   * prompt is written to make that limit visible in the answer rather than
+   * papered over: the failure mode worth preventing is a confident summary of a
+   * drawing nobody read. See docs/document-privacy.md.
+   */
+  "document-status": define({
+    system:
+      "You are given a table of document revisions from one construction " +
+      "project: revision numbers, lifecycle status, issue dates, which " +
+      "submittal or RFI each belongs to, and whether a file is attached. You " +
+      "have NOT been given the contents of any document.\n\n" +
+      "Answer questions about status, sequence, and chronology from that table " +
+      "only. Say which revision is current, what was superseded and when, what " +
+      "is still in draft, and what is missing a file.\n\n" +
+      "If the question asks what a document SAYS — what the architect " +
+      "responded, what a drawing shows, what a clause requires — say plainly " +
+      "that you can see the revision history but not the document contents, " +
+      "and name which revision they should open. Never infer content from a " +
+      "title. A title is not a summary.\n\n" +
+      "Cite revisions the way the trade does: 'Rev 1 of 05120-001', not 'row 3'.",
+    schema: z.object({
+      question: text(2000),
+      /** Pre-rendered by the server from stage-1 results. Never client-supplied. */
+      documents: text(20000),
+    }),
+    prompt: (input) =>
+      `Revision table:\n${input.documents}\n\nQuestion: ${input.question}`,
+    maxTokens: 2000,
+  }),
+
   /** Backs /safety-plans. A written site plan, not the per-activity AHA above. */
   "safety-plan": define({
     system:

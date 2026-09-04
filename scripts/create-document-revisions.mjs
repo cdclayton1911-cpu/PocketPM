@@ -113,6 +113,16 @@ const definition = {
     { name: "review_due_at", type: "text", required: false },
     { name: "notes", type: "text", required: false },
     { name: "created_by", type: "relation", required: false, collectionId: users, cascadeDelete: false, maxSelect: 1 },
+    /**
+     * PocketBase does NOT add these automatically when `fields` is given
+     * explicitly — it only supplies them for a collection created through the
+     * admin UI. Omitting them made `sort=-created` return a bare 400, which
+     * surfaced as "Could not load the document finder" with nothing in the
+     * message naming the cause. Every other collection has them, and
+     * `BaseRecord` in the generated types assumes they exist.
+     */
+    { name: "created", type: "autodate", onCreate: true, onUpdate: false },
+    { name: "updated", type: "autodate", onCreate: true, onUpdate: true },
   ],
   indexes: [
     // One revision number per parent, and only one current revision per parent.
