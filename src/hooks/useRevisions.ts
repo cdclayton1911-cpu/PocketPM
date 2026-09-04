@@ -140,3 +140,30 @@ export function useIssueRevision(parentType: ParentType, parentId: string) {
     onSettled: () => void resync(),
   });
 }
+
+/**
+ * Attach a file to a brand-new submittal or RFI as its Rev 0.
+ *
+ * Called after the parent is created, because the revision needs the parent's
+ * id. Two requests rather than one: the alternative is a bespoke endpoint that
+ * creates both, and the failure here is benign and recoverable — the parent
+ * exists, the file did not upload, and the user is told to add it from History.
+ * That is a better trade than a second write path around the revision rules.
+ *
+ * The file lands on a revision, never on the parent's own `attachments` field.
+ * That is the whole point: a submittal's document is Rev 0 of something, so the
+ * history is right from the first upload instead of being reconstructed later.
+ */
+export async function createInitialRevision(
+  parentType: ParentType,
+  parentId: string,
+  file: File,
+): Promise<void> {
+  const form = new FormData();
+  form.set(parentType, parentId);
+  form.set("revision_number", "0");
+  form.set("file", file);
+
+  const res = await fetch("/api/document-revisions", { method: "POST", body: form });
+  if (!res.ok) throw new Error(await readError(res));
+}

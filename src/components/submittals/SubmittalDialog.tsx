@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { toast } from "sonner";
 
+import { FileField, scalarEntries } from "@/components/shared/FileField";
 import { Field, NativeSelect } from "@/components/shared/FormField";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { createInitialRevision } from "@/hooks/useRevisions";
 import { fieldErrorsFromZod, type FieldErrors } from "@/lib/validation/auth";
 import { submittalSchema } from "@/lib/validation/submittal";
 import { SUBMITTAL_DISPOSITION, SUBMITTAL_TYPE, type Submittal } from "@/types";
@@ -40,7 +43,9 @@ export function SubmittalDialog({
     event.preventDefault();
     setErrors({});
 
-    const raw = Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>;
+    const form = new FormData(event.currentTarget);
+    const initialFile = form.get("file");
+    const raw = scalarEntries(form);
     const parsed = (editing ? submittalSchema.partial() : submittalSchema).safeParse(raw);
     if (!parsed.success) {
       setErrors(fieldErrorsFromZod(parsed.error));
@@ -51,7 +56,18 @@ export function SubmittalDialog({
     // row back and raises a toast.
     onOpenChange(false);
     if (editing && submittal) update.mutate({ id: submittal.id, input: parsed.data });
-    else create.mutate(parsed.data);
+    else
+      create.mutate(parsed.data, {
+        onSuccess: (record) => {
+          // The parent exists now, so the revision has something to hang off.
+          if (!(initialFile instanceof File) || initialFile.size === 0) return;
+          void createInitialRevision("submittal", record.id, initialFile).catch(() =>
+            toast.error(
+              "Saved, but the file did not upload. Add it from History on the row.",
+            ),
+          );
+        },
+      });
   }
 
   return (
@@ -104,6 +120,19 @@ export function SubmittalDialog({
               <Input id="revision" name="revision" defaultValue={submittal?.revision ?? ""} disabled={pending} />
             </Field>
           </div>
+
+          {/* Create only. On edit the document belongs to a revision, so
+              History is the honest place to manage it — an attach box here
+              would imply it replaces the current revision, which it must not. */}
+          {editing ? null : (
+            <FileField
+              collection="document_revisions"
+              field="file"
+              label="Shop drawing / product data (PDF)"
+              disabled={pending}
+              hint="Attached as Rev 0. Later revisions go through History on the row."
+            />
+          )}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
