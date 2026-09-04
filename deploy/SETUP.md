@@ -247,13 +247,28 @@ sudo -u pocketpm npm run build
 Then confirm the app starts and binds to loopback:
 
 ```bash
-sudo -u pocketpm npm start -- --hostname 127.0.0.1 --port 3001 &
-sleep 5
-curl -I http://127.0.0.1:3001/     # expect HTTP/1.1 200 OK
+sudo -H -u pocketpm npm start -- --hostname 127.0.0.1 --port 3001 > /tmp/smoke.log 2>&1 &
+sleep 8
+curl -s -o /dev/null -w "/      -> %{http_code} -> %{redirect_url}\n" http://127.0.0.1:3001/
+curl -s -o /dev/null -w "/login -> %{http_code}\n" http://127.0.0.1:3001/login
+ss -tlnp | grep 3001
 kill %1
 ```
 
-Do not continue until that returns 200.
+Expect **`/ -> 307 -> .../login`**, not 200. An earlier version of this document
+said to expect 200; `/` now redirects to `/dashboard`, which redirects to
+`/login` when signed out. `/login` is the one that returns 200.
+
+`ss` must show the socket on **`127.0.0.1:3001`**. If it shows `0.0.0.0:3001`
+the app is reachable from the internet directly, bypassing Caddy — stop and fix
+that before going further. (The second column in `ss` output is the *peer*
+address; `0.0.0.0:*` there is normal and means "accept from any client".)
+
+The `-H` on `sudo` matters: without it `HOME` can stay `/root`, and npm then
+tries to write its cache into root's home as an unprivileged user, failing
+partway through with a confusing `EACCES`.
+
+Do not continue until `/login` returns 200 and the socket is on loopback.
 
 ---
 
@@ -319,27 +334,30 @@ always authoritative — the copy in this repo was taken at a point in time and
 may be stale. Edit `/opt/pocketpm-web/deploy/Caddyfile` to match your live one
 before continuing.
 
-Once the diff is limited to the app block:
+Once the diff is limited to the app block, swap it — **validating the repo copy
+first, so an invalid config never lands in `/etc/caddy` at all.** The `&&` chain
+is what enforces that ordering:
 
 ```bash
-cp /opt/pocketpm-web/deploy/Caddyfile /etc/caddy/Caddyfile
+caddy validate --config /opt/pocketpm-web/deploy/Caddyfile --adapter caddyfile && \
+  cp /opt/pocketpm-web/deploy/Caddyfile /etc/caddy/Caddyfile && \
+  systemctl reload caddy && sleep 2 && systemctl is-active caddy
 ```
+
+If validation fails, nothing is copied and the live config is untouched.
+
+`reload`, not `restart` — it is zero-downtime and preserves existing
+connections and TLS state.
 
 ---
 
-## 9. Validate and reload Caddy
+## 9. If it goes wrong
 
-Validate **before** reloading — a syntax error takes down all three sites:
-
-```bash
-caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
-```
-
-Only if that passes:
+Restore the backup taken in step 8; all three sites return in seconds:
 
 ```bash
-systemctl reload caddy
-systemctl status caddy --no-pager
+cp /etc/caddy/Caddyfile.bak.<timestamp> /etc/caddy/Caddyfile
+systemctl reload caddy && systemctl is-active caddy
 ```
 
 ---
