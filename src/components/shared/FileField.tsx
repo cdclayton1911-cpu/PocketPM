@@ -163,3 +163,37 @@ export function formHasFiles(form: FormData): boolean {
   }
   return false;
 }
+
+/** Scalar entries only — what Zod should see. Files are handled separately. */
+export function scalarEntries(form: FormData): Record<string, string> {
+  return Object.fromEntries(
+    [...form.entries()].filter(
+      ([key, value]) => typeof value === "string" && !key.endsWith("-"),
+    ),
+  ) as Record<string, string>;
+}
+
+/**
+ * The payload for a mutation: validated fields, plus files when there are any.
+ *
+ * Shared by every dialog with an attachment field so the rule stays in one
+ * place — send JSON unless a file is being added or removed, and always build
+ * the multipart body from the *validated* data rather than the raw form, since
+ * Zod applies trimming, coercion, and defaults that the raw fields would lose.
+ */
+export function buildPayload(
+  form: FormData,
+  validated: Record<string, unknown>,
+): FormData | Record<string, unknown> {
+  if (!formHasFiles(form)) return validated;
+
+  const payload = new FormData();
+  for (const [key, value] of Object.entries(validated)) {
+    if (value !== undefined && value !== null) payload.append(key, String(value));
+  }
+  for (const [key, value] of form.entries()) {
+    if (value instanceof File && value.size > 0) payload.append(key, value);
+    else if (key.endsWith("-") && typeof value === "string" && value) payload.append(key, value);
+  }
+  return payload;
+}

@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 
+import { buildPayload, FileField, scalarEntries } from "@/components/shared/FileField";
 import { Field, NativeSelect } from "@/components/shared/FormField";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,15 +46,18 @@ export function OshaDialog({
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrors({});
-    const raw = Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>;
+    const form = new FormData(event.currentTarget);
+    const raw = scalarEntries(form);
     const parsed = (editing ? safetyObservationSchema.partial() : safetyObservationSchema).safeParse(raw);
     if (!parsed.success) {
       setErrors(fieldErrorsFromZod(parsed.error));
       return;
     }
+    const input = buildPayload(form, parsed.data);
+
     onOpenChange(false);
-    if (editing && observation) update.mutate({ id: observation.id, input: parsed.data });
-    else create.mutate(parsed.data);
+    if (editing && observation) update.mutate({ id: observation.id, input });
+    else create.mutate(input);
   }
 
   // Defaults to today: an observation is nearly always logged the day it is seen.
@@ -113,6 +117,16 @@ export function OshaDialog({
           <Field id="corrective_action" label="Corrective action" error={errors.corrective_action}>
             <Textarea id="corrective_action" name="corrective_action" rows={3} defaultValue={observation?.corrective_action ?? ""} disabled={pending} />
           </Field>
+
+          <FileField
+            collection="safety_observations"
+            field="photos"
+            label="Photos"
+            existing={observation?.photos ?? []}
+            recordId={observation?.id}
+            disabled={pending}
+            hint="Photograph the hazard or the corrected condition."
+          />
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>

@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 
+import { buildPayload, FileField, scalarEntries } from "@/components/shared/FileField";
 import { Field, NativeSelect } from "@/components/shared/FormField";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,15 +41,18 @@ export function PunchListDialog({
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrors({});
-    const raw = Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>;
+    const form = new FormData(event.currentTarget);
+    const raw = scalarEntries(form);
     const parsed = (editing ? punchListSchema.partial() : punchListSchema).safeParse(raw);
     if (!parsed.success) {
       setErrors(fieldErrorsFromZod(parsed.error));
       return;
     }
+    const input = buildPayload(form, parsed.data);
+
     onOpenChange(false);
-    if (editing && item) update.mutate({ id: item.id, input: parsed.data });
-    else create.mutate(parsed.data);
+    if (editing && item) update.mutate({ id: item.id, input });
+    else create.mutate(input);
   }
 
   return (
@@ -101,6 +105,16 @@ export function PunchListDialog({
           <Field id="notes" label="Notes" error={errors.notes}>
             <Textarea id="notes" name="notes" rows={3} defaultValue={item?.notes ?? ""} disabled={pending} />
           </Field>
+
+          <FileField
+            collection="punch_list"
+            field="photos"
+            label="Photos"
+            existing={item?.photos ?? []}
+            recordId={item?.id}
+            disabled={pending}
+            hint="Photograph the condition. A punch item argued from memory is an argument you lose."
+          />
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>

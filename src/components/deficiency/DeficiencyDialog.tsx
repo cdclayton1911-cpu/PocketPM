@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 
+import { buildPayload, FileField, scalarEntries } from "@/components/shared/FileField";
 import { Field, NativeSelect } from "@/components/shared/FormField";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,15 +41,18 @@ export function DeficiencyDialog({
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrors({});
-    const raw = Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>;
+    const form = new FormData(event.currentTarget);
+    const raw = scalarEntries(form);
     const parsed = (editing ? deficiencySchema.partial() : deficiencySchema).safeParse(raw);
     if (!parsed.success) {
       setErrors(fieldErrorsFromZod(parsed.error));
       return;
     }
+    const input = buildPayload(form, parsed.data);
+
     onOpenChange(false);
-    if (editing && deficiency) update.mutate({ id: deficiency.id, input: parsed.data });
-    else create.mutate(parsed.data);
+    if (editing && deficiency) update.mutate({ id: deficiency.id, input });
+    else create.mutate(input);
   }
 
   return (
@@ -121,6 +125,16 @@ export function DeficiencyDialog({
               </Field>
             </>
           ) : null}
+
+          <FileField
+            collection="deficiencies"
+            field="photos"
+            label="Photos"
+            existing={deficiency?.photos ?? []}
+            recordId={deficiency?.id}
+            disabled={pending}
+            hint="Photograph the deficiency and, once corrected, the correction."
+          />
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>

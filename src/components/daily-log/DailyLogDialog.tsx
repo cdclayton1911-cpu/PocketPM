@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 
+import { buildPayload, FileField, scalarEntries } from "@/components/shared/FileField";
 import { dropEmptyNumbers, Field } from "@/components/shared/FormField";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,8 +53,8 @@ export function DailyLogDialog({
     event.preventDefault();
     setErrors({});
 
-    const raw = dropEmptyNumbers(
-      Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>,
+    const form = new FormData(event.currentTarget);
+    const raw = dropEmptyNumbers(scalarEntries(form),
       NUMERIC_FIELDS,
     );
     const parsed = (editing ? dailyLogSchema.partial() : dailyLogSchema).safeParse(raw);
@@ -62,9 +63,11 @@ export function DailyLogDialog({
       return;
     }
 
+    const input = buildPayload(form, parsed.data);
+
     onOpenChange(false);
-    if (editing && log) update.mutate({ id: log.id, input: parsed.data });
-    else create.mutate(parsed.data);
+    if (editing && log) update.mutate({ id: log.id, input });
+    else create.mutate(input);
   }
 
   return (
@@ -226,6 +229,16 @@ export function DailyLogDialog({
               />
             </Field>
           </div>
+
+          <FileField
+            collection="daily_logs"
+            field="attachments"
+            label="Attachments"
+            existing={log?.attachments ?? []}
+            recordId={log?.id}
+            disabled={pending}
+            hint="Photos, delivery tickets, inspection slips — whatever supports the day's record."
+          />
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>

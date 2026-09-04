@@ -1,6 +1,6 @@
 "use client";
 
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, Paperclip } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { CollectionView } from "@/components/shared/CollectionView";
@@ -163,6 +163,19 @@ export function DailyLogClient({
           <StatusBadge tone="success">{log.signed_by}</StatusBadge>
         ) : (
           <StatusBadge tone="neutral">Unsigned</StatusBadge>
+        ),
+    },
+    {
+      key: "files",
+      header: "Files",
+      cell: (r) =>
+        r.attachments?.length ? (
+          <span className="inline-flex items-center gap-1 text-muted-foreground">
+            <Paperclip className="size-3" aria-hidden />
+            {r.attachments.length}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
         ),
     },
     {

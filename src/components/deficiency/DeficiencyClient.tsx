@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Paperclip } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { CollectionView } from "@/components/shared/CollectionView";
@@ -137,6 +137,19 @@ export function DeficiencyClient({
       key: "status",
       header: "Status",
       cell: (r) => <StatusBadge tone={STATUS_TONE[r.status] ?? "neutral"}>{humanizeStatus(r.status)}</StatusBadge>,
+    },
+    {
+      key: "files",
+      header: "Photos",
+      cell: (r) =>
+        r.photos?.length ? (
+          <span className="inline-flex items-center gap-1 text-muted-foreground">
+            <Paperclip className="size-3" aria-hidden />
+            {r.photos.length}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
     },
     {
       key: "actions",

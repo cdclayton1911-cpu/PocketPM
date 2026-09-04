@@ -81,6 +81,8 @@ async function mkProjectAndRecord(user, label) {
 
 const line = (s) => console.log(s);
 const results = [];
+/** Checks that could not run. Reported separately so SKIP never reads as PASS. */
+const skipped = [];
 function check(name, pass, detail) {
   results.push({ name, pass, detail });
   line(`  ${pass ? "PASS" : "FAIL"}  ${name}`);
@@ -167,10 +169,64 @@ try {
     `status ${bPatchA.status}`,
   );
 
+  /**
+   * Section 4 — the cross-table invariant.
+   *
+   * `document_revisions` will hold a revision's project alongside a pointer to
+   * its parent record. That is two tenancy claims for one row, and they can
+   * disagree: a caller can name their OWN project (so the create rule passes)
+   * while pointing `parent_id` at a record in someone else's. Nothing in a
+   * per-collection rule catches that, because each field is individually
+   * legitimate.
+   *
+   * This check exists BEFORE the collection does, deliberately. It reports SKIP
+   * rather than PASS while absent, so a green run never implies the invariant
+   * was tested — and it starts failing the moment the collection appears
+   * without the rule that enforces agreement.
+   */
+  line("\n=== 4. cross-table invariant — document_revisions ===");
+
+  const revProbe = await api("GET", "/api/collections/document_revisions/records?perPage=1", null, A.token);
+
+  if (revProbe.status === 404) {
+    line("  SKIP  document_revisions does not exist yet");
+    line("        This check must pass before that collection holds anything.");
+    skipped.push("document_revisions cross-table invariant");
+  } else {
+    // A revision naming B's parent while claiming A's project must be refused.
+    const forged = await api(
+      "POST",
+      "/api/collections/document_revisions/records",
+      {
+        project: dataA.project,
+        parent_type: "subcontractor",
+        parent_id: dataB.record,
+        revision_number: 0,
+        status: "draft",
+      },
+      A.token,
+    );
+    check(
+      "A cannot create a revision pointing at B's parent record",
+      forged.status === 400 || forged.status === 403,
+      `status ${forged.status} — a 200 here means project and parent_id are trusted independently`,
+    );
+
+    // And the ordinary axis: B must not see A's revisions at all.
+    const bRevs = await api("GET", "/api/collections/document_revisions/records?perPage=100", null, B.token);
+    const bRevProjects = (bRevs.data.items || []).map((r) => r.project);
+    check(
+      "user B's revision list contains nothing from A's project",
+      !bRevProjects.includes(dataA.project),
+      `B sees ${bRevProjects.length} revision(s)`,
+    );
+  }
+
   line("\n=== summary ===");
   const failed = results.filter((r) => !r.pass);
   if (failed.length === 0) {
     line("  all checks passed — scoping holds for both unauthenticated and cross-tenant access");
+    for (const name of skipped) line(`  SKIPPED (not tested): ${name}`);
   } else {
     line(`  ${failed.length} FAILED:`);
     for (const f of failed) line(`    - ${f.name} (${f.detail})`);
