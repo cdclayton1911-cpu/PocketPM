@@ -11,7 +11,9 @@
     "generate:types": "node scripts/generate-types.mjs",
     "verify:tenancy": "node scripts/verify-tenancy.mjs",
     "test:e2e": "playwright test",
-    "verify:schema": "node scripts/verify-schema-export.mjs"
+    "verify:schema": "node scripts/verify-schema-export.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",

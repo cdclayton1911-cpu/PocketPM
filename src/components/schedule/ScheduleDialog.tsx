@@ -104,9 +104,6 @@ export function ScheduleDialog({
             <Field id="pct_complete" label="% complete" error={errors.pct_complete}>
               <Input id="pct_complete" name="pct_complete" type="number" min={0} max={100} defaultValue={item?.pct_complete || ""} disabled={pending} />
             </Field>
-            <Field id="predecessors" label="Predecessors" error={errors.predecessors}>
-              <Input id="predecessors" name="predecessors" placeholder="A1010" defaultValue={item?.predecessors ?? ""} disabled={pending} />
-            </Field>
           </div>
 
           <div className="flex items-center gap-2">

@@ -26,7 +26,6 @@ export const scheduleItemSchema = z.object({
   status: z.enum(SCHEDULE_ITEM_STATUS).optional(),
   // Checkbox: absent when unchecked, "on" when checked.
   is_milestone: z.preprocess((v) => v === "on" || v === true || v === "true", z.boolean()).optional(),
-  predecessors: z.string().trim().max(200).optional().default(""),
   notes: z.string().trim().max(5000).optional().default(""),
   sort_order: optionalNumber(0),
 });

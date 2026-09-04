@@ -39,6 +39,7 @@ const MODEL_NAMES = {
   change_orders: "ChangeOrder",
   pay_applications: "PayApplication",
   schedule_items: "ScheduleItem",
+  schedule_relationships: "ScheduleRelationship",
   dfow: "Dfow",
   deficiencies: "Deficiency",
   daily_logs: "DailyLog",

@@ -2953,21 +2953,6 @@
                 "autogeneratePattern": "",
                 "help": "",
                 "hidden": false,
-                "id": "r8jj5ok0",
-                "max": 0,
-                "min": 0,
-                "name": "predecessors",
-                "pattern": "",
-                "presentable": false,
-                "primaryKey": false,
-                "required": false,
-                "system": false,
-                "type": "text"
-            },
-            {
-                "autogeneratePattern": "",
-                "help": "",
-                "hidden": false,
                 "id": "aszcntyy",
                 "max": 0,
                 "min": 0,
@@ -3015,7 +3000,7 @@
         ],
         "indexes": [],
         "created": "2026-04-28 17:58:17.399Z",
-        "updated": "2026-08-28 02:22:41.438Z",
+        "updated": "2026-09-04 20:59:10.369Z",
         "system": false
     },
     {
@@ -5960,6 +5945,147 @@
         "indexes": [],
         "created": "2026-09-04 05:48:43.799Z",
         "updated": "2026-09-04 05:48:43.959Z",
+        "system": false
+    },
+    {
+        "id": "pbc_828289015",
+        "listRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+        "viewRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+        "createRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id) && predecessor.project = project && successor.project = project && predecessor != successor",
+        "updateRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id) && predecessor.project = project && successor.project = project && predecessor != successor",
+        "deleteRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+        "name": "schedule_relationships",
+        "type": "base",
+        "fields": [
+            {
+                "autogeneratePattern": "[a-z0-9]{15}",
+                "help": "",
+                "hidden": false,
+                "id": "text3208210256",
+                "max": 15,
+                "min": 15,
+                "name": "id",
+                "pattern": "^[a-z0-9]+$",
+                "presentable": false,
+                "primaryKey": true,
+                "required": true,
+                "system": true,
+                "type": "text"
+            },
+            {
+                "cascadeDelete": true,
+                "collectionId": "ui9hu4jeh0s5dq4",
+                "help": "",
+                "hidden": false,
+                "id": "relation800313582",
+                "maxSelect": 1,
+                "minSelect": 0,
+                "name": "project",
+                "presentable": false,
+                "required": true,
+                "system": false,
+                "type": "relation"
+            },
+            {
+                "cascadeDelete": true,
+                "collectionId": "mg3up5z2gnu8ree",
+                "help": "",
+                "hidden": false,
+                "id": "relation1344504984",
+                "maxSelect": 1,
+                "minSelect": 0,
+                "name": "predecessor",
+                "presentable": false,
+                "required": true,
+                "system": false,
+                "type": "relation"
+            },
+            {
+                "cascadeDelete": true,
+                "collectionId": "mg3up5z2gnu8ree",
+                "help": "",
+                "hidden": false,
+                "id": "relation3710392824",
+                "maxSelect": 1,
+                "minSelect": 0,
+                "name": "successor",
+                "presentable": false,
+                "required": true,
+                "system": false,
+                "type": "relation"
+            },
+            {
+                "help": "",
+                "hidden": false,
+                "id": "select2363381545",
+                "maxSelect": 1,
+                "name": "type",
+                "presentable": false,
+                "required": false,
+                "system": false,
+                "type": "select",
+                "values": [
+                    "FS",
+                    "SS",
+                    "FF",
+                    "SF"
+                ]
+            },
+            {
+                "help": "",
+                "hidden": false,
+                "id": "number2864015694",
+                "max": null,
+                "min": null,
+                "name": "lag_days",
+                "onlyInt": true,
+                "presentable": false,
+                "required": false,
+                "system": false,
+                "type": "number"
+            },
+            {
+                "autogeneratePattern": "",
+                "help": "",
+                "hidden": false,
+                "id": "text18589324",
+                "max": 500,
+                "min": 0,
+                "name": "notes",
+                "pattern": "",
+                "presentable": false,
+                "primaryKey": false,
+                "required": false,
+                "system": false,
+                "type": "text"
+            },
+            {
+                "hidden": false,
+                "id": "autodate2990389176",
+                "name": "created",
+                "onCreate": true,
+                "onUpdate": false,
+                "presentable": false,
+                "system": false,
+                "type": "autodate"
+            },
+            {
+                "hidden": false,
+                "id": "autodate3332085495",
+                "name": "updated",
+                "onCreate": true,
+                "onUpdate": true,
+                "presentable": false,
+                "system": false,
+                "type": "autodate"
+            }
+        ],
+        "indexes": [
+            "CREATE UNIQUE INDEX idx_schedrel_pair ON schedule_relationships (predecessor, successor)",
+            "CREATE INDEX idx_schedrel_project ON schedule_relationships (project)"
+        ],
+        "created": "2026-09-04 20:59:10.187Z",
+        "updated": "2026-09-04 20:59:10.187Z",
         "system": false
     }
 ]

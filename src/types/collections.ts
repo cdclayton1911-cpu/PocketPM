@@ -1,7 +1,7 @@
 // GENERATED — do not edit by hand.
 // Source: docs/pb_schema.json  ·  Regenerate: npm run generate:types
 //
-// 21 application collections. The architecture PDF lists 21 and names
+// 22 application collections. The architecture PDF lists 21 and names
 // closeout_items and contract_notices; neither exists on the deployed instance.
 // See docs/schema-notes.md.
 //
@@ -45,6 +45,7 @@ import type {
   SafetyObservationStatus,
   SafetyObservationType,
   ScheduleItemStatus,
+  ScheduleRelationshipType,
   SubcontractorA401Status,
   SubcontractorStatus,
   SubmittalDisposition,
@@ -432,9 +433,23 @@ export interface ScheduleItem extends BaseRecord {
   pct_complete: number; // 0..100
   status: ScheduleItemStatus;
   is_milestone: boolean;
-  predecessors: string;
   notes: string;
   sort_order: number;
+}
+
+/**
+ * `schedule_relationships`
+ * Required on create: project, predecessor, successor
+ *
+ * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
+ */
+export interface ScheduleRelationship extends BaseRecord {
+  project: RelationId; // required, -> projects, cascade delete
+  predecessor: RelationId; // required, -> schedule_items, cascade delete
+  successor: RelationId; // required, -> schedule_items, cascade delete
+  type: ScheduleRelationshipType;
+  lag_days: number;
+  notes: string;
 }
 
 /**
@@ -544,6 +559,7 @@ export interface Collections {
   rfis: Rfi;
   safety_observations: SafetyObservation;
   schedule_items: ScheduleItem;
+  schedule_relationships: ScheduleRelationship;
   subcontractors: Subcontractor;
   submittals: Submittal;
   tasks: Task;

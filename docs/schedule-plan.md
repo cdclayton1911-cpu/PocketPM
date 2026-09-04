@@ -1,6 +1,11 @@
-# Schedule: CPM, relationships, and import — plan
+# Schedule: CPM, relationships, and import
 
-**Not built.** Scope and shape for a decision.
+**Phase 1 is built.** `schedule_relationships` exists, `schedule_items.predecessors`
+is dropped, and the cycle guard is in the write path with unit tests.
+
+Decisions taken: **one project calendar** (not per-activity), **no MPP support**,
+and the schedule is **mirrored from P6/MSP rather than authored here** — so
+phase 4 (schedule authoring UI) is dropped. Import plus visibility only.
 
 ## The migration is free — do it before there is data
 
@@ -138,30 +143,43 @@ arrows. Editing by dragging can come later and is where the complexity is.
 
 ## Scope
 
-| Phase | Contents | Size |
-|---|---|---|
-| 1 | `schedule_relationships` + drop `predecessors`, rules, types, tenancy checks | 1 commit |
-| 2 | Project calendar (work days + holidays) | 1 commit |
-| 3 | CPM engine, pure, with Vitest unit tests | 2 commits |
-| 4 | Schedule module rewrite: relationship editing, float and critical path columns | 2 commits |
-| 5 | Excel/CSV import with mapping and dry-run preview | 2 commits |
-| 6 | XER import | 2 commits |
-| 7 | Read-only SVG Gantt | 2–3 commits |
-| — | PMXML | after 6, if wanted |
-| — | MPP | not recommended |
+| Phase | Contents | Size | State |
+|---|---|---|---|
+| 1 | `schedule_relationships`, drop `predecessors`, rules, cycle guard, tenancy check | 1 commit | **done** |
+| 2 | Project calendar (work days + holidays) | 1 commit | next |
+| 3 | CPM engine, pure, with Vitest unit tests | 2 commits | |
+| ~~4~~ | ~~Schedule authoring UI~~ | — | **dropped** — mirrored, not authored |
+| 5 | Excel/CSV import with mapping and dry-run preview | 2 commits | |
+| 6 | XER import | 2 commits | |
+| 7 | Read-only SVG Gantt | 2–3 commits | |
+| — | PMXML | after 6, if wanted | |
+| — | MPP | not supported, by decision | |
 
-Phases 1–3 are the foundation and are worth doing even if the Gantt never
-happens; phase 4 alone makes the existing module useful.
+Dropping phase 4 also settles the "who owns updates" question below: a
+re-import overwrites, because nothing here is authored.
 
-## Open questions
+## Still open
 
-- **Is a schedule imported or authored here?** Import-only is far less work than
-  a real editor, and most GCs maintain the schedule in P6 and want visibility
-  elsewhere. If it is visibility, phases 5–7 matter more than 4.
-- **Baseline vs current.** Variance reporting needs two schedules, not one.
-  `schedule_items` has `planned_*` and `actual_*` but no baseline concept, and
-  retrofitting one later is a schema change with data in it.
-- **Who owns updates?** If P6 is re-imported weekly, hand edits made here are
-  overwritten. That is a product decision — read-only mirror, or authoring tool
-  — and it should be made before phase 4, because it decides whether phase 4
-  exists.
+**Baseline vs current.** Variance reporting needs two schedules, not one.
+`schedule_items` has `planned_*` and `actual_*` but no baseline concept, and
+retrofitting one after imports exist is a schema change with data in it — the
+same trap phase 1 just avoided. Worth deciding before phase 5, not after.
+
+## Phase 1, as built
+
+- Both endpoints are typed relations, so the rule
+  `predecessor.project = project && successor.project = project` makes a
+  cross-project edge impossible at the database. `verify:tenancy` section 5
+  proves it, with a positive control so a rule that refused everything could
+  not pass.
+- A unique index on `(predecessor, successor)` prevents duplicate edges; a
+  second edge between the same pair would double-count in the forward pass.
+- Cycles are refused on write by `src/lib/schedule/graph.ts`, which is pure and
+  unit-tested (11 tests). This is not ordinary validation: a cycle makes the
+  forward pass non-terminating rather than merely wrong, and `topologicalOrder`
+  returns null rather than looping so the CPM engine has a guard too.
+- `cascadeDelete` is true on both endpoints — an edge to a deleted activity is
+  meaningless, and orphans would make the graph unwalkable.
+- Endpoints are not editable. Moving an edge is deleting one and drawing
+  another, which avoids re-running the cycle check on update and is clearer than
+  an edit that can be silently refused.

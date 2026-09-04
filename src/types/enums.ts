@@ -259,6 +259,15 @@ export const SCHEDULE_ITEM_STATUS = [
 ] as const;
 export type ScheduleItemStatus = (typeof SCHEDULE_ITEM_STATUS)[number];
 
+/** `schedule_relationships.type` */
+export const SCHEDULE_RELATIONSHIP_TYPE = [
+  "FS",
+  "SS",
+  "FF",
+  "SF",
+] as const;
+export type ScheduleRelationshipType = (typeof SCHEDULE_RELATIONSHIP_TYPE)[number];
+
 /** `subcontractors.status` */
 export const SUBCONTRACTOR_STATUS = [
   "qualified",

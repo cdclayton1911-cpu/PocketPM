@@ -304,6 +304,59 @@ try {
     }
   }
 
+  /**
+   * Section 5 — schedule relationships.
+   *
+   * Both endpoints are typed relations, so PocketBase can enforce that an edge
+   * never spans two projects. This proves it does, and — as elsewhere — proves
+   * the legitimate write still works, since a rule that refuses everything
+   * would pass the security assertion while breaking the feature.
+   */
+  line("\n=== 5. schedule relationships — endpoints cannot span projects ===");
+
+  const relProbe = await api("GET", "/api/collections/schedule_relationships/records?perPage=1", null, A.token);
+
+  if (relProbe.status === 404) {
+    line("  SKIP  schedule_relationships does not exist yet");
+    skipped.push("schedule_relationships cross-project endpoints");
+  } else {
+    const actA1 = await api("POST", "/api/collections/schedule_items/records",
+      { project: dataA.project, activity_id: "A-1", activity: "A one", duration_days: 5 }, A.token);
+    const actA2 = await api("POST", "/api/collections/schedule_items/records",
+      { project: dataA.project, activity_id: "A-2", activity: "A two", duration_days: 5 }, A.token);
+    const actB1 = await api("POST", "/api/collections/schedule_items/records",
+      { project: dataB.project, activity_id: "B-1", activity: "B one", duration_days: 5 }, B.token);
+    check(
+      "setup: activities created in both projects",
+      Boolean(actA1.data.id && actA2.data.id && actB1.data.id),
+      `A ${actA1.status}/${actA2.status}, B ${actB1.status}`,
+    );
+
+    const crossed = await api("POST", "/api/collections/schedule_relationships/records",
+      { project: dataA.project, predecessor: actA1.data.id, successor: actB1.data.id, type: "FS" }, A.token);
+    check(
+      "A cannot link one of A's activities to one of B's",
+      !crossed.ok,
+      `status ${crossed.status} — a 2xx means the endpoints are trusted independently of project`,
+    );
+
+    const withinA = await api("POST", "/api/collections/schedule_relationships/records",
+      { project: dataA.project, predecessor: actA1.data.id, successor: actA2.data.id, type: "FS" }, A.token);
+    check(
+      "A CAN link two of A's own activities",
+      withinA.ok,
+      `status ${withinA.status}${withinA.ok ? "" : ` — ${JSON.stringify(withinA.data).slice(0, 140)}`}`,
+    );
+
+    const bList = await api("GET", "/api/collections/schedule_relationships/records?perPage=100", null, B.token);
+    const bIds = (bList.data.items || []).map((r) => r.id);
+    check(
+      "user B's relationship list does not contain A's edge",
+      !bIds.includes(withinA.data?.id),
+      `B sees ${bIds.length} relationship(s)`,
+    );
+  }
+
   line("\n=== summary ===");
   const failed = results.filter((r) => !r.pass);
   if (failed.length === 0) {
