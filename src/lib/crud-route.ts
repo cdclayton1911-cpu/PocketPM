@@ -37,6 +37,15 @@ export interface CrudRouteOptions<K extends CollectionName> {
   /** Values merged into every create, e.g. `{ status: "pending_docs" }`. */
   createDefaults?: Record<string, unknown>;
   /**
+   * Query params that may narrow the list, e.g. ["submittal", "rfi"].
+   *
+   * An allow-list, not passthrough: only these names become filter clauses, and
+   * their values go through pb.filter() like the project id. Anything else in
+   * the query string is ignored, so a caller cannot smuggle a filter expression
+   * that widens the result past their own project.
+   */
+  filterable?: readonly string[];
+  /**
    * Field to stamp with the signed-in user's id on create, e.g. "user".
    *
    * Injected server-side alongside `project` and equally un-overridable. Some
@@ -196,6 +205,7 @@ export function createCollectionRoute<K extends CollectionName>(options: CrudRou
     defaultSort = "-created",
     createDefaults,
     ownerField,
+    filterable = [],
   } = options;
 
   async function GET(request: Request) {
@@ -213,10 +223,17 @@ export function createCollectionRoute<K extends CollectionName>(options: CrudRou
 
     try {
       const pb = createClient(session.token);
+
+      // The project clause is always present and always first — a narrowing
+      // filter is added to it, never substituted for it.
+      const clauses = [pb.filter("project = {:project}", { project: projectId })];
+      for (const name of filterable) {
+        const value = url.searchParams.get(name);
+        if (value) clauses.push(pb.filter(`${name} = {:value}`, { value }));
+      }
+
       const items = await pb.collection(collection).getFullList<RecordOf<K>>({
-        // pb.filter() escapes the parameter — never interpolate into a filter
-        // string directly, or a crafted project id becomes filter injection.
-        filter: pb.filter("project = {:project}", { project: projectId }),
+        filter: clauses.join(" && "),
         sort,
       });
       return NextResponse.json({ items });

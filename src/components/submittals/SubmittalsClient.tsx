@@ -1,11 +1,12 @@
 "use client";
 
-import { FileText } from "lucide-react";
+import { FileText, Layers } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { CollectionView, type FilterSpec } from "@/components/shared/CollectionView";
 import type { Column } from "@/components/shared/DataTable";
 import { humanizeStatus, StatusBadge } from "@/components/shared/StatusBadge";
+import { RevisionsDialog } from "@/components/revisions/RevisionsDialog";
 import { Button } from "@/components/ui/button";
 import { createCollectionHooks } from "@/hooks/createCollectionHooks";
 import { EXPIRY_CLASS, expiryUrgency } from "@/lib/registry-format";
@@ -55,6 +56,7 @@ export function SubmittalsClient({
   const data = useMemo(() => query.data ?? [], [query.data]);
   const [filter, setFilter] = useState<Filter>("open");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [revisionsFor, setRevisionsFor] = useState<{ id: string; label: string } | null>(null);
   const [editTarget, setEditTarget] = useState<Submittal | null>(null);
 
   const rows = useMemo(() => {
@@ -113,6 +115,20 @@ export function SubmittalsClient({
       ),
     },
     {
+      key: "revisions",
+      header: "Revisions",
+      cell: (r) => (
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs"
+          onClick={() => setRevisionsFor({ id: r.id, label: r.submittal_number })}
+        >
+          <Layers className="size-3.5" aria-hidden /> History
+        </Button>
+      ),
+    },
+    {
       key: "actions",
       header: "",
       align: "right",
@@ -158,6 +174,15 @@ export function SubmittalsClient({
         onOpenChange={setDialogOpen}
         submittal={editTarget}
       />
+      {revisionsFor ? (
+        <RevisionsDialog
+          parentType="submittal"
+          parentId={revisionsFor.id}
+          parentLabel={revisionsFor.label}
+          open
+          onOpenChange={(open) => !open && setRevisionsFor(null)}
+        />
+      ) : null}
     </CollectionView>
   );
 }

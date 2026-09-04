@@ -1,7 +1,9 @@
 # Document revisions
 
-The `document_revisions` collection exists (`scripts/create-document-revisions.mjs`).
-No submittal or RFI UI is built on it yet.
+The `document_revisions` collection exists
+(`scripts/create-document-revisions.mjs`), and submittals and RFIs both have a
+revision history UI (`components/revisions/RevisionsDialog.tsx`, reached from a
+**History** button on each row).
 
 The problem: a submittal goes Rev 0 → rejected → Rev 1 → approved, each revision
 its own stamped document with its own review cycle. PocketBase file fields do
@@ -131,3 +133,70 @@ When ingestion is built, each chunk should carry at least: `project`,
 project first, then defaulting to current and non-superseded.
 
 Ingestion is downstream of this model, not a parallel track.
+
+
+## The UI
+
+One dialog serves both parents — a submittal revision and an RFI revision differ
+only in which relation is set. It lists the history oldest-first (Rev 0, Rev 1,
+Rev 2), each row showing status, whether it is current, the stamped PDF, issue
+and review dates, and the actions that are legal in that state.
+
+Every rule the buttons imply is enforced by PocketBase. A disabled button is a
+courtesy; the boundary is the rule.
+
+### Issuing is two ordered writes
+
+The partial unique index permits at most one `is_current` revision per parent,
+so the outgoing revision must be stood down **before** the incoming one is
+raised. Verified — the naive order is refused:
+
+```
+PATCH rev1 {status: submitted, is_current: true}   -> 400 "Value must be unique."
+PATCH rev0 {is_current: false, status: superseded} -> 200
+PATCH rev1 {status: submitted, is_current: true}   -> 200
+```
+
+`useIssueRevision` does both writes in that order. The outgoing revision becomes
+`superseded`, never deleted.
+
+### No optimistic update
+
+Deliberately unlike every other module in this app. The transitions are
+multi-step and rule-enforced, and a revision the server refuses to freeze would
+appear frozen for a moment — precisely the wrong thing to imply about a document
+that is evidence. The dialog refetches instead.
+
+### A silent no-op, found and fixed
+
+`revisionUpdateSchema` originally used a plain `z.object`. Zod strips unknown
+keys by default, so a `PATCH {revision_number: 99}` on an issued revision
+returned **200** with the field quietly dropped. The stored data was never at
+risk — the value stayed `0`, and PocketBase's rule would have refused it anyway
+— but the caller was told the write succeeded when nothing had happened.
+
+On a record whose entire purpose is to be evidence, "OK" must not mean
+"ignored". The schema is now `z.strictObject`, so the attempt is refused loudly:
+
+```
+PATCH {revision_number: 99}  -> 400  Unrecognized key: "revision_number"
+PATCH {status: "approved"}   -> 200
+```
+
+## Verified end to end
+
+A full cycle against the live instance, through the app's own routes:
+
+```
+Rev 0 draft, stamped PDF attached      file stored
+Rev 0 issued                           submitted, current, issued 2026-09-04
+Rev 0 rejected                         rejected
+Rev 1 draft, stamped PDF attached      file stored
+Rev 1 raised without standing 0 down   400 "Value must be unique."
+Rev 0 stood down, Rev 1 raised         Rev 0 superseded, Rev 1 current
+Rev 0's PDF after supersession         200, still retrievable
+```
+
+That last line is decision 3 working: the superseded revision and its document
+remain queryable and downloadable, because that is what a delay claim is argued
+from.
