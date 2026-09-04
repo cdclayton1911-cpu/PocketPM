@@ -71,7 +71,7 @@ export interface AiSession extends BaseRecord {
  * `aia_notices`
  * Required on create: project, notice_type
  *
- * listRule: @request.auth.id != ""
+ * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
  */
 export interface AiaNotice extends BaseRecord {
   project: RelationId; // required, -> projects, cascade delete
@@ -93,7 +93,7 @@ export interface AiaNotice extends BaseRecord {
  * `budget_items`
  * Required on create: project, csi_division, description
  *
- * listRule: @request.auth.id != ""
+ * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
  */
 export interface BudgetItem extends BaseRecord {
   project: RelationId; // required, -> projects, cascade delete
@@ -111,7 +111,7 @@ export interface BudgetItem extends BaseRecord {
  * `change_orders`
  * Required on create: project, co_number, description
  *
- * listRule: @request.auth.id != ""
+ * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
  */
 export interface ChangeOrder extends BaseRecord {
   project: RelationId; // required, -> projects, cascade delete
@@ -136,7 +136,7 @@ export interface ChangeOrder extends BaseRecord {
  * `daily_logs`
  * Required on create: project, log_date
  *
- * listRule: @request.auth.id != ""
+ * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
  */
 export interface DailyLog extends BaseRecord {
   project: RelationId; // required, -> projects, cascade delete
@@ -162,7 +162,7 @@ export interface DailyLog extends BaseRecord {
  * `deficiencies`
  * Required on create: project, description
  *
- * listRule: @request.auth.id != ""
+ * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
  */
 export interface Deficiency extends BaseRecord {
   project: RelationId; // required, -> projects, cascade delete
@@ -188,7 +188,7 @@ export interface Deficiency extends BaseRecord {
  * `dfow`
  * Required on create: project, dfow_number, name
  *
- * listRule: @request.auth.id != ""
+ * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
  */
 export interface Dfow extends BaseRecord {
   project: RelationId; // required, -> projects, cascade delete
@@ -209,7 +209,7 @@ export interface Dfow extends BaseRecord {
  * `drawings`
  * Required on create: project, sheet_number, title
  *
- * listRule: @request.auth.id != ""
+ * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
  */
 export interface Drawing extends BaseRecord {
   project: RelationId; // required, -> projects, cascade delete
@@ -227,7 +227,7 @@ export interface Drawing extends BaseRecord {
  * `invitations`
  * Required on create: project, email, token
  *
- * listRule: @request.auth.id != ""
+ * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
  */
 export interface Invitation extends BaseRecord {
   project: RelationId; // required, -> projects, cascade delete
@@ -243,7 +243,7 @@ export interface Invitation extends BaseRecord {
  * `pay_applications`
  * Required on create: project, app_number
  *
- * listRule: @request.auth.id != ""
+ * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
  */
 export interface PayApplication extends BaseRecord {
   project: RelationId; // required, -> projects, cascade delete
@@ -296,7 +296,7 @@ export interface Project extends BaseRecord {
  * `punch_list`
  * Required on create: project, description
  *
- * listRule: @request.auth.id != ""
+ * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
  */
 export interface PunchListItem extends BaseRecord {
   project: RelationId; // required, -> projects, cascade delete
@@ -318,7 +318,7 @@ export interface PunchListItem extends BaseRecord {
  * `rfis`
  * Required on create: project, rfi_number, subject, question
  *
- * listRule: @request.auth.id != ""
+ * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
  */
 export interface Rfi extends BaseRecord {
   project: RelationId; // required, -> projects, cascade delete
@@ -348,7 +348,7 @@ export interface Rfi extends BaseRecord {
  * `safety_observations`
  * Required on create: project, obs_date, description
  *
- * listRule: @request.auth.id != ""
+ * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
  */
 export interface SafetyObservation extends BaseRecord {
   project: RelationId; // required, -> projects, cascade delete
@@ -370,7 +370,7 @@ export interface SafetyObservation extends BaseRecord {
  * `schedule_items`
  * Required on create: project, activity
  *
- * listRule: @request.auth.id != ""
+ * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
  */
 export interface ScheduleItem extends BaseRecord {
   project: RelationId; // required, -> projects, cascade delete
@@ -394,7 +394,7 @@ export interface ScheduleItem extends BaseRecord {
  * `subcontractors`
  * Required on create: project, company_name, trade
  *
- * listRule: @request.auth.id != ""
+ * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
  */
 export interface Subcontractor extends BaseRecord {
   project: RelationId; // required, -> projects, cascade delete
@@ -422,7 +422,7 @@ export interface Subcontractor extends BaseRecord {
  * `submittals`
  * Required on create: project, submittal_number, description
  *
- * listRule: @request.auth.id != ""
+ * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
  */
 export interface Submittal extends BaseRecord {
   project: RelationId; // required, -> projects, cascade delete

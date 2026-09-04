@@ -8,6 +8,7 @@ import type { Column } from "@/components/shared/DataTable";
 import { humanizeStatus, StatusBadge, type BadgeTone } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { createCollectionHooks } from "@/hooks/createCollectionHooks";
+import { disciplineLabel } from "@/lib/enum-labels";
 import { cn } from "@/lib/utils";
 import type { Drawing, DrawingStatus } from "@/types";
 
@@ -73,7 +74,11 @@ export function DrawingsClient({
   const columns: Column<Drawing>[] = [
     { key: "sheet", header: "Sheet", cell: (r) => <span className="font-mono text-xs font-semibold">{r.sheet_number}</span> },
     { key: "title", header: "Title", cell: (r) => r.title },
-    { key: "discipline", header: "Discipline", cell: (r) => r.discipline || "—" },
+    {
+      key: "discipline",
+      header: "Discipline",
+      cell: (r) => (r.discipline ? disciplineLabel(r.discipline) : "—"),
+    },
     { key: "rev", header: "Rev", align: "right", cell: (r) => r.revision || "—" },
     { key: "date", header: "Rev date", cell: (r) => r.rev_date || "—" },
     {

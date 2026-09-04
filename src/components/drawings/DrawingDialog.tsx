@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { fieldErrorsFromZod, type FieldErrors } from "@/lib/validation/auth";
+import { DISCIPLINE_LABEL } from "@/lib/enum-labels";
 import { drawingSchema } from "@/lib/validation/drawing";
 import { DRAWING_DISCIPLINE, DRAWING_STATUS, type Drawing } from "@/types";
 
@@ -110,7 +111,14 @@ export function DrawingDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <Field id="discipline" label="Discipline" error={errors.discipline}>
-              <NativeSelect id="discipline" name="discipline" humanize={false} defaultValue={drawing?.discipline ?? "Architectural"} disabled={pending} options={DRAWING_DISCIPLINE} />
+              <NativeSelect
+                id="discipline"
+                name="discipline"
+                labels={DISCIPLINE_LABEL}
+                defaultValue={drawing?.discipline ?? "architectural"}
+                disabled={pending}
+                options={DRAWING_DISCIPLINE}
+              />
             </Field>
             <Field id="status" label="Status" error={errors.status}>
               <NativeSelect id="status" name="status" defaultValue={drawing?.status ?? "current"} disabled={pending} options={DRAWING_STATUS} />

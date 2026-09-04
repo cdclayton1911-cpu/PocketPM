@@ -44,10 +44,18 @@ export function Field({
 export function NativeSelect({
   options,
   humanize = true,
+  labels,
   ...props
 }: React.SelectHTMLAttributes<HTMLSelectElement> & {
   options: readonly string[];
   humanize?: boolean;
+  /**
+   * Display text per value. Takes precedence over `humanize`.
+   *
+   * Exists so a stored value stays canonical while the option reads properly —
+   * "fire_protection" is what is written, "Fire Protection" is what is shown.
+   */
+  labels?: Record<string, string>;
 }) {
   return (
     <select
@@ -56,7 +64,7 @@ export function NativeSelect({
     >
       {options.map((option) => (
         <option key={option} value={option}>
-          {humanize ? option.replace(/_/g, " ") : option}
+          {labels?.[option] ?? (humanize ? option.replace(/_/g, " ") : option)}
         </option>
       ))}
     </select>

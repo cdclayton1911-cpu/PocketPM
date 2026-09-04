@@ -1,0 +1,112 @@
+[
+  {
+    "collection": "users",
+    "id": "_pb_users_auth_",
+    "files": [
+      {
+        "name": "avatar",
+        "protected": false
+      }
+    ]
+  },
+  {
+    "collection": "subcontractors",
+    "id": "xmf1r0zjxs5dm5w",
+    "files": [
+      {
+        "name": "documents",
+        "protected": false
+      }
+    ]
+  },
+  {
+    "collection": "rfis",
+    "id": "yweyapclmckqox9",
+    "files": [
+      {
+        "name": "attachments",
+        "protected": false
+      }
+    ]
+  },
+  {
+    "collection": "submittals",
+    "id": "f24jwxkiedtfljh",
+    "files": [
+      {
+        "name": "attachments",
+        "protected": false
+      }
+    ]
+  },
+  {
+    "collection": "punch_list",
+    "id": "lfyjpgz6y3vbbyu",
+    "files": [
+      {
+        "name": "photos",
+        "protected": false
+      }
+    ]
+  },
+  {
+    "collection": "change_orders",
+    "id": "f17h1a1wsr66d2k",
+    "files": [
+      {
+        "name": "attachments",
+        "protected": false
+      }
+    ]
+  },
+  {
+    "collection": "deficiencies",
+    "id": "43lnr0vdrssojh3",
+    "files": [
+      {
+        "name": "photos",
+        "protected": false
+      }
+    ]
+  },
+  {
+    "collection": "daily_logs",
+    "id": "xtfgjuwgmrs0h6y",
+    "files": [
+      {
+        "name": "attachments",
+        "protected": false
+      }
+    ]
+  },
+  {
+    "collection": "safety_observations",
+    "id": "9pxx40pjt8lqops",
+    "files": [
+      {
+        "name": "photos",
+        "protected": false
+      }
+    ]
+  },
+  {
+    "collection": "drawings",
+    "id": "rh7hc4vz0poc2f1",
+    "files": [
+      {
+        "name": "file",
+        "protected": false
+      }
+    ]
+  },
+  {
+    "collection": "aia_notices",
+    "id": "jz6pfx17wb787m6",
+    "files": [
+      {
+        "name": "attachments",
+        "protected": false
+      }
+    ]
+  }
+]

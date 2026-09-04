@@ -74,23 +74,52 @@ the record **as that user** so PocketBase's view rule decides visibility,
 confirms the filename is actually attached to a declared file field on that
 record, then redirects to PocketBase with a short-lived file token.
 
-### KNOWN ISSUE — every file field is `protected: false`
+### File fields are protected — an unguessable URL is a bearer credential
 
-**Verified on the deployed instance: all 11 file fields are unprotected**, which
-means PocketBase serves them to anyone holding the URL, with no session. Record
-ids are random so they are not enumerable, but a URL that leaks through a
-forwarded email, a `Referer` header, or shared browser history grants permanent
-unauthenticated access to that document. `subcontractors.documents` is specified
-to hold audited financial statements.
+All 11 file fields are now `protected: true` (`scripts/protect-files.mjs`,
+prior state backed up in `scripts/file-fields-backup-*.json`).
 
-The handler above controls who can *obtain* a link. It cannot control who can
-use one until the fields are flipped to `protected: true`, at which point
-PocketBase requires the file token the handler already sends — so the flip is a
-settings change and needs no application change.
+The reasoning is worth stating plainly, because "the id is random" reads like
+security and is not: **an unprotected PocketBase file URL is a bearer
+credential, not an authorization check.** Possession is access. Such a URL
+cannot be revoked once forwarded, carries no identity so access leaves no audit
+trail, keeps working after a subcontractor relationship ends, survives
+indefinitely in email and chat and browser history, and accumulates — every link
+ever minted stays live.
 
-**This is worth doing before any real document is uploaded.** It is not done
-here because changing the deployed schema is the operator's call, not a side
-effect of a feature commit.
+Proven before and after the flip, on the same uploaded PDF:
+
+```
+before   GET https://pb.pocketpm.fyi/api/files/<col>/<rec>/<file>   200  (bytes)
+after    GET https://pb.pocketpm.fyi/api/files/<col>/<rec>/<file>   404
+after    GET /api/files/drawings/<rec>/<file>   (signed in)         200  %PDF-1.4
+```
+
+## Token lifecycle
+
+The design keeps transient access material out of application state entirely,
+which removes the class of bug rather than handling it.
+
+**The page never holds a token.** A download link is the stable app route
+`/api/files/<collection>/<record>/<filename>`. Verified: rendering the drawings
+page yields **zero** occurrences of `token=` in the HTML. The token is minted
+server-side when the user clicks, and is consumed immediately by the redirect —
+it never reaches the client as data, so it cannot be persisted, cached, logged
+in analytics, or copied out of the DOM.
+
+This is deliberately *not* the common `{ url, expiresAt }` shape. Returning a
+signed URL to the client makes the token durable application data — the exact
+thing that is dangerous — and then requires expiry plumbing to compensate. Here
+there is nothing to expire on the client.
+
+**So the stale-page problem does not arise.** Verified: a redirect URL captured
+and retried after its token expired returns **404**, while the app link on a
+page that was never reloaded still returns **200**. A tab left open for an hour
+works, because the href it holds is not time-bound.
+
+Tokens are also **identity-bound**: the JWT payload names the requesting user's
+record, so PocketBase sees who is fetching rather than only that someone had a
+link. TTL is 120s (PocketBase default; `fileToken.duration` is unset).
 
 ## Adopted so far
 
@@ -130,3 +159,29 @@ flagged in `docs/schema-notes.md`: `users.listRule` currently lets any
 authenticated user enumerate every user across every company, and the invitation
 acceptance handler is designed but unbuilt. It changes the auth model, the data
 isolation story, and the pricing page at once, and deserves its own design pass.
+
+## Enum casing
+
+`drawings.discipline` stored `Architectural` and `Fire Protection` while every
+status enum stored lowercase. Normalised by `scripts/normalize-enums.mjs`
+(schema options, existing records, and the committed schema export), so a filter
+for `fire_protection` cannot miss a record spelled `Fire Protection`.
+
+The rule now: **stored values are canonical lowercase snake_case; capitalisation
+is presentation and lives in `src/lib/enum-labels.ts`.**
+
+Scope was narrower than it first appeared — 25 of 30 select fields were already
+canonical. Three were fixed: `drawings.discipline`, `projects.status`
+(`on hold` → `on_hold`), `tasks.status` (`in progress` → `in_progress`).
+
+**Two were deliberately left alone**, and a blanket `toLowerCase()` would have
+corrupted them:
+
+- `change_orders.type` — `PCO`, `CO`, `CCD`, `ASI` are industry acronyms
+- `projects.contract_type` — `A101`, `A102`, `A103`, `A133` are AIA form numbers
+
+`a101` is not a normalised `A101`; it is wrong. Canonical means one consistent
+representation, not lowercase for its own sake.
+
+The migration runs widen → migrate → narrow so no record is ever invalid against
+its own field, and backs up to `scripts/enum-backup-*.json` first.

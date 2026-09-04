@@ -81,15 +81,15 @@ export type DfowPhase = (typeof DFOW_PHASE)[number];
 
 /** `drawings.discipline` */
 export const DRAWING_DISCIPLINE = [
-  "Architectural",
-  "Structural",
-  "Mechanical",
-  "Electrical",
-  "Plumbing",
-  "Fire Protection",
-  "Civil",
-  "Landscape",
-  "Other",
+  "architectural",
+  "structural",
+  "mechanical",
+  "electrical",
+  "plumbing",
+  "fire_protection",
+  "civil",
+  "landscape",
+  "other",
 ] as const;
 export type DrawingDiscipline = (typeof DRAWING_DISCIPLINE)[number];
 
@@ -129,7 +129,7 @@ export const PROJECT_STATUS = [
   "closeout",
   "complete",
   "archived",
-  "on hold",
+  "on_hold",
 ] as const;
 export type ProjectStatus = (typeof PROJECT_STATUS)[number];
 
@@ -281,8 +281,8 @@ export type SubmittalDisposition = (typeof SUBMITTAL_DISPOSITION)[number];
 /** `tasks.status` */
 export const TASK_STATUS = [
   "todo",
-  "in progress",
-  "in review",
+  "in_progress",
+  "in_review",
   "done",
 ] as const;
 export type TaskStatus = (typeof TASK_STATUS)[number];

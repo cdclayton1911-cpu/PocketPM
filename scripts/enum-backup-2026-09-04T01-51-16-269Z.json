@@ -1,0 +1,45 @@
+[
+  {
+    "field": "drawings.discipline",
+    "values": [
+      "Architectural",
+      "Structural",
+      "Mechanical",
+      "Electrical",
+      "Plumbing",
+      "Fire Protection",
+      "Civil",
+      "Landscape",
+      "Other"
+    ],
+    "records": [
+      {
+        "id": "iozti2fnggwz56b",
+        "value": "Architectural"
+      }
+    ]
+  },
+  {
+    "field": "projects.status",
+    "values": [
+      "bidding",
+      "preconstruction",
+      "active",
+      "closeout",
+      "complete",
+      "archived",
+      "on hold"
+    ],
+    "records": []
+  },
+  {
+    "field": "tasks.status",
+    "values": [
+      "todo",
+      "in progress",
+      "in review",
+      "done"
+    ],
+    "records": []
+  }
+]

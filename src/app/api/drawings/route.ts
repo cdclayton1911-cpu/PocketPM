@@ -7,7 +7,7 @@ const routes = createCollectionRoute({
   updateSchema: drawingUpdateSchema,
   // A drawing register is read by sheet number.
   defaultSort: "sheet_number",
-  createDefaults: { status: "current", discipline: "Architectural" },
+  createDefaults: { status: "current", discipline: "architectural" },
 });
 
 export const GET = routes.GET;
