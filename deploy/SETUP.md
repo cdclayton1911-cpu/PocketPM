@@ -113,19 +113,33 @@ node -v    # expect v20.x.x, minimum v20.9.0
 npm -v
 ```
 
-### Verify the Express API still runs
+### Verify the Express API still runs — ONLY IF IT IS MEANT TO BE RUNNING
 
-The Express API shares this system Node. Changing it can break that service, so
-check before moving on — this is the step where a Node change would show up:
+⚠ **The `pocketpm-proxy` service was deliberately stopped and disabled** when its
+unauthenticated `/api/claude` route was retired. `https://api.pocketpm.fyi/health`
+currently returns **502**, and that is the expected, correct state.
+
+An earlier version of this document told you to roll Node back if that health
+check failed. Do **not** do that — you would revert a good Node install because
+of a service you intentionally turned off.
+
+Check which it is first:
+
+```bash
+systemctl is-enabled pocketpm-proxy; systemctl is-active pocketpm-proxy
+```
+
+- `disabled` / `inactive` → expected. Skip this whole section.
+- `enabled` / `active` → it is meant to be running, so verify it survived the
+  Node change:
 
 ```bash
 systemctl status pocketpm-proxy --no-pager
-curl -s https://api.pocketpm.fyi/health      # expect {"status":"ok",...}
 journalctl -u pocketpm-proxy -n 30 --no-pager
 ```
 
-If the API is broken by the change, roll Node back to the version you recorded
-above:
+If a running API was genuinely broken by the Node change, roll Node back to the
+version you recorded above:
 
 ```bash
 apt-cache madison nodejs | head            # list available versions
@@ -190,9 +204,30 @@ chmod 600 /etc/pocketpm-web.env
 nano /etc/pocketpm-web.env
 ```
 
-Review the values. Everything in it is a public URL — **no secrets belong in
-this file**, and the Anthropic key in particular must stay in the Express
-service's own environment.
+Review the values. **`ANTHROPIC_API_KEY` must be set here.** An earlier version
+of this document said the opposite — that the key belonged to the Express
+service — and that is now wrong: the Express `/api/claude` route was retired and
+its key revoked, and `src/lib/ai/anthropic.ts` reads the key from *this*
+process's environment. Leave it empty and all seven AI modules return
+`503 AI is not configured on this server`.
+
+The runtime reads exactly these:
+
+| Variable | Needed? |
+| --- | --- |
+| `NEXT_PUBLIC_PB_URL` | yes — PocketBase base URL |
+| `ANTHROPIC_API_KEY` | yes, or the AI modules are dead |
+| `ANTHROPIC_WORKSPACE_ID` | only for an identity-linked key |
+| `AI_RATE_LIMIT_PER_HOUR` | optional, defaults to 20 |
+| `NODE_ENV` | set to `production` |
+
+`NEXT_PUBLIC_API_URL` is vestigial — it pointed at the retired Express service
+and nothing in `src/` reads it any more.
+
+**`PB_ADMIN_EMAIL` / `PB_ADMIN_PASS` must NOT be on this box.** Nothing in `src/`
+reads them; they are used only by the maintenance scripts in `scripts/`, which
+run from a workstation. Putting PocketBase superuser credentials on the web
+server would hand full database access to anyone who compromises the app.
 
 Delete any commented explanation blocks you don't want; systemd parses this as
 literal `KEY=value` lines, so avoid quotes and trailing comments on value lines.
@@ -317,11 +352,22 @@ curl -s  https://api.pocketpm.fyi/health   # expect {"status":"ok",...}
 curl -I  https://pb.pocketpm.fyi/api/health # PocketBase — expect 200
 ```
 
-Confirm the app is genuinely the new build, not a cached copy of the prototype —
-the old one's title was `PocketPM v8`:
+Confirm you are seeing the new build rather than a cached prototype. The Next.js
+app redirects `/` to `/dashboard`, and signed out that redirects again to
+`/login` — the static prototype did neither:
 
 ```bash
-curl -s https://app.pocketpm.fyi | grep -i "<title>"
+curl -s -o /dev/null -w "%{http_code} -> %{redirect_url}\n" https://app.pocketpm.fyi/
+# expect 307 -> https://app.pocketpm.fyi/login
+```
+
+Then confirm the AI handler is configured, without spending a completion. Signed
+out it must be `401` (the auth gate), never `503`:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" -X POST https://app.pocketpm.fyi/api/ai/chat \
+  -H 'content-type: application/json' -d '{"input":{"message":"ping"}}'
+# 401 = gate working. 503 = ANTHROPIC_API_KEY is missing from /etc/pocketpm-web.env
 ```
 
 > If you use Cloudflare in front of these domains (the live responses show
