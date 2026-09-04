@@ -50,6 +50,14 @@ export const FILE_FIELDS = {
       required: false,
     },
   },
+  "document_revisions": {
+    "file": {
+      maxSelect: 1,
+      maxSize: 104857600,
+      mimeTypes: [],
+      required: false,
+    },
+  },
   "drawings": {
     "file": {
       maxSelect: 1,

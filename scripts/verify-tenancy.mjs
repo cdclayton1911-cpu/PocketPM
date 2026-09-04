@@ -185,6 +185,9 @@ try {
    * without the rule that enforces agreement.
    */
   line("\n=== 4. cross-table invariant — document_revisions ===");
+  line("    a revision carries two tenancy claims: its own project, and a parent");
+  line("    that has one. Each is individually legitimate, so no single-field");
+  line("    rule catches them disagreeing.");
 
   const revProbe = await api("GET", "/api/collections/document_revisions/records?perPage=1", null, A.token);
 
@@ -193,33 +196,112 @@ try {
     line("        This check must pass before that collection holds anything.");
     skipped.push("document_revisions cross-table invariant");
   } else {
-    // A revision naming B's parent while claiming A's project must be refused.
-    const forged = await api(
-      "POST",
-      "/api/collections/document_revisions/records",
-      {
-        project: dataA.project,
-        parent_type: "subcontractor",
-        parent_id: dataB.record,
-        revision_number: 0,
-        status: "draft",
-      },
-      A.token,
-    );
+    // A parent in each tenant's own project.
+    const subA = await api("POST", "/api/collections/submittals/records",
+      { project: dataA.project, submittal_number: "S-A-001", description: "A's submittal" }, A.token);
+    const subB = await api("POST", "/api/collections/submittals/records",
+      { project: dataB.project, submittal_number: "S-B-001", description: "B's submittal" }, B.token);
+    line(`  A submittal ${subA.data.id}  B submittal ${subB.data.id}`);
+    // Without both parents the forged-write check would "pass" on a malformed
+    // request rather than on the rule, which is a false green.
     check(
-      "A cannot create a revision pointing at B's parent record",
-      forged.status === 400 || forged.status === 403,
-      `status ${forged.status} — a 200 here means project and parent_id are trusted independently`,
+      "setup: both parent submittals were created",
+      Boolean(subA.data.id && subB.data.id),
+      `A ${subA.status}, B ${subB.status}`,
     );
 
-    // And the ordinary axis: B must not see A's revisions at all.
-    const bRevs = await api("GET", "/api/collections/document_revisions/records?perPage=100", null, B.token);
-    const bRevProjects = (bRevs.data.items || []).map((r) => r.project);
+    // THE forged write: A names A's own project (so the membership clause
+    // passes) while pointing the parent at B's submittal.
+    const forged = await api("POST", "/api/collections/document_revisions/records",
+      { project: dataA.project, submittal: subB.data.id, revision_number: 0, status: "draft" }, A.token);
     check(
-      "user B's revision list contains nothing from A's project",
-      !bRevProjects.includes(dataA.project),
-      `B sees ${bRevProjects.length} revision(s)`,
+      "A cannot create a revision whose parent belongs to B's project",
+      forged.status === 400 || forged.status === 403,
+      `status ${forged.status} — a 2xx means project and parent are trusted independently`,
     );
+
+    // A rule that denies everything would pass the check above while breaking
+    // the feature, so prove the legitimate write still works.
+    const legit = await api("POST", "/api/collections/document_revisions/records",
+      { project: dataA.project, submittal: subA.data.id, revision_number: 0, status: "draft" }, A.token);
+    check(
+      "A CAN create a revision on A's own submittal",
+      legit.status === 200 || legit.status === 201,
+      `status ${legit.status}${legit.ok ? "" : ` — ${JSON.stringify(legit.data).slice(0, 160)}`}`,
+    );
+
+    // A revision must hang off a parent at all.
+    const orphan = await api("POST", "/api/collections/document_revisions/records",
+      { project: dataA.project, revision_number: 1, status: "draft" }, A.token);
+    check(
+      "a revision with no parent is refused",
+      orphan.status === 400 || orphan.status === 403,
+      `status ${orphan.status}`,
+    );
+
+    if (legit.ok) {
+      const revId = legit.data.id;
+
+      // Immutable ON ISSUE, not on supersession: a draft is still editable.
+      const editDraft = await api("PATCH", `/api/collections/document_revisions/records/${revId}`,
+        { revision_number: 2 }, A.token);
+      check(
+        "a DRAFT revision can still be edited",
+        editDraft.ok,
+        `status ${editDraft.status}`,
+      );
+
+      const issue = await api("PATCH", `/api/collections/document_revisions/records/${revId}`,
+        { status: "submitted", issued_at: "2026-09-04" }, A.token);
+      check("a draft can be issued", issue.ok, `status ${issue.status}`);
+
+      // Once issued the evidence is frozen.
+      const tamper = await api("PATCH", `/api/collections/document_revisions/records/${revId}`,
+        { revision_number: 99 }, A.token);
+      // PocketBase answers a rule-excluded write with 404, not 403 — the same
+      // behaviour the CRUD route factory relies on. What proves the refusal is
+      // that the stored value did not move, so check that rather than the code.
+      const afterTamper = await api("GET", `/api/collections/document_revisions/records/${revId}`, null, A.token);
+      check(
+        "an ISSUED revision cannot have its revision_number changed",
+        !tamper.ok && afterTamper.data.revision_number === 2,
+        `write status ${tamper.status}; stored revision_number is still ${afterTamper.data.revision_number}`,
+      );
+
+      // But lifecycle bookkeeping continues, or nothing could be superseded.
+      const supersede = await api("PATCH", `/api/collections/document_revisions/records/${revId}`,
+        { status: "superseded", is_current: false }, A.token);
+      check(
+        "an issued revision CAN still be marked superseded",
+        supersede.ok,
+        `status ${supersede.status}`,
+      );
+
+      // Never delete a superseded revision because a newer one exists.
+      const del = await api("DELETE", `/api/collections/document_revisions/records/${revId}`, null, A.token);
+      const afterDel = await api("GET", `/api/collections/document_revisions/records/${revId}`, null, A.token);
+      check(
+        "a superseded revision cannot be deleted",
+        !del.ok && afterDel.ok,
+        `delete status ${del.status}; record still readable: ${afterDel.ok} — the history is what survives a dispute`,
+      );
+
+      // And the ordinary cross-tenant axis.
+      const bRevs = await api("GET", "/api/collections/document_revisions/records?perPage=100", null, B.token);
+      const bRevIds = (bRevs.data.items || []).map((r) => r.id);
+      check(
+        "user B's revision list does NOT contain A's revision",
+        !bRevIds.includes(revId),
+        `B sees ${bRevIds.length} revision(s)`,
+      );
+
+      const bView = await api("GET", `/api/collections/document_revisions/records/${revId}`, null, B.token);
+      check(
+        "user B cannot fetch A's revision by id",
+        bView.status === 403 || bView.status === 404,
+        `status ${bView.status}`,
+      );
+    }
   }
 
   line("\n=== summary ===");

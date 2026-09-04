@@ -1,7 +1,7 @@
 // GENERATED — do not edit by hand.
 // Source: docs/pb_schema.json  ·  Regenerate: npm run generate:types
 //
-// 19 application collections. The architecture PDF lists 21 and names
+// 20 application collections. The architecture PDF lists 21 and names
 // closeout_items and contract_notices; neither exists on the deployed instance.
 // See docs/schema-notes.md.
 //
@@ -27,6 +27,7 @@ import type {
   DeficiencySeverity,
   DeficiencyStatus,
   DfowPhase,
+  DocumentRevisionStatus,
   DrawingDiscipline,
   DrawingStatus,
   InvitationRole,
@@ -203,6 +204,29 @@ export interface Dfow extends BaseRecord {
   prep_date: string;
   init_date: string;
   complete_date: string;
+}
+
+/**
+ * `document_revisions`
+ * Required on create: project
+ *
+ * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
+ */
+export interface DocumentRevision extends BaseRecord {
+  project: RelationId; // required, -> projects, cascade delete
+  submittal: RelationId; // -> submittals
+  rfi: RelationId; // -> rfis
+  revision_number: number; // 0..*
+  status: DocumentRevisionStatus;
+  is_current: boolean;
+  file: FileName; // max 1, 100MB
+  issued_at: string;
+  issued_by: string;
+  stamped_by: string;
+  stamped_at: string;
+  review_due_at: string;
+  notes: string;
+  created_by: RelationId; // -> users
 }
 
 /**
@@ -487,6 +511,7 @@ export interface Collections {
   daily_logs: DailyLog;
   deficiencies: Deficiency;
   dfow: Dfow;
+  document_revisions: DocumentRevision;
   drawings: Drawing;
   invitations: Invitation;
   pay_applications: PayApplication;

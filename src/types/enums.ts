@@ -79,6 +79,16 @@ export const DFOW_PHASE = [
 ] as const;
 export type DfowPhase = (typeof DFOW_PHASE)[number];
 
+/** `document_revisions.status` */
+export const DOCUMENT_REVISION_STATUS = [
+  "draft",
+  "submitted",
+  "approved",
+  "rejected",
+  "superseded",
+] as const;
+export type DocumentRevisionStatus = (typeof DOCUMENT_REVISION_STATUS)[number];
+
 /** `drawings.discipline` */
 export const DRAWING_DISCIPLINE = [
   "architectural",
