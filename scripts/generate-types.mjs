@@ -48,6 +48,7 @@ const MODEL_NAMES = {
   safety_observations: "SafetyObservation",
   document_revisions: "DocumentRevision",
   project_documents: "ProjectDocument",
+  project_roles: "ProjectRole",
   drawings: "Drawing",
   aia_notices: "AiaNotice",
   budget_items: "BudgetItem",

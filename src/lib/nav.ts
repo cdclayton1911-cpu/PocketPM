@@ -25,6 +25,7 @@ import {
   ScrollText,
   Search,
   Sigma,
+  Users,
 } from "lucide-react";
 
 export interface NavItem {
@@ -58,7 +59,10 @@ export interface NavGroup {
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Overview",
-    items: [{ href: "/dashboard", label: "Dashboard", icon: LayoutGrid }],
+    items: [
+      { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
+      { href: "/team", label: "Project Team", icon: Users },
+    ],
   },
   {
     label: "Pre-Construction",

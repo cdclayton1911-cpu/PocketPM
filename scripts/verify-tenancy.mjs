@@ -416,6 +416,57 @@ try {
     );
   }
 
+  /**
+   * Section 7 — project roles.
+   *
+   * The property worth proving is a negative: **a role row grants nothing.**
+   * Recording an external architect must not let them read the project, or the
+   * distinction between "who is on this job" and "who can see this job" has
+   * collapsed and every one of the 108 membership rules is moot.
+   */
+  line("\n=== 7. project roles — recording a party grants no access ===");
+
+  const roleProbe = await api("GET", "/api/collections/project_roles/records?perPage=1", null, A.token);
+
+  if (roleProbe.status === 404) {
+    line("  SKIP  project_roles does not exist yet");
+    skipped.push("project_roles access separation");
+  } else {
+    // A records B as an outside consultant on A's project — name only, no link.
+    const external = await api("POST", "/api/collections/project_roles/records",
+      { project: dataA.project, role: "architect", contact_name: "Outside Architect", company: "AE Partners", is_external: true }, A.token);
+    check("A can record an external party by name", external.ok, `status ${external.status}`);
+
+    // And A records B's ACCOUNT in a role, which is the dangerous case: if a
+    // role row granted access, this would hand B the project.
+    const linked = await api("POST", "/api/collections/project_roles/records",
+      { project: dataA.project, role: "consultant", user: B.id }, A.token);
+    check("A can name another account in a role", linked.ok, `status ${linked.status}`);
+
+    const bProjects = await api("GET", "/api/collections/projects/records?perPage=100", null, B.token);
+    const bIds = (bProjects.data.items || []).map((r) => r.id);
+    check(
+      "being named in a role does NOT give B access to A's project",
+      !bIds.includes(dataA.project),
+      `B sees ${bIds.length} project(s) — a role is not a membership`,
+    );
+
+    const bSubs = await api("GET", "/api/collections/subcontractors/records?perPage=100", null, B.token);
+    check(
+      "nor to A's records",
+      !(bSubs.data.items || []).some((r) => r.id === dataA.record),
+      `B sees ${(bSubs.data.items || []).length} subcontractor(s)`,
+    );
+
+    const nobody = await api("POST", "/api/collections/project_roles/records",
+      { project: dataA.project, role: "engineer" }, A.token);
+    check(
+      "a role with neither a user nor a contact name is refused",
+      !nobody.ok,
+      `status ${nobody.status} — a row that names nobody cannot be routed to`,
+    );
+  }
+
   line("\n=== summary ===");
   const failed = results.filter((r) => !r.pass);
   if (failed.length === 0) {

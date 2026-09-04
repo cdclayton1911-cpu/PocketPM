@@ -1,7 +1,7 @@
 // GENERATED — do not edit by hand.
 // Source: docs/pb_schema.json  ·  Regenerate: npm run generate:types
 //
-// 24 application collections. The architecture PDF lists 21 and names
+// 25 application collections. The architecture PDF lists 21 and names
 // closeout_items and contract_notices; neither exists on the deployed instance.
 // See docs/schema-notes.md.
 //
@@ -34,6 +34,8 @@ import type {
   PayApplicationStatus,
   ProjectContractType,
   ProjectDocumentCategory,
+  ProjectRoleRole,
+  ProjectRoleStatus,
   ProjectStatus,
   PunchListItemPriority,
   PunchListItemStatus,
@@ -316,6 +318,25 @@ export interface ProjectDocument extends BaseRecord {
 }
 
 /**
+ * `project_roles`
+ * Required on create: project, role
+ *
+ * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
+ */
+export interface ProjectRole extends BaseRecord {
+  project: RelationId; // required, -> projects, cascade delete
+  user: RelationId; // -> users
+  role: ProjectRoleRole; // required
+  company: string;
+  contact_name: string;
+  contact_email: string;
+  contact_phone: string;
+  is_external: boolean;
+  status: ProjectRoleStatus;
+  notes: string;
+}
+
+/**
  * `projects`
  * Required on create: name, owner
  *
@@ -587,6 +608,7 @@ export interface Collections {
   invitations: Invitation;
   pay_applications: PayApplication;
   project_documents: ProjectDocument;
+  project_roles: ProjectRole;
   projects: Project;
   punch_list: PunchListItem;
   rfis: Rfi;

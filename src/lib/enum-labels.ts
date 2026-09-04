@@ -2,6 +2,7 @@ import {
   DRAWING_DISCIPLINE,
   type DrawingDiscipline,
   type ProjectDocumentCategory,
+  type ProjectRoleRole,
 } from "@/types";
 
 /**
@@ -59,4 +60,22 @@ export const CATEGORY_LABEL: Record<ProjectDocumentCategory, string> = {
 
 export function categoryLabel(value: string): string {
   return CATEGORY_LABEL[value as ProjectDocumentCategory] ?? value;
+}
+
+/** `project_roles.role`. */
+export const ROLE_LABEL: Record<ProjectRoleRole, string> = {
+  owner: "Owner",
+  owner_rep: "Owner's Rep",
+  architect: "Architect",
+  engineer: "Engineer",
+  project_manager: "Project Manager",
+  superintendent: "Superintendent",
+  subcontractor: "Subcontractor",
+  consultant: "Consultant",
+  inspector: "Inspector",
+  other: "Other",
+};
+
+export function roleLabel(value: string): string {
+  return ROLE_LABEL[value as ProjectRoleRole] ?? value;
 }

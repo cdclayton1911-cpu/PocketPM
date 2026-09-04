@@ -145,6 +145,28 @@ export const PROJECT_DOCUMENT_CATEGORY = [
 ] as const;
 export type ProjectDocumentCategory = (typeof PROJECT_DOCUMENT_CATEGORY)[number];
 
+/** `project_roles.role` */
+export const PROJECT_ROLE_ROLE = [
+  "owner",
+  "owner_rep",
+  "architect",
+  "engineer",
+  "project_manager",
+  "superintendent",
+  "subcontractor",
+  "consultant",
+  "inspector",
+  "other",
+] as const;
+export type ProjectRoleRole = (typeof PROJECT_ROLE_ROLE)[number];
+
+/** `project_roles.status` */
+export const PROJECT_ROLE_STATUS = [
+  "active",
+  "inactive",
+] as const;
+export type ProjectRoleStatus = (typeof PROJECT_ROLE_STATUS)[number];
+
 /** `projects.status` */
 export const PROJECT_STATUS = [
   "bidding",
