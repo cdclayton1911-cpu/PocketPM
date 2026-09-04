@@ -9,7 +9,8 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "generate:types": "node scripts/generate-types.mjs",
-    "verify:tenancy": "node scripts/verify-tenancy.mjs"
+    "verify:tenancy": "node scripts/verify-tenancy.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
