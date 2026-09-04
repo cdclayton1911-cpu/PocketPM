@@ -131,6 +131,20 @@ export const PAY_APPLICATION_STATUS = [
 ] as const;
 export type PayApplicationStatus = (typeof PAY_APPLICATION_STATUS)[number];
 
+/** `project_documents.category` */
+export const PROJECT_DOCUMENT_CATEGORY = [
+  "contract",
+  "specification",
+  "drawing_set",
+  "geotech",
+  "report",
+  "permit",
+  "insurance",
+  "submittal_package",
+  "other",
+] as const;
+export type ProjectDocumentCategory = (typeof PROJECT_DOCUMENT_CATEGORY)[number];
+
 /** `projects.status` */
 export const PROJECT_STATUS = [
   "bidding",

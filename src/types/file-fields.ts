@@ -66,6 +66,14 @@ export const FILE_FIELDS = {
       required: false,
     },
   },
+  "project_documents": {
+    "file": {
+      maxSelect: 1,
+      maxSize: 104857600,
+      mimeTypes: [],
+      required: false,
+    },
+  },
   "punch_list": {
     "photos": {
       maxSelect: 5,

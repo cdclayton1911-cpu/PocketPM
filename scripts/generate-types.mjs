@@ -44,6 +44,7 @@ const MODEL_NAMES = {
   daily_logs: "DailyLog",
   safety_observations: "SafetyObservation",
   document_revisions: "DocumentRevision",
+  project_documents: "ProjectDocument",
   drawings: "Drawing",
   aia_notices: "AiaNotice",
   budget_items: "BudgetItem",

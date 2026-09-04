@@ -1,6 +1,11 @@
-# Project documents — design proposal
+# Project documents
 
-**Not built. This is a proposal for a decision.**
+**Built.** `/project-documents`, collection `project_documents`
+(`scripts/create-project-documents.mjs`).
+
+Decisions taken: nine categories including `geotech` and `submittal_package`
+(`correspondence` dropped), and `is_current` / `superseded_by` kept — a PM
+building off a superseded spec is the expensive failure they prevent.
 
 ## The gap
 
@@ -96,11 +101,39 @@ project documents would be invisible to the Document Finder. Two options:
 Recommend (1) first and revisit once the stage-1 instrumentation shows whether
 people are searching for things it cannot see. That data is already accruing.
 
-## What this needs from you
+## How supersession reads
 
-- **Approve the collection**, and the category list — those eight values are a
-  guess at what a commercial GC files, and it is much cheaper to change now than
-  after records exist.
-- **Decide `is_current` / `superseded_by`.** They cost little and answer "is this
-  the conformed set?", which is a real question — but they are the beginning of a
-  lifecycle, and lifecycles grow.
+The register makes an out-of-date document *look* out of date rather than
+merely recording it in a field:
+
+- superseded rows are struck through, tinted, and carry "Superseded by
+  <title>" inline
+- the default filter is **Current only**, so the stale spec is not the first
+  thing a PM sees
+- a **Superseded** stat card says "Do not build from these" when the count is
+  non-zero
+- a **Missing file** card counts register entries with no document — a row that
+  promises a document and has none is worse than no row
+
+`superseded_by` is offered only when editing, since a document cannot be
+replaced by one that does not exist yet.
+
+## Verified
+
+- multipart create with a file; `is_current` defaults true; `uploaded_by`
+  stamped server-side
+- filing Addendum 2 and pointing the conformed spec at it: `is_current` false,
+  `superseded_by` set
+- category filter (`specification` 2, `geotech` 0)
+- protected download 200 signed in, **401 signed out**
+- cross-tenant: account B forging A's project cookie gets `{"items":[]}` and
+  **404** on A's document
+- `npm run verify:tenancy` passes
+
+## Not connected to retrieval
+
+Stage 1 selects over `document_revisions` only, so project documents are
+invisible to the Document Finder. Left that way deliberately — the finder is a
+submittal/RFI history search, and the stage-1 instrumentation will show whether
+people are searching for things it cannot see before the selector is made to
+span two collections with different shapes.

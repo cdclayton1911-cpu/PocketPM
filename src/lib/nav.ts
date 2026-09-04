@@ -11,6 +11,7 @@ import {
   CreditCard,
   DollarSign,
   FileText,
+  FolderOpen,
   FolderSearch,
   HardHat,
   Handshake,
@@ -62,6 +63,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Pre-Construction",
     items: [
+      { href: "/project-documents", label: "Project Documents", icon: FolderOpen },
       { href: "/registry", label: "Submittal Registry", icon: Building2 },
       { href: "/prequal", label: "Prequalification", icon: ClipboardCheck },
     ],
@@ -102,7 +104,10 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "AIA Contracts",
     items: [
       { href: "/aia/dashboard", label: "Contract Dashboard", icon: ScrollText },
-      { href: "/aia/library", label: "Document Library", icon: Library },
+      // Renamed from "Document Library": it holds no files at all — it is AI
+      // briefings on standard AIA forms — and the old name collided with the
+      // Document Finder, which does search real files. See docs/upload-audit.md.
+      { href: "/aia/library", label: "AIA Forms Guide", icon: Library },
       { href: "/aia/scanner", label: "Clause Risk Scanner", icon: Microscope },
       { href: "/aia/register", label: "Risk Register", icon: AlertTriangle },
       { href: "/aia/notices", label: "Notices & Deadlines", icon: Bell },

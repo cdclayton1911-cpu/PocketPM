@@ -1,4 +1,8 @@
-import { DRAWING_DISCIPLINE, type DrawingDiscipline } from "@/types";
+import {
+  DRAWING_DISCIPLINE,
+  type DrawingDiscipline,
+  type ProjectDocumentCategory,
+} from "@/types";
 
 /**
  * Human labels for stored enum values.
@@ -39,3 +43,20 @@ export function disciplineLabel(value: string): string {
 export const DISCIPLINE_OPTIONS = DRAWING_DISCIPLINE.map(
   (value) => [value, DISCIPLINE_LABEL[value]] as const,
 );
+
+/** `project_documents.category`. Stored lowercase; shown properly here. */
+export const CATEGORY_LABEL: Record<ProjectDocumentCategory, string> = {
+  contract: "Contract",
+  specification: "Specification",
+  drawing_set: "Drawing Set",
+  geotech: "Geotech",
+  report: "Report",
+  permit: "Permit",
+  insurance: "Insurance",
+  submittal_package: "Submittal Package",
+  other: "Other",
+};
+
+export function categoryLabel(value: string): string {
+  return CATEGORY_LABEL[value as ProjectDocumentCategory] ?? value;
+}
