@@ -12,6 +12,13 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The E2E build output and the cached PocketBase binary are generated,
+    // not source. Without these, `npm run lint` walks a whole second build
+    // and reports thousands of problems in code nobody wrote.
+    ".next-e2e/**",
+    ".cache/**",
+    "test-results/**",
+    "playwright-report/**",
   ]),
 ]);
 

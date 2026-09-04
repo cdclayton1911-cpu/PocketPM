@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "generate:types": "node scripts/generate-types.mjs",
     "verify:tenancy": "node scripts/verify-tenancy.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "verify:schema": "node scripts/verify-schema-export.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",

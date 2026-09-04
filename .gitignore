@@ -47,3 +47,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# E2E build output
+/.next-e2e/
+/.cache/
