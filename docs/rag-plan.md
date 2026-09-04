@@ -1,7 +1,12 @@
-# Retrieval over project documents — plan
+# Retrieval over project documents
 
-Not built. This is the design and the reasoning, written before any code, because
-the first decision changes everything downstream.
+**Stage 1 is built** (`/api/retrieval/revisions`, `src/lib/retrieval/`).
+**Stage 2 is blocked** on the privacy question in `docs/document-privacy.md` —
+it would send customer documents to Anthropic, and that needs a policy answer
+rather than an engineering one.
+
+The design reasoning below was written before any code, because the first
+decision changes everything downstream.
 
 ## The finding that changes the shape
 
@@ -100,6 +105,22 @@ Three requirements, decided now so the later work is not improvised:
    *marked*, per the decision in `docs/revisions.md`. Deleting its vectors would
    destroy exactly what a delay claim is argued from.
 
+## Corpus decisions — settled
+
+| Source | Decision |
+|---|---|
+| **AIA contract documents** | **Do not ingest.** Copyrighted and sold under licence. |
+| **IBC / ICC codes** | **Do not ingest.** Copyrighted by the ICC. |
+| **OSHA 29 CFR** | **Fine to ingest.** US government work, public domain. |
+| **Customer uploads of their own executed documents** | **Fine.** It is their document and their project — subject to the privacy question in `docs/document-privacy.md` before any of it is *sent* anywhere. |
+
+The distinction that matters: a customer pasting *their own executed* A401 into
+the Clause Risk Scanner is fine, because it is their contract. Building a
+searchable corpus of *blank AIA forms* is not, because that is redistributing a
+licensed work. The `aia-brief` task in `lib/ai/tasks.ts` already respects this —
+it refuses to recite article numbers and sends the user to the scanner with
+their own text.
+
 ## Domain RAG is a separate, unblocked track
 
 Reference text — OSHA 29 CFR 1926, the IBC, AIA standard forms — is not tenant
@@ -132,10 +153,36 @@ text instead.
   on a representative submittal gives a real per-document figure. Do that before
   estimating anything.
 
+## Reading the instrumentation
+
+Every stage-1 query logs one JSON line tagged `[retrieval.stage1]`. It records
+**shape, never content** — filter names, counts, and timing, but no question
+text, filenames, parent titles, or spec sections, because a construction
+document's subject is often the confidential part and journald is readable by
+anyone with shell access.
+
+The metric that decides the embeddings question is `within_limit`: how often
+metadata filtering fails to narrow below what stage 2 could read.
+
+```bash
+journalctl -u pocketpm-web --since "7 days ago" -o cat \
+  | grep -F '[retrieval.stage1]' | sed 's/^[^{]*//' \
+  | jq -s '{queries: length,
+            over_limit: [.[] | select(.within_limit == false)] | length,
+            median_selected: (map(.selected) | sort | .[length/2|floor]),
+            unfiltered: [.[] | select(.filter_count == 0)] | length}'
+```
+
+If `over_limit` stays near zero, metadata alone is sufficient and no vector
+store, second vendor, or second data processor is ever needed. If it climbs,
+these lines are the evidence that justifies them. Do not decide before there is
+a few weeks of real usage.
+
 ## Proposed sequence
 
-1. **Instrument, don't build.** Log what stage-1 metadata filtering would return
-   for real questions. Cheap, and it decides whether stage 2 alone suffices.
+1. ~~**Instrument, don't build.**~~ **Done** — `/api/retrieval/revisions` with
+   the logging above. Nothing calls it from the UI yet, which is the next small
+   step.
 2. **Files API upload on revision issue.** When a revision is issued, upload its
    PDF once and store the returned `file_id` on the record. Makes every later
    read cheap and is useful regardless of which retrieval design wins.
