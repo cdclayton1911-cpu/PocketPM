@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { buildPayload, FileField, scalarEntries } from "@/components/shared/FileField";
 import { dropEmptyNumbers, Field, NativeSelect as Select } from "@/components/shared/FormField";
 import { Input } from "@/components/ui/input";
 import { useCreateSubcontractor, useUpdateSubcontractor } from "@/hooks/useSubcontractors";
@@ -52,8 +53,8 @@ export function SubcontractorDialog({ projectId, open, onOpenChange, subcontract
     event.preventDefault();
     setErrors({});
 
-    const raw = dropEmptyNumbers(
-      Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>,
+    const form = new FormData(event.currentTarget);
+    const raw = dropEmptyNumbers(scalarEntries(form),
       ["bond_capacity", "emr", "quality_score"],
     );
 
@@ -66,9 +67,11 @@ export function SubcontractorDialog({ projectId, open, onOpenChange, subcontract
 
     // The dialog closes immediately: the mutation is optimistic, so the row is
     // already in the table, and errors surface as a toast with a rollback.
+    const input = buildPayload(form, parsed.data);
+
     onOpenChange(false);
     if (editing && subcontractor) {
-      update.mutate({ id: subcontractor.id, input: parsed.data });
+      update.mutate({ id: subcontractor.id, input });
     } else {
       create.mutate(parsed.data as Parameters<typeof create.mutate>[0]);
     }
@@ -146,6 +149,16 @@ export function SubcontractorDialog({ projectId, open, onOpenChange, subcontract
               <Input id="contact_phone" name="contact_phone" defaultValue={subcontractor?.contact_phone ?? ""} disabled={pending} />
             </Field>
           </div>
+
+          <FileField
+            collection="subcontractors"
+            field="documents"
+            label="Prequalification documents"
+            existing={subcontractor?.documents ?? []}
+            recordId={subcontractor?.id}
+            disabled={pending}
+            hint="Financial statements, insurance certificates, bond letters, licences."
+          />
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>

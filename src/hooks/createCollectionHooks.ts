@@ -28,7 +28,7 @@ export type MutationInput = Record<string, unknown> | FormData;
  * itself so it can include the multipart boundary. Setting it by hand produces
  * a request the server cannot parse.
  */
-function requestInit(method: string, input: MutationInput): RequestInit {
+export function requestInit(method: string, input: MutationInput): RequestInit {
   if (input instanceof FormData) return { method, body: input };
   return {
     method,
@@ -38,7 +38,7 @@ function requestInit(method: string, input: MutationInput): RequestInit {
 }
 
 /** Scalar fields only, for the optimistic row. Files have no local preview. */
-function optimisticFields(input: MutationInput): Record<string, unknown> {
+export function optimisticFields(input: MutationInput): Record<string, unknown> {
   if (!(input instanceof FormData)) return input;
   const out: Record<string, unknown> = {};
   for (const [key, value] of input.entries()) {

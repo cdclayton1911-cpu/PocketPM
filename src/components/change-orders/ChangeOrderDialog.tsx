@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 
+import { buildPayload, FileField, scalarEntries } from "@/components/shared/FileField";
 import { dropEmptyNumbers, Field, NativeSelect } from "@/components/shared/FormField";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,8 +46,8 @@ export function ChangeOrderDialog({
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrors({});
-    const raw = dropEmptyNumbers(
-      Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>,
+    const form = new FormData(event.currentTarget);
+    const raw = dropEmptyNumbers(scalarEntries(form),
       ["amount", "days_impact"],
     );
     const parsed = (editing ? changeOrderSchema.partial() : changeOrderSchema).safeParse(raw);
@@ -54,9 +55,11 @@ export function ChangeOrderDialog({
       setErrors(fieldErrorsFromZod(parsed.error));
       return;
     }
+    const input = buildPayload(form, parsed.data);
+
     onOpenChange(false);
-    if (editing && changeOrder) update.mutate({ id: changeOrder.id, input: parsed.data });
-    else create.mutate(parsed.data);
+    if (editing && changeOrder) update.mutate({ id: changeOrder.id, input });
+    else create.mutate(input);
   }
 
   return (
@@ -122,6 +125,16 @@ export function ChangeOrderDialog({
           <Field id="scope" label="Scope of work" error={errors.scope}>
             <Textarea id="scope" name="scope" rows={3} defaultValue={changeOrder?.scope ?? ""} disabled={pending} />
           </Field>
+
+          <FileField
+            collection="change_orders"
+            field="attachments"
+            label="Backup documentation"
+            existing={changeOrder?.attachments ?? []}
+            recordId={changeOrder?.id}
+            disabled={pending}
+            hint="Quotes, markups, correspondence — the backup a change order is priced from."
+          />
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>

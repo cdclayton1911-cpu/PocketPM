@@ -1,3 +1,4 @@
+import { Paperclip } from "lucide-react";
 import type { Column } from "@/components/shared/DataTable";
 import { humanizeStatus, StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
@@ -86,6 +87,19 @@ export function buildRegistryColumns({
           {humanizeStatus(row.status)}
         </StatusBadge>
       ),
+    },
+    {
+      key: "files",
+      header: "Docs",
+      cell: (r) =>
+        r.documents?.length ? (
+          <span className="inline-flex items-center gap-1 text-muted-foreground">
+            <Paperclip className="size-3" aria-hidden />
+            {r.documents.length}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
     },
     {
       key: "actions",

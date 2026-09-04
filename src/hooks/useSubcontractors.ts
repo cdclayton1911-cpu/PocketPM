@@ -3,8 +3,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import {
+  optimisticFields,
+  requestInit,
+  type MutationInput,
+} from "@/hooks/createCollectionHooks";
 import type { FieldErrors } from "@/lib/validation/auth";
-import type { SubcontractorInput } from "@/lib/validation/subcontractor";
 import type { Subcontractor } from "@/types";
 
 /**
@@ -78,11 +82,11 @@ export function useCreateSubcontractor(projectId: string) {
   const { queryClient, key, snapshot, rollback, resync } = useOptimisticList(projectId);
 
   return useMutation({
-    mutationFn: async (input: SubcontractorInput): Promise<Subcontractor> => {
+    // MutationInput, not SubcontractorInput: a create carrying documents
+    // arrives as FormData, which Zod has already validated on the way in.
+    mutationFn: async (input: MutationInput): Promise<Subcontractor> => {
       const res = await fetch("/api/subcontractors", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
+        ...requestInit("POST", input),
       });
       if (!res.ok) throw new Error(await readError(res));
       const data = (await res.json()) as { record: Subcontractor };
@@ -92,10 +96,13 @@ export function useCreateSubcontractor(projectId: string) {
       const previous = await snapshot();
       // Temporary row so the table updates immediately. The id is a placeholder
       // and is replaced by the server's record when resync() completes.
+      // Scalars only: `input` may be FormData, where spreading yields nothing
+      // and `input.status` is undefined rather than the submitted value.
+      const fields = optimisticFields(input);
       const optimistic = {
-        ...input,
+        ...fields,
         id: `optimistic-${Date.now()}`,
-        status: input.status ?? "pending_docs",
+        status: fields.status ?? "pending_docs",
       } as unknown as Subcontractor;
       queryClient.setQueryData<Subcontractor[]>(key, (old) => [optimistic, ...(old ?? [])]);
       return { previous };
@@ -120,12 +127,10 @@ export function useUpdateSubcontractor(projectId: string) {
       input,
     }: {
       id: string;
-      input: Partial<SubcontractorInput>;
+      input: MutationInput;
     }): Promise<Subcontractor> => {
       const res = await fetch(`/api/subcontractors/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
+        ...requestInit("PATCH", input),
       });
       if (!res.ok) throw new Error(await readError(res));
       const data = (await res.json()) as { record: Subcontractor };
@@ -133,8 +138,9 @@ export function useUpdateSubcontractor(projectId: string) {
     },
     onMutate: async ({ id, input }) => {
       const previous = await snapshot();
+      const fields = optimisticFields(input);
       queryClient.setQueryData<Subcontractor[]>(key, (old) =>
-        (old ?? []).map((row) => (row.id === id ? { ...row, ...input } : row)),
+        (old ?? []).map((row) => (row.id === id ? { ...row, ...fields } : row)),
       );
       return { previous };
     },

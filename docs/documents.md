@@ -123,10 +123,20 @@ link. TTL is 120s (PocketBase default; `fileToken.duration` is unset).
 
 ## Adopted so far
 
-`drawings` only — the reference implementation, chosen because it is the most
-document-shaped module and has the single 100 MB field. Nine modules still have
-file fields with no UI: submittals, rfis, change_orders, aia_notices,
-daily_logs, deficiencies, punch_list, safety_observations, subcontractors.
+Eight of ten: drawings (the reference implementation), daily_logs, punch_list,
+deficiencies, safety_observations, change_orders, aia_notices, subcontractors.
+
+**submittals and rfis are deliberately not done.** Both are revision workflows —
+Rev 0 rejected, Rev 1 issued, each with its own stamp and review cycle — and a
+mutable `attachments` field would overwrite exactly the history those modules
+exist to keep. They wait for `document_revisions`; see docs/revisions.md.
+
+The Registry keeps bespoke hooks (`useSubcontractors.ts`) predating the shared
+factory, so the payload helpers `requestInit` and `optimisticFields` are
+exported from `createCollectionHooks` and reused there rather than copied. Its
+optimistic row reads scalars through `optimisticFields`: spreading a FormData
+yields nothing, and `input.status` on one is `undefined` rather than the
+submitted value.
 
 ## Verified end to end
 

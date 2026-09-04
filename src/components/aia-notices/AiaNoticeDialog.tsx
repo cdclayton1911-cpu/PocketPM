@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 
+import { buildPayload, FileField, scalarEntries } from "@/components/shared/FileField";
 import { Field, NativeSelect } from "@/components/shared/FormField";
 import { Button } from "@/components/ui/button";
 import {
@@ -54,15 +55,18 @@ export function AiaNoticeDialog({
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrors({});
-    const raw = Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>;
+    const form = new FormData(event.currentTarget);
+    const raw = scalarEntries(form);
     const parsed = (editing ? aiaNoticeSchema.partial() : aiaNoticeSchema).safeParse(raw);
     if (!parsed.success) {
       setErrors(fieldErrorsFromZod(parsed.error));
       return;
     }
+    const input = buildPayload(form, parsed.data);
+
     onOpenChange(false);
-    if (editing && notice) update.mutate({ id: notice.id, input: parsed.data });
-    else create.mutate(parsed.data);
+    if (editing && notice) update.mutate({ id: notice.id, input });
+    else create.mutate(input);
   }
 
   return (
@@ -114,6 +118,16 @@ export function AiaNoticeDialog({
           <Field id="description" label="Description" error={errors.description}>
             <Textarea id="description" name="description" rows={3} defaultValue={notice?.description ?? ""} disabled={pending} />
           </Field>
+
+          <FileField
+            collection="aia_notices"
+            field="attachments"
+            label="Attachments"
+            existing={notice?.attachments ?? []}
+            recordId={notice?.id}
+            disabled={pending}
+            hint="The notice as sent, and proof of delivery. A notice you cannot evidence was sent is a notice you did not send."
+          />
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>

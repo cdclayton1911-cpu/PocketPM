@@ -1,6 +1,6 @@
 "use client";
 
-import { Repeat } from "lucide-react";
+import { Paperclip, Repeat } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { CollectionView } from "@/components/shared/CollectionView";
@@ -131,6 +131,19 @@ export function ChangeOrdersClient({
       key: "status",
       header: "Status",
       cell: (r) => <StatusBadge tone={STATUS_TONE[r.status] ?? "neutral"}>{humanizeStatus(r.status)}</StatusBadge>,
+    },
+    {
+      key: "files",
+      header: "Backup",
+      cell: (r) =>
+        r.attachments?.length ? (
+          <span className="inline-flex items-center gap-1 text-muted-foreground">
+            <Paperclip className="size-3" aria-hidden />
+            {r.attachments.length}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
     },
     {
       key: "actions",

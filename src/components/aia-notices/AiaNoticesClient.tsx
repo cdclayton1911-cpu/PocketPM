@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell } from "lucide-react";
+import { Bell, Paperclip } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { CollectionView } from "@/components/shared/CollectionView";
@@ -144,6 +144,19 @@ export function AiaNoticesClient({
           <StatusBadge tone="danger">Missed</StatusBadge>
         ) : (
           <StatusBadge tone={STATUS_TONE[r.status] ?? "neutral"}>{humanizeStatus(r.status)}</StatusBadge>
+        ),
+    },
+    {
+      key: "files",
+      header: "Files",
+      cell: (r) =>
+        r.attachments?.length ? (
+          <span className="inline-flex items-center gap-1 text-muted-foreground">
+            <Paperclip className="size-3" aria-hidden />
+            {r.attachments.length}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
         ),
     },
     {
