@@ -91,10 +91,22 @@ This is the same **kind** of disclosure the other AI modules already make — th
 send project name, contract value, city, owner, and architect — at larger
 volume. It is a smaller disclosure than the document itself by a wide margin.
 
-**Narrowing it is one line.** Dropping `parent_label` and `spec_section` from
-`renderTable` leaves identifiers only, and answers become *"Rev 1 of
-05120-001"* with no indication of what that covers. That is the tradeoff to
-decide, and it does not need to wait for the full Files API answer.
+### Decided (2026-09-04): keep the labels
+
+`parent_label` and `spec_section` stay. Two reasons:
+
+1. *"Rev 1 of 05120-001"* is useless to a project manager. An answer that cannot
+   say **which** submittal it means does not answer the question, and a feature
+   that does not answer the question is not worth its privacy cost at all.
+2. It is not a new category of disclosure. Every AI module already sends project
+   name, contract value, city, owner, and architect on every call
+   (`projectContext` in `src/app/api/ai/[task]/route.ts`). Titles are more of the
+   same kind, not a different kind.
+
+**Document contents is the line**, and it is not crossed. Narrowing to
+identifiers-only remains a one-line change in `renderTable` if a specific
+customer contract ever requires it — but it is not the default and should not be
+adopted speculatively.
 
 ## If the answer is yes
 
