@@ -357,6 +357,65 @@ try {
     );
   }
 
+  /**
+   * Section 6 — baselines.
+   *
+   * A baseline item names its activity by business key rather than by relation,
+   * so it survives the re-import that replaces schedule_items. That means the
+   * only thing standing between a baseline row and another tenant's project is
+   * the `baseline.project = project` agreement clause — worth proving.
+   */
+  line("\n=== 6. schedule baselines — items cannot be filed under another project ===");
+
+  const blProbe = await api("GET", "/api/collections/schedule_baselines/records?perPage=1", null, A.token);
+
+  if (blProbe.status === 404) {
+    line("  SKIP  schedule_baselines does not exist yet");
+    skipped.push("schedule_baselines cross-project items");
+  } else {
+    const blA = await api("POST", "/api/collections/schedule_baselines/records",
+      { project: dataA.project, name: "A original", taken_at: "2026-01-01" }, A.token);
+    const blB = await api("POST", "/api/collections/schedule_baselines/records",
+      { project: dataB.project, name: "B original", taken_at: "2026-01-01" }, B.token);
+    check(
+      "setup: a baseline in each project",
+      Boolean(blA.data.id && blB.data.id),
+      `A ${blA.status}, B ${blB.status}`,
+    );
+
+    // A names its own project but B's baseline — each field individually valid.
+    const crossed = await api("POST", "/api/collections/schedule_baseline_items/records",
+      { project: dataA.project, baseline: blB.data.id, activity_id: "A1010" }, A.token);
+    check(
+      "A cannot file a baseline item against B's baseline",
+      !crossed.ok,
+      `status ${crossed.status} — a 2xx means project and baseline are trusted independently`,
+    );
+
+    const own = await api("POST", "/api/collections/schedule_baseline_items/records",
+      { project: dataA.project, baseline: blA.data.id, activity_id: "A1010", start: "2026-03-02", finish: "2026-03-06" }, A.token);
+    check(
+      "A CAN file an item against A's own baseline",
+      own.ok,
+      `status ${own.status}${own.ok ? "" : ` — ${JSON.stringify(own.data).slice(0, 140)}`}`,
+    );
+
+    const dupe = await api("POST", "/api/collections/schedule_baseline_items/records",
+      { project: dataA.project, baseline: blA.data.id, activity_id: "A1010" }, A.token);
+    check(
+      "the same activity cannot appear twice in one baseline",
+      !dupe.ok,
+      `status ${dupe.status} — a duplicate would make variance ambiguous with no error to notice`,
+    );
+
+    const bSees = await api("GET", "/api/collections/schedule_baseline_items/records?perPage=100", null, B.token);
+    check(
+      "user B's baseline items do not include A's",
+      !(bSees.data.items || []).some((r) => r.id === own.data?.id),
+      `B sees ${(bSees.data.items || []).length} item(s)`,
+    );
+  }
+
   line("\n=== summary ===");
   const failed = results.filter((r) => !r.pass);
   if (failed.length === 0) {

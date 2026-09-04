@@ -1,7 +1,7 @@
 // GENERATED — do not edit by hand.
 // Source: docs/pb_schema.json  ·  Regenerate: npm run generate:types
 //
-// 22 application collections. The architecture PDF lists 21 and names
+// 24 application collections. The architecture PDF lists 21 and names
 // closeout_items and contract_notices; neither exists on the deployed instance.
 // See docs/schema-notes.md.
 //
@@ -415,6 +415,39 @@ export interface SafetyObservation extends BaseRecord {
 }
 
 /**
+ * `schedule_baseline_items`
+ * Required on create: project, baseline, activity_id
+ *
+ * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
+ */
+export interface ScheduleBaselineItem extends BaseRecord {
+  project: RelationId; // required, -> projects, cascade delete
+  baseline: RelationId; // required, -> schedule_baselines, cascade delete
+  activity_id: string; // required
+  activity: string;
+  start: string;
+  finish: string;
+  duration_days: number;
+  is_milestone: boolean;
+}
+
+/**
+ * `schedule_baselines`
+ * Required on create: project, name
+ *
+ * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
+ */
+export interface ScheduleBaseline extends BaseRecord {
+  project: RelationId; // required, -> projects, cascade delete
+  name: string; // required
+  taken_at: string;
+  source_file: string;
+  is_default: boolean;
+  notes: string;
+  created_by: RelationId; // -> users
+}
+
+/**
  * `schedule_items`
  * Required on create: project, activity
  *
@@ -558,6 +591,8 @@ export interface Collections {
   punch_list: PunchListItem;
   rfis: Rfi;
   safety_observations: SafetyObservation;
+  schedule_baseline_items: ScheduleBaselineItem;
+  schedule_baselines: ScheduleBaseline;
   schedule_items: ScheduleItem;
   schedule_relationships: ScheduleRelationship;
   subcontractors: Subcontractor;

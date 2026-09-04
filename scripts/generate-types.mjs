@@ -40,6 +40,8 @@ const MODEL_NAMES = {
   pay_applications: "PayApplication",
   schedule_items: "ScheduleItem",
   schedule_relationships: "ScheduleRelationship",
+  schedule_baselines: "ScheduleBaseline",
+  schedule_baseline_items: "ScheduleBaselineItem",
   dfow: "Dfow",
   deficiencies: "Deficiency",
   daily_logs: "DailyLog",

@@ -158,12 +158,37 @@ arrows. Editing by dragging can come later and is where the complexity is.
 Dropping phase 4 also settles the "who owns updates" question below: a
 re-import overwrites, because nothing here is authored.
 
+## Baselines — done, and the reason for the shape
+
+`schedule_baselines` + `schedule_baseline_items`, taken before imports exist for
+the same reason as phase 1.
+
+**Baseline items name their activity by `activity_id`, not by relation.** That
+is the load-bearing decision. Schedules here are mirrored, so a re-import
+deletes and recreates `schedule_items`; a relation would either cascade-delete
+the baseline or leave a dangling id, and losing the as-planned schedule means
+losing the only thing a delay claim is argued against.
+
+The cost is no referential integrity — a renamed or renumbered activity will
+not match. `computeVariance` therefore **reports** unmatched activities in
+`missingFromCurrent` and `addedSinceBaseline` rather than dropping them, because
+an activity missing from a variance report reads as "no variance", which is the
+most misleading answer available on a schedule claim.
+
+**Multiple baselines**, with one `is_default` per project enforced by a partial
+unique index. Contracts reference a specific schedule — the original as-planned,
+and often approved rebaselines after it — and an argument about delay usually
+needs more than one.
+
+`src/lib/schedule/variance.ts` is pure and unit-tested (14 tests), including
+that actual dates beat forecast beat planned, that a missing date yields `null`
+variance rather than a wrong number, and that the date arithmetic is UTC-anchored
+so a DST transition does not silently cost a day.
+
 ## Still open
 
-**Baseline vs current.** Variance reporting needs two schedules, not one.
-`schedule_items` has `planned_*` and `actual_*` but no baseline concept, and
-retrofitting one after imports exist is a schema change with data in it — the
-same trap phase 1 just avoided. Worth deciding before phase 5, not after.
+Nothing schema-shaped. Phases 2, 3, and 5–7 are application work against
+collections that now exist.
 
 ## Phase 1, as built
 
