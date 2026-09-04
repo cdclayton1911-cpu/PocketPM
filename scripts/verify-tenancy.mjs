@@ -467,6 +467,52 @@ try {
     );
   }
 
+  /**
+   * Section 8 — the users directory.
+   *
+   * users.listRule was `@request.auth.id != ""` for a long time, which let any
+   * authenticated account enumerate every user across every company. This is
+   * the check that keeps it narrowed: A and B share no project, so neither
+   * should be able to see the other, while both must still see themselves — a
+   * rule that hid a user from themselves would break their own profile.
+   */
+  line("\n=== 8. users directory — no cross-company enumeration ===");
+
+  const aSeesUsers = await api("GET", "/api/collections/users/records?perPage=200", null, A.token);
+  const aIds = (aSeesUsers.data.items || []).map((r) => r.id);
+  check(
+    "user A cannot see user B (they share no project)",
+    !aIds.includes(B.id),
+    `A sees ${aIds.length} user(s)`,
+  );
+  check(
+    "user A can still see themselves",
+    aIds.includes(A.id),
+    `A ${aIds.includes(A.id) ? "is" : "is NOT"} in their own list — a rule that hides you from yourself breaks your profile`,
+  );
+
+  const bViewUserA = await api("GET", `/api/collections/users/records/${A.id}`, null, B.token);
+  check(
+    "user B cannot fetch user A by id",
+    bViewUserA.status === 403 || bViewUserA.status === 404,
+    `status ${bViewUserA.status}`,
+  );
+
+  // The positive control: once they share a project, they must see each other,
+  // or the user picker that motivated this narrowing cannot work.
+  const share = await api("PATCH", `/api/collections/projects/records/${dataA.project}`,
+    { members: [B.id] }, A.token);
+  if (share.ok) {
+    const aAgain = await api("GET", "/api/collections/users/records?perPage=200", null, A.token);
+    check(
+      "once B is a member of A's project, A CAN see B",
+      (aAgain.data.items || []).map((r) => r.id).includes(B.id),
+      `A now sees ${(aAgain.data.items || []).length} user(s) — without this the member picker cannot work`,
+    );
+  } else {
+    check("setup: could add B to A's project", false, `status ${share.status}`);
+  }
+
   line("\n=== summary ===");
   const failed = results.filter((r) => !r.pass);
   if (failed.length === 0) {

@@ -111,40 +111,39 @@ in. To be designed when team invites are built.
 an oversight. Anyone can register an account; what they can then *see* is
 governed by the project-scoped rules on every other collection.
 
-## KNOWN ISSUE — users.listRule is too broad
+## users.listRule — FIXED
 
-**Fix this when team invites are built. Deliberately not changed before then.**
+Was `@request.auth.id != ""` on both `listRule` and `viewRule`, so any
+authenticated account could enumerate every user across every company. Names,
+company names, phone numbers, and roles were all readable; a cross-tenant user
+directory.
 
-```
-users.listRule  @request.auth.id != ""
-users.viewRule  @request.auth.id != ""
-```
-
-Any authenticated user can enumerate **every user across every company**.
-PocketBase hides `password` and `tokenKey`, and `emailVisibility` defaults to
-`false` so addresses stay hidden, but `name`, `company_name`, `phone`, `role`,
-and `avatar` are all readable. That is a cross-tenant user directory.
-
-It is left alone for now because something has to be able to list candidate
-users when assigning project members, and narrowing it before that feature
-exists risks breaking it in a way nothing would catch.
-
-**Target:** narrow to *users who share a project with me*, roughly:
+Narrowed to *people you share a project with*
+(`scripts/narrow-users-rules.mjs`, prior rules in
+`scripts/users-rules-backup-*.json`):
 
 ```
 @request.auth.id != "" && (
-  id = @request.auth.id ||
-  @collection.projects.members.id ?= @request.auth.id ||
-  @collection.projects.owner = @request.auth.id
+  id = @request.auth.id
+  || projects_via_members.owner = @request.auth.id
+  || projects_via_members.members.id ?= @request.auth.id
+  || projects_via_owner.members.id ?= @request.auth.id
 )
 ```
 
-That expression is **untested** — PocketBase's `@collection` back-reference
-syntax needs verifying against 0.40 before it is applied, and the self-view
-clause (`id = @request.auth.id`) matters so a user can always read their own
-record. Verify with `scripts/verify-tenancy.mjs` extended to cover `users`:
-account B must not see account A when they share no project, and must see them
-once they do.
+The back-relation syntax was the untested part of the original note. It was
+verified on an **ephemeral PocketBase 0.40.1 instance before production was
+touched** — owner sees member, member sees owner, an unrelated user sees only
+themselves and gets 404 fetching anyone else, and self-access survives.
+
+The self clause is not optional: without `id = @request.auth.id`, a user with no
+projects cannot read their own record.
+
+`createRule` stays open (public signup is intended); `updateRule` and
+`deleteRule` were already self-only and are untouched.
+
+`verify:tenancy` section 8 proves it, including the positive control — once B
+joins A's project, A **can** see B, which is what the member picker needs.
 
 ## Two modules dropped from the navigation
 

@@ -30,13 +30,11 @@ The API rule requires one or the other (`user != "" || contact_name != ""`), so
 a row can never name nobody — a role that cannot be routed to is worse than no
 role.
 
-**Only outside parties are enterable in the UI today.** Linking an existing
-account needs a user picker, and the only list available is `users.listRule`,
-which still returns every user across every company — the known issue in
-`docs/schema-notes.md`. Putting a cross-company directory in front of users to
-build a picker would be trading a real leak for a convenience. The internal case
-waits for that narrowing, which is small and now has a concrete reason to
-happen.
+**Only outside parties are enterable in the UI today** — but the blocker is
+gone. `users.listRule` has been narrowed to people you share a project with
+(`docs/schema-notes.md`), so a member picker can now be built without putting a
+cross-company directory in front of users. That is a small follow-up, not a
+design question.
 
 ## The external reviewer problem — OPEN, needs a decision
 

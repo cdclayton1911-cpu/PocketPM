@@ -1,0 +1,5 @@
+{
+  "collection": "users",
+  "listRule": "@request.auth.id != \"\"",
+  "viewRule": "@request.auth.id != \"\""
+}
