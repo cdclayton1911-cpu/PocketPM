@@ -68,6 +68,20 @@ an internal user acts on their behalf — needs no email and is already built.
 5. `.github/workflows/ci.yml` is written but gitignored — needs
    `gh auth refresh -s workflow` before it can be pushed.
 
+## The first workflow needs an admin, and there is no UI for it
+
+`workflow_templates.createRule` is `null` (superuser only) and
+`workflow_instances.template` is required. So **no user can start any workflow
+until someone seeds a template through the PocketBase admin UI.**
+
+That is correct as access control and awkward as a product: the template builder
+is not polish deferred to the end, it is the only path to the feature being
+usable at all. It should shape how much of the UI work can be pushed back.
+
+`verify:tenancy` section 9 hits the same wall — it needs superuser credentials
+from `.env.local` to seed a fixture template, and skips its instance checks with
+an explicit message when they are absent.
+
 ## Known gap — workflow status forgery
 
 Nothing in the database stops a project member PATCHing a `workflow_instances`
