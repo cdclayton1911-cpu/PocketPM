@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ROLE_LABEL } from "@/lib/enum-labels";
 import { fieldErrorsFromZod, type FieldErrors } from "@/lib/validation/auth";
-import { projectRoleSchema } from "@/lib/validation/project-role";
+import { parseProjectRoleSubmission } from "@/lib/validation/project-role";
 import { PROJECT_ROLE_ROLE, type ProjectRole } from "@/types";
 
 import { projectRoleHooks } from "./ProjectTeamClient";
@@ -58,7 +58,7 @@ export function ProjectRoleDialog({
     // because this form cannot pick one.
     if (role?.user) raw.user = role.user;
 
-    const parsed = (editing ? projectRoleSchema.partial() : projectRoleSchema).safeParse(raw);
+    const parsed = parseProjectRoleSubmission(raw, editing ? role : null);
     if (!parsed.success) {
       setErrors(fieldErrorsFromZod(parsed.error));
       return;
