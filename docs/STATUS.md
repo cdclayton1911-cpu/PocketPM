@@ -8,14 +8,19 @@ Last updated: 2026-09-05 · `d6a549d`
 ## Where things stand
 
 **Deployed:** droplet at `app.pocketpm.fyi`, PocketBase 0.40.1 behind it.
-The droplet is on **`1f06348`** (verified on the box, not from memory). Everything
-after that commit is **built and pushed but not released** — 9 commits: the
-ephemeral-PocketBase E2E harness and its migrations fix, schedule relationships and
-baselines, project roles, the `users.listRule` fix, and this file.
+The droplet is on **`d6a549d`**, deployed 2026-09-05 via `deploy/deploy.sh`.
+`ed83cee` is on `origin/main` but not released — it is docs and the E2E harness
+only, nothing under `src/`, so the running app is identical to a redeploy.
+
+Post-deploy verification: `verify:tenancy` all 8 sections PASS against live,
+including the section 8 positive control. New routes present and gated.
 
 `/opt/pocketpm-web` is also the `pocketpm` user's home directory, so `.bashrc`,
 `.profile`, `.npm/` and `.config/` sit untracked inside the repo. Harmless — but a
 `git clean -fdx` there would take the npm cache and shell config with it.
+
+Production has **no error tracking**. `journalctl -u pocketpm-web` is the whole
+story after a deploy.
 
 **Built and working:**
 
