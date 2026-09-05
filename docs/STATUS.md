@@ -33,7 +33,8 @@ story after a deploy.
 | Retrieval | Stage 1 (metadata selection) and stage 2 (metadata-only answers). Nothing leaves the droplet. |
 | Schedule | `schedule_relationships` (typed, with lag, cycle guard) + `schedule_baselines` and variance. Pure logic, 25 tests. |
 | Project roles | `project_roles`, additive to `projects.members` — a role grants no access on its own. |
-| Tenancy | `npm run verify:tenancy`, 8 sections. `npm run verify:schema` checks the snapshot matches live. |
+| Workflows | Schema only — 4 collections, no UI or engine yet. `workflow_actions` is append-only (null update/delete rules). |
+| Tenancy | `npm run verify:tenancy`, 9 sections. `npm run verify:schema` checks the snapshot matches live. |
 | E2E | Playwright against an **ephemeral local PocketBase per run**. Never production. |
 
 **Password reset** is code-complete and unverifiable: `requestPasswordReset()`
@@ -66,6 +67,24 @@ an internal user acts on their behalf — needs no email and is already built.
    SVG Gantt). Schedule is *mirrored* from P6/MSP, not authored here.
 5. `.github/workflows/ci.yml` is written but gitignored — needs
    `gh auth refresh -s workflow` before it can be pushed.
+
+## Known gap — workflow status forgery
+
+Nothing in the database stops a project member PATCHing a `workflow_instances`
+`status` to `approved` without a corresponding `workflow_actions` entry. SQL
+cannot express "this transition must be accompanied by an audit entry", and the
+app has no admin client to funnel writes through.
+
+Today the append-only action log is a **detection** backstop, not prevention. For
+construction approvals — where the question later is "who approved this and when"
+— that may not be enough. Two follow-ups agreed, neither started:
+
+1. A section 9 assertion that every instance's `status` and `current_step_order`
+   are reconstructible from its `workflow_actions` history, turning detection
+   from theoretical into something that runs.
+2. Investigate whether a PocketBase hook can enforce the invariant server-side —
+   the only layer below the app that sees writes regardless of origin. If it can,
+   the gap closes properly instead of being monitored.
 
 ## Open decisions
 

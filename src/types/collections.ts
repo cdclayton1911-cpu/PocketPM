@@ -1,7 +1,7 @@
 // GENERATED — do not edit by hand.
 // Source: docs/pb_schema.json  ·  Regenerate: npm run generate:types
 //
-// 25 application collections. The architecture PDF lists 21 and names
+// 29 application collections. The architecture PDF lists 21 and names
 // closeout_items and contract_notices; neither exists on the deployed instance.
 // See docs/schema-notes.md.
 //
@@ -55,6 +55,11 @@ import type {
   TaskPriority,
   TaskStatus,
   UserRole,
+  WorkflowActionAction,
+  WorkflowInstanceStatus,
+  WorkflowStepApproverMode,
+  WorkflowStepOnReject,
+  WorkflowTemplateEntityType,
 } from "./enums";
 
 /**
@@ -580,7 +585,7 @@ export interface Task extends BaseRecord {
  * `users` — auth collection
  * Required on create: username
  *
- * listRule: @request.auth.id != ""
+ * listRule: @request.auth.id != "" && (id = @request.auth.id || projects_via_members.owner = @request.auth.id || projects_via_members.members.id ?= @request.auth.id || projects_via_owner.members.id ?= @request.auth.id)
  */
 export interface User extends AuthRecord {
   username: string; // required
@@ -589,6 +594,73 @@ export interface User extends AuthRecord {
   role: UserRole;
   company_name: string;
   phone: string;
+}
+
+/**
+ * `workflow_actions`
+ * Required on create: instance, step_order, actor, action, acted_at
+ *
+ * listRule: @request.auth.id != "" && (instance.project.owner = @request.auth.id || instance.project.members.id ?= @request.auth.id)
+ */
+export interface WorkflowAction extends BaseRecord {
+  instance: RelationId; // required, -> workflow_instances, cascade delete
+  step_order: number; // required, 1..*
+  actor: RelationId; // required, -> users
+  action: WorkflowActionAction; // required
+  comment: string;
+  attachments: FileName[]; // max 5, 50MB
+  acted_at: string; // required
+}
+
+/**
+ * `workflow_instances`
+ * Required on create: project, template, template_snapshot, status, current_step_order, started_by, started_at
+ *
+ * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
+ */
+export interface WorkflowInstance extends BaseRecord {
+  project: RelationId; // required, -> projects, cascade delete
+  submittal: RelationId; // -> submittals
+  rfi: RelationId; // -> rfis
+  template: RelationId; // required, -> workflow_templates
+  template_snapshot: unknown; // required
+  status: WorkflowInstanceStatus; // required
+  current_step_order: number; // required, 1..*
+  started_by: RelationId; // required, -> users
+  started_at: string; // required
+  completed_at: string;
+}
+
+/**
+ * `workflow_steps`
+ * Required on create: template, step_order, name, approver_mode, on_reject
+ *
+ * listRule: @request.auth.id != "" && (template.project = "" || template.project.owner = @request.auth.id || template.project.members.id ?= @request.auth.id)
+ */
+export interface WorkflowStep extends BaseRecord {
+  template: RelationId; // required, -> workflow_templates, cascade delete
+  step_order: number; // required, 1..*
+  name: string; // required
+  approver_mode: WorkflowStepApproverMode; // required
+  approver_role: string;
+  approver_users: RelationIds; // -> users
+  sla_days: number; // 0..*
+  on_reject: WorkflowStepOnReject; // required
+}
+
+/**
+ * `workflow_templates`
+ * Required on create: name, entity_type
+ *
+ * listRule: @request.auth.id != "" && (project = "" || project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
+ */
+export interface WorkflowTemplate extends BaseRecord {
+  name: string; // required
+  entity_type: WorkflowTemplateEntityType; // required
+  project: RelationId; // -> projects, cascade delete
+  active: boolean;
+  description: string;
+  created_by: RelationId; // -> users
 }
 
 /**
@@ -621,6 +693,10 @@ export interface Collections {
   submittals: Submittal;
   tasks: Task;
   users: User;
+  workflow_actions: WorkflowAction;
+  workflow_instances: WorkflowInstance;
+  workflow_steps: WorkflowStep;
+  workflow_templates: WorkflowTemplate;
 }
 
 /** Every valid collection name. */

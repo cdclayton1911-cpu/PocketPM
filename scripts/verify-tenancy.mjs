@@ -50,7 +50,33 @@ async function api(method, path, body, token) {
   return { ok: res.ok, status: res.status, data };
 }
 
-const made = { users: [], projects: [], tokens: {} };
+/**
+ * A superuser token, when .env.local happens to carry the credentials.
+ *
+ * The script's no-credentials property is deliberate and preserved: every
+ * section works without this. Section 9 alone needs it, because
+ * workflow_templates is admin-only to write and an instance requires a
+ * template — so without an admin the POSITIVE control cannot run, and a
+ * section that only proves denial proves nothing.
+ */
+async function adminToken() {
+  const fs = await import("node:fs");
+  const env = {};
+  try {
+    for (const l of fs.readFileSync(".env.local", "utf8").split("\n")) {
+      const t = l.trim();
+      if (!t || t.startsWith("#")) continue;
+      const i = t.indexOf("=");
+      if (i > 0) env[t.slice(0, i).trim()] = t.slice(i + 1).trim();
+    }
+  } catch { return null; }
+  if (!env.PB_ADMIN_EMAIL || !env.PB_ADMIN_PASS) return null;
+  const r = await api("POST", "/api/collections/_superusers/auth-with-password",
+    { identity: env.PB_ADMIN_EMAIL, password: env.PB_ADMIN_PASS });
+  return r.ok ? r.data.token : null;
+}
+
+const made = { users: [], projects: [], tokens: {}, templates: [] };
 
 async function mkUser(label) {
   const email = `probe-${STAMP}-${label}@example.invalid`;
@@ -513,6 +539,186 @@ try {
     check("setup: could add B to A's project", false, `status ${share.status}`);
   }
 
+  /**
+   * Section 9 — the workflow engine.
+   *
+   * Deliberately its own section: a failure here must name workflows rather
+   * than surfacing as an unexplained regression somewhere else.
+   *
+   * Two of the invariants originally specified for this section are absent on
+   * purpose, because they became unrepresentable rather than untested. The
+   * instance points at its entity through typed `submittal` / `rfi` relations,
+   * so "entity_id resolves to a real record" is a foreign key the database
+   * enforces on every write, and "entity_type matches the entity" has no
+   * discriminator left to disagree with. What IS checked here is what SQL
+   * cannot express on its own.
+   *
+   * Note the state this section inherits: section 8 added B to A's project, so
+   * B is a member here. A third user, C, provides the outsider.
+   */
+  line("\n=== 9. workflows — instances cannot cross a project boundary ===");
+
+  const wfProbe = await api("GET", "/api/collections/workflow_instances/records?perPage=1", null, A.token);
+
+  if (wfProbe.status === 404) {
+    line("  SKIP  workflow collections do not exist yet");
+    skipped.push("workflow instance scoping");
+  } else {
+    const C = await mkUser("c");
+    const dataC = await mkProjectAndRecord(C, "c");
+
+    // An org-wide template (no project) fits any project, so one serves both.
+    const admin = await adminToken();
+    let templateId = null;
+    if (admin) {
+      const tpl = await api("POST", "/api/collections/workflow_templates/records",
+        { name: `probe template ${STAMP}`, entity_type: "submittal", description: "verify:tenancy fixture" }, admin);
+      if (tpl.ok) {
+        templateId = tpl.data.id;
+        made.templates.push(templateId);
+      }
+    }
+
+    // A template with no project is the org-wide default and fits any project.
+    // Only a superuser can create one, so the fixture uses an instance whose
+    // template is absent instead — which is itself the first assertion.
+    const noTemplate = await api("POST", "/api/collections/workflow_instances/records",
+      { project: dataA.project, submittal: "", rfi: "", template_snapshot: {}, status: "pending",
+        current_step_order: 1, started_by: A.id, started_at: new Date().toISOString() }, A.token);
+    check(
+      "an instance with no entity is refused",
+      !noTemplate.ok,
+      `status ${noTemplate.status} — a workflow approving nothing has no meaning`,
+    );
+
+    // Build a real submittal in each project to hang instances off.
+    const subA = await api("POST", "/api/collections/submittals/records",
+      { project: dataA.project, submittal_number: `PROBE-A-${STAMP}`, description: "probe" }, A.token);
+    const subC = await api("POST", "/api/collections/submittals/records",
+      { project: dataC.project, submittal_number: `PROBE-C-${STAMP}`, description: "probe" }, C.token);
+
+    if (!subA.ok || !subC.ok) {
+      // Explicit, because a fixture that failed to build makes every later
+      // "was refused" look like a pass for the wrong reason. Section 4 shipped
+      // exactly that false green once.
+      check("setup: a submittal in each project", false,
+        `A ${subA.status}, C ${subC.status} — later checks would pass vacuously`);
+    } else {
+      const base = {
+        template: templateId,
+        template_snapshot: { steps: [{ step_order: 1, name: "Review" }] },
+        status: "pending", current_step_order: 1,
+        started_by: A.id, started_at: new Date().toISOString(),
+      };
+
+      if (!templateId) {
+        line("  SKIP  no superuser credentials in .env.local — instance checks need a template");
+        skipped.push("workflow instance scoping (needs PB_ADMIN_* in .env.local)");
+      } else {
+      // The cross-tenancy case: A owns the project named, but the submittal
+      // belongs to C. A 2xx here means project and entity are trusted
+      // independently, which is the whole hole this rule exists to close.
+      const crossed = await api("POST", "/api/collections/workflow_instances/records",
+        { ...base, project: dataA.project, submittal: subC.data.id }, A.token);
+      check(
+        "an instance cannot point at a submittal in another project",
+        !crossed.ok,
+        `status ${crossed.status} — a 2xx means project and entity are trusted separately`,
+      );
+
+      // A real RFI, so "both entities set" is actually testable. An earlier
+      // version passed rfi: "" here, which is a VALID single-entity create —
+      // it silently succeeded and consumed the one-open-workflow index, making
+      // the legitimate create below fail as a duplicate.
+      const rfiA = await api("POST", "/api/collections/rfis/records",
+        { project: dataA.project, rfi_number: `PROBE-A-${STAMP}`, subject: "probe", question: "probe" }, A.token);
+      if (!rfiA.ok) {
+        check("setup: an RFI in A's project", false, `status ${rfiA.status}`);
+      } else {
+        const bothSet = await api("POST", "/api/collections/workflow_instances/records",
+          { ...base, project: dataA.project, submittal: subA.data.id, rfi: rfiA.data.id }, A.token);
+        check("an instance cannot name both a submittal and an RFI", !bothSet.ok,
+          `status ${bothSet.status} — two entities makes "what is being approved" ambiguous`);
+      }
+
+      const good = await api("POST", "/api/collections/workflow_instances/records",
+        { ...base, project: dataA.project, submittal: subA.data.id }, A.token);
+      check("A CAN start a workflow on A's own submittal", good.ok,
+        `status ${good.status} ${good.ok ? "" : JSON.stringify(good.data?.data ?? good.data)} — without this the rule is merely denying everything`);
+
+      if (good.ok) {
+        // One in-flight workflow per entity. Two pending instances on one
+        // submittal would make "the current approver" ambiguous with nothing
+        // to notice it.
+        const second = await api("POST", "/api/collections/workflow_instances/records",
+          { ...base, project: dataA.project, submittal: subA.data.id }, A.token);
+        check("a second open workflow on the same submittal is refused", !second.ok,
+          `status ${second.status} — two pending instances make the current approver ambiguous`);
+
+        // The frozen snapshot. If this succeeds, an in-flight workflow can be
+        // rewritten mid-approval and the audit log describes steps that no
+        // longer exist.
+        const rewrite = await api("PATCH", `/api/collections/workflow_instances/records/${good.data.id}`,
+          { template_snapshot: { steps: [] } }, A.token);
+        check("the template snapshot cannot be edited after the fact", !rewrite.ok,
+          `status ${rewrite.status} — a mutable snapshot defeats the point of taking one`);
+
+        const moved = await api("PATCH", `/api/collections/workflow_instances/records/${good.data.id}`,
+          { submittal: subC.data.id }, A.token);
+        check("an instance cannot be moved to another entity", !moved.ok, `status ${moved.status}`);
+
+        // Append-only, the one that is unrecoverable if wrong.
+        const act = await api("POST", "/api/collections/workflow_actions/records",
+          { instance: good.data.id, step_order: 1, actor: A.id, action: "approve",
+            comment: "probe", acted_at: new Date().toISOString() }, A.token);
+        check("A can record an action on their own instance", act.ok, `status ${act.status}`);
+
+        if (act.ok) {
+          const edited = await api("PATCH", `/api/collections/workflow_actions/records/${act.data.id}`,
+            { comment: "rewritten" }, A.token);
+          check("an action cannot be edited", !edited.ok,
+            `status ${edited.status} — append-only is the audit trail's only guarantee`);
+
+          const removed = await api("DELETE", `/api/collections/workflow_actions/records/${act.data.id}`, null, A.token);
+          check("an action cannot be deleted", !removed.ok, `status ${removed.status}`);
+        }
+
+        // Forging authorship: an action attributed to someone else would make
+        // "who approved this" unanswerable.
+        const forged = await api("POST", "/api/collections/workflow_actions/records",
+          { instance: good.data.id, step_order: 1, actor: B.id, action: "approve",
+            comment: "forged", acted_at: new Date().toISOString() }, A.token);
+        check("an action cannot be attributed to another user", !forged.ok, `status ${forged.status}`);
+
+        // C is in neither A's project nor its membership.
+        const cSees = await api("GET", "/api/collections/workflow_instances/records?perPage=100", null, C.token);
+        check(
+          "an outsider cannot see A's workflow instance",
+          !(cSees.data.items || []).some((r) => r.id === good.data.id),
+          `C sees ${(cSees.data.items || []).length} instance(s)`,
+        );
+
+        const cActions = await api("GET", "/api/collections/workflow_actions/records?perPage=100", null, C.token);
+        check(
+          "nor its action history",
+          (cActions.data.items || []).length === 0,
+          `C sees ${(cActions.data.items || []).length} action(s)`,
+        );
+
+        // The positive control, in section 8's style. B was added to A's
+        // project there, so B is a member and MUST see this. A suite that only
+        // proves denial passes trivially against a rule that denies everything.
+        const bSees = await api("GET", "/api/collections/workflow_instances/records?perPage=100", null, B.token);
+        check(
+          "a member of the project CAN see the instance",
+          (bSees.data.items || []).some((r) => r.id === good.data.id),
+          `B sees ${(bSees.data.items || []).length} instance(s) — without this the section proves nothing`,
+        );
+      }
+      }
+    }
+  }
+
   line("\n=== summary ===");
   const failed = results.filter((r) => !r.pass);
   if (failed.length === 0) {
@@ -534,6 +740,19 @@ try {
     const r = await api("DELETE", `/api/collections/users/records/${u.id}`, null, u.token);
     line(`  user ${u.id}: ${r.ok ? "deleted" : `FAILED ${r.status}`}`);
   }
+  // The section 9 fixture template is org-wide, so no project cascade reaches
+  // it. Left behind, it would become an active org-wide default on the live
+  // instance — configuration invented by a test.
+  if (made.templates.length) {
+    const admin = await adminToken();
+    for (const id of made.templates) {
+      const r = admin
+        ? await api("DELETE", `/api/collections/workflow_templates/records/${id}`, null, admin)
+        : { ok: false, status: "no admin token" };
+      line(`  template ${id}: ${r.ok ? "deleted" : `FAILED ${r.status} — delete it by hand`}`);
+    }
+  }
+
   const leftProjects = await api("GET", "/api/collections/projects/records?perPage=100");
   line(`  residual unauthenticated project count: ${(leftProjects.data.items || []).length}`);
 }

@@ -359,3 +359,45 @@ export const USER_ROLE = [
   "viewer",
 ] as const;
 export type UserRole = (typeof USER_ROLE)[number];
+
+/** `workflow_actions.action` */
+export const WORKFLOW_ACTION_ACTION = [
+  "approve",
+  "reject",
+  "comment",
+  "reassign",
+  "cancel",
+] as const;
+export type WorkflowActionAction = (typeof WORKFLOW_ACTION_ACTION)[number];
+
+/** `workflow_instances.status` */
+export const WORKFLOW_INSTANCE_STATUS = [
+  "pending",
+  "approved",
+  "rejected",
+  "cancelled",
+] as const;
+export type WorkflowInstanceStatus = (typeof WORKFLOW_INSTANCE_STATUS)[number];
+
+/** `workflow_steps.approver_mode` */
+export const WORKFLOW_STEP_APPROVER_MODE = [
+  "role",
+  "specific_users",
+  "any_of_users",
+] as const;
+export type WorkflowStepApproverMode = (typeof WORKFLOW_STEP_APPROVER_MODE)[number];
+
+/** `workflow_steps.on_reject` */
+export const WORKFLOW_STEP_ON_REJECT = [
+  "return_to_previous",
+  "return_to_start",
+  "terminate",
+] as const;
+export type WorkflowStepOnReject = (typeof WORKFLOW_STEP_ON_REJECT)[number];
+
+/** `workflow_templates.entity_type` */
+export const WORKFLOW_TEMPLATE_ENTITY_TYPE = [
+  "submittal",
+  "rfi",
+] as const;
+export type WorkflowTemplateEntityType = (typeof WORKFLOW_TEMPLATE_ENTITY_TYPE)[number];

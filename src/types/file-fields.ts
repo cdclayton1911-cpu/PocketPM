@@ -122,6 +122,14 @@ export const FILE_FIELDS = {
       required: false,
     },
   },
+  "workflow_actions": {
+    "attachments": {
+      maxSelect: 5,
+      maxSize: 52428800,
+      mimeTypes: [],
+      required: false,
+    },
+  },
 } as const satisfies Record<string, Record<string, FileFieldSpec>>;
 
 /** Collections that have at least one file field. */
