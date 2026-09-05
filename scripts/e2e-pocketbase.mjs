@@ -99,21 +99,42 @@ export async function startEphemeralPocketBase() {
   await assertPortFree();
   const binary = await ensureBinary();
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "pb-e2e-"));
+  // PocketBase defaults its migrations directory to one BESIDE THE BINARY, not
+  // inside --dir. Since the binary is cached in a shared tmpdir, automigrate
+  // wrote rule changes there and every later run replayed them at boot — before
+  // collections.import() had created the collections those rules reference, so
+  // PocketBase refused to start. Pinning it inside the per-run data directory is
+  // what actually makes the instance ephemeral.
+  const migrationsDir = path.join(dataDir, "pb_migrations");
 
   // Non-interactive superuser creation. `superuser upsert` is the 0.23+ form;
   // the older `admin create` was removed.
   const created = spawnSync(
     binary,
-    ["superuser", "upsert", SUPERUSER.email, SUPERUSER.password, `--dir=${dataDir}`],
+    [
+      "superuser",
+      "upsert",
+      SUPERUSER.email,
+      SUPERUSER.password,
+      `--dir=${dataDir}`,
+      `--migrationsDir=${migrationsDir}`,
+    ],
     { encoding: "utf8" },
   );
   if (created.status !== 0) {
     throw new Error(`could not create superuser: ${created.stderr || created.stdout}`);
   }
 
-  const proc = spawn(binary, ["serve", `--http=127.0.0.1:${PB_PORT}`, `--dir=${dataDir}`], {
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  const proc = spawn(
+    binary,
+    [
+      "serve",
+      `--http=127.0.0.1:${PB_PORT}`,
+      `--dir=${dataDir}`,
+      `--migrationsDir=${migrationsDir}`,
+    ],
+    { stdio: ["ignore", "pipe", "pipe"] },
+  );
   proc.stderr.on("data", (d) => process.stderr.write(`  [pb] ${d}`));
 
   await waitForHealth();

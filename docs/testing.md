@@ -100,3 +100,23 @@ throwaway accounts. It is the one check that arguably *should*, since it is
 verifying the rules as actually deployed — but it is worth revisiting whether a
 second copy of it should run against the ephemeral instance in CI, where a
 tenancy regression would be caught before merge rather than after.
+
+## Migrations are per-run, deliberately
+
+PocketBase defaults its migrations directory to one **beside the binary**, not
+inside `--dir`. The harness caches the binary in a shared tmpdir, so automigrate
+wrote rule changes into a location that outlived the "ephemeral" instance.
+
+That bit once: proving the narrowed `users.listRule` on a throwaway instance left
+a migration behind, and every later run replayed it at boot — before
+`collections.import()` had created the `projects` collection the rule's
+back-relation refers to. PocketBase refused to start, and the harness failed at
+`waitForHealth` with a timeout that said nothing about the cause.
+
+`--migrationsDir` is now pinned inside the per-run data directory on both the
+`superuser upsert` and `serve` invocations. If you change how the binary is
+launched, keep that flag — without it the instance is only ephemeral in the parts
+you happen to look at.
+
+A single green run does not prove this. Run the suite **twice in a row**; leaked
+state shows up on the second run.
