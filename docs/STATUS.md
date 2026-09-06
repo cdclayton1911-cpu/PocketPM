@@ -56,6 +56,33 @@ resolves successfully with SMTP off, so success proves nothing. See
 Nothing else is blocked on this. Option 4 for external reviewers — record the party,
 an internal user acts on their behalf — needs no email and is already built.
 
+## The failure shape this codebase keeps producing
+
+Four instances so far, and they are one bug wearing different clothes:
+
+- a PATCH returning **200** with the field silently dropped (Zod strips unknown keys)
+- a calendar configured to work **no days** producing confident, plausible dates
+- `verify:tenancy` section 9 assertions passing **vacuously** because the fixture never built
+- the CPM cache going stale with **nothing able to tell** a stale value from a fresh one
+
+The common property: **the output is well-formed, and its correctness is not
+observable from the output alone.** Nothing errors, nothing looks wrong, and the
+only way to notice is to already know what the right answer was.
+
+Every fix has been the same move — **replace a convention with a comparison that
+can fail**:
+
+| Convention someone must follow | Comparison that can fail |
+|---|---|
+| "don't call `.partial()` on a refined schema" | unrefined and refined schemas kept separate, so there is nothing to call it on |
+| "remember durations are working days" | `{ value, basis }`, so mixing them returns null |
+| "assume the fixture built" | an explicit setup check, and a positive control |
+| "recompute before reading the cache" | `computed_at` against the schedule's `updated` |
+| "the test covers timezones" | break `getUTCDay()` and watch 7 tests fail |
+
+When a new gap turns up, the useful question is not "who forgot" but **"what
+comparison would have failed?"** If the answer is "none", that is the gap.
+
 ## Queued, unstarted
 
 Roughly in priority order. Only the first has a hard deadline.
