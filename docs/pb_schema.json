@@ -590,11 +590,41 @@
         "required": false,
         "system": false,
         "type": "json"
+      },
+      {
+        "autogeneratePattern": "",
+        "help": "",
+        "hidden": false,
+        "id": "text1178947283",
+        "max": 64,
+        "min": 0,
+        "name": "cpm_inputs_hash",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "autogeneratePattern": "",
+        "help": "",
+        "hidden": false,
+        "id": "text108140222",
+        "max": 32,
+        "min": 0,
+        "name": "cpm_computed_at",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
       }
     ],
     "indexes": [],
     "created": "2026-04-28 17:58:17.106Z",
-    "updated": "2026-09-06 02:17:31.772Z",
+    "updated": "2026-09-06 03:05:33.738Z",
     "system": false
   },
   {

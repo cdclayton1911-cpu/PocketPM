@@ -140,6 +140,28 @@ drifts the moment someone edits a duration. The columns above are a cache
 written only by an explicit recalculation (`POST /api/schedule/analysis`);
 nothing a PM looks at is served from them.
 
+#### The cache says whether it is fresh
+
+`projects.cpm_inputs_hash` holds a hash of everything the computation consumed
+— activities, relationships, the working calendar, the critical threshold — and
+`cacheFreshness` compares it against the current inputs.
+
+A hash rather than timestamps, deliberately. `calendar_updated_at` or a
+per-collection `updated` comparison is a convention someone must maintain, and
+it drifts the first time a write path forgets to touch it. **A hash of the
+inputs cannot drift out of sync with the inputs, because it is the inputs.**
+
+It also fixes the case a timestamp comparison misses: change `work_days` or add
+a holiday and every computed date shifts while no `schedule_item.updated` moves,
+because no activity changed. And it avoids the opposite error — renaming a
+project does not mark the cache stale, because the project record is not an
+input; only its calendar fields are.
+
+**Phase 7 (the Gantt) may read the persisted columns ONLY when the marker
+reports `fresh`.** On `stale` or `never-computed` it must recompute or say so.
+Drawing a critical path from stale columns is exactly the failure this marker
+exists to prevent, and it would be invisible in the drawing.
+
 ### CSV import, as built
 
 **CSV only, no spreadsheet dependency.** XLSX brings merged cells, multiple

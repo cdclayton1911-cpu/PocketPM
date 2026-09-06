@@ -6,12 +6,25 @@ import type PocketBase from "pocketbase";
 import { normalizeCalendar, type ProjectCalendar } from "./calendar";
 import { computeCpm, type CpmActivity, type CpmRelationship, type CpmOutcome } from "./cpm";
 import { computeDivergence, type DivergenceReport } from "./divergence";
+import { cacheFreshness, type CpmInputs, type Freshness } from "./inputs-hash";
 
 export interface ScheduleAnalysis {
   outcome: CpmOutcome;
   divergence: DivergenceReport | null;
   calendar: ProjectCalendar;
   itemCount: number;
+  /**
+   * Whether the persisted CPM columns still match the inputs.
+   *
+   * Nothing may read those columns while this says `stale` — see
+   * docs/schedule-plan.md. The screens here compute fresh regardless, so this
+   * exists for consumers that do not, and for telling the user their stored
+   * numbers have been overtaken.
+   */
+  freshness: Freshness;
+  computedAt: string | null;
+  /** Exactly what the hash was taken over, so persistCpm cannot disagree. */
+  inputs: CpmInputs;
 }
 
 /**
@@ -54,9 +67,14 @@ export async function analyzeSchedule(pb: PocketBase, projectId: string): Promis
     lag_days: r.lag_days as number,
   }));
 
-  const outcome = computeCpm(activities, rels, calendar, {
+  const inputs: CpmInputs = {
+    activities,
+    relationships: rels,
+    calendar,
     projectStart: (project.start_date as string) || undefined,
-  });
+  };
+
+  const outcome = computeCpm(activities, rels, calendar, { projectStart: inputs.projectStart });
 
   const divergence = outcome.ok
     ? computeDivergence(
@@ -71,7 +89,15 @@ export async function analyzeSchedule(pb: PocketBase, projectId: string): Promis
       )
     : null;
 
-  return { outcome, divergence, calendar, itemCount: items.length };
+  return {
+    outcome,
+    divergence,
+    calendar,
+    itemCount: items.length,
+    freshness: cacheFreshness(inputs, project.cpm_inputs_hash as string | null),
+    computedAt: (project.cpm_computed_at as string) || null,
+    inputs,
+  };
 }
 
 /**
@@ -80,7 +106,11 @@ export async function analyzeSchedule(pb: PocketBase, projectId: string): Promis
  * Explicit: nothing calls this on read. The stored values are stale the moment
  * a duration changes, which is exactly why the screens do not read them.
  */
-export async function persistCpm(pb: PocketBase, analysis: ScheduleAnalysis): Promise<number> {
+export async function persistCpm(
+  pb: PocketBase,
+  projectId: string,
+  analysis: ScheduleAnalysis,
+): Promise<number> {
   if (!analysis.outcome.ok) return 0;
   let written = 0;
   for (const row of analysis.outcome.report.activities) {
@@ -96,5 +126,14 @@ export async function persistCpm(pb: PocketBase, analysis: ScheduleAnalysis): Pr
     });
     written += 1;
   }
+
+  // Stamped from the SAME inputs object the results were computed from, not
+  // re-read from the database. A second read could observe a different
+  // schedule and stamp a hash for results that were never computed from it.
+  await pb.collection("projects").update(projectId, {
+    cpm_inputs_hash: analysis.freshness.hash,
+    cpm_computed_at: new Date().toISOString(),
+  });
+
   return written;
 }

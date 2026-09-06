@@ -31,7 +31,7 @@ story after a deploy.
 | AI (7 modules, 14 tasks) | Live in production. Auth gate + 20/hr per-user rate limit. |
 | Documents + revisions | `project_documents`, `document_revisions`, revision UI, `protected: true` on every file field. |
 | Retrieval | Stage 1 (metadata selection) and stage 2 (metadata-only answers). Nothing leaves the droplet. |
-| Schedule | Relationships, baselines, variance, working calendar, and CPM with the divergence report (phases 1–3). Pure logic, 100 tests. CSV import (5) done. XER (6) and Gantt (7) next. |
+| Schedule | Relationships, baselines, variance, working calendar, and CPM with the divergence report (phases 1–3). Pure logic, 100 tests. CSV import (5) and the CPM cache staleness marker done. XER (6) is blocked on real files; Gantt (7) is unblocked. |
 | Project roles | `project_roles`, additive to `projects.members` — a role grants no access on its own. |
 | Workflows | Schema, engine, API routes, and UI: template builder at `/settings/workflows`, approval panel on submittal/RFI detail pages, inbox at `/approvals`. Submittal/RFI creation starts a workflow when a template is active. `workflow_actions` is append-only (null update/delete rules). |
 | Tenancy | `npm run verify:tenancy`, 10 sections. `npm run verify:schema` checks the snapshot matches live. |
@@ -85,27 +85,15 @@ comparison would have failed?"** If the answer is "none", that is the gap.
 
 ## Queued, unstarted
 
-Roughly in priority order. Only the first has a hard deadline.
+Roughly in priority order. None is blocking.
 
-1. **Staleness marker on the computed CPM columns — before phase 7.**
-   `early_start`, `total_float`, `is_critical` and the rest are a cache with no
-   invalidation signal. Edit a duration and the stored `total_float` is silently
-   wrong, with nothing to say so. Today's screens are safe because they compute
-   fresh on read — but the Gantt is exactly the consumer that will be tempted to
-   read the columns instead of recomputing per row.
-
-   Cheapest fix: a `computed_at` on the project or the analysis run, compared
-   against the latest `updated` on any `schedule_item` or `schedule_relationship`.
-   Newer schedule than computation means the stored values are marked stale
-   rather than displayed. **This must exist before phase 7 reads those fields.**
-
-2. **Strict validation across the 25 `crud-route.ts` module routes.** Plain
+1. **Strict validation across the 25 `crud-route.ts` module routes.** Plain
    `z.object` silently drops unknown keys; two instances found, both by
    accident, neither by a test, because the failure returns 200. Per-route, not
    mechanical — flipping to strict turns today's silent successes into 400s, so
    each route's real request bodies need checking.
 
-3. **Non-transactional import commit.** The commit deletes then re-creates
+2. **Non-transactional import commit.** The commit deletes then re-creates
    `schedule_items` and `schedule_relationships`; PocketBase has no REST
    transaction, so an interruption mid-write leaves a partially replaced
    schedule. Bounded rather than dangerous: the dry run front-loads everything
@@ -114,20 +102,20 @@ Roughly in priority order. Only the first has a hard deadline.
    it means a staging table and a swap — a lot of machinery for a rare
    interruption, so this is recorded, not scheduled.
 
-4. **`docs/workflows-plan.md` rewrite** — still describes the rejected
+3. **`docs/workflows-plan.md` rewrite** — still describes the rejected
    polymorphic model. A stale plan read as current is worse than none.
 
-5. **Submittal and RFI list rows should link to their detail pages.** The only
+4. **Submittal and RFI list rows should link to their detail pages.** The only
    route in today is the approvals inbox, which shows just what awaits *you* —
    so a PM cannot open a submittal mid-workflow they are not approving.
 
-6. **The `pb_hooks` request hook** (`docs/workflow-hooks.md`). Closes the
+5. **The `pb_hooks` request hook** (`docs/workflow-hooks.md`). Closes the
    credentialed-tool vector; does not cover migrations. Leaning build.
 
-7. **SMTP** — provider first, then `meta.appURL`, `meta.senderAddress`,
+6. **SMTP** — provider first, then `meta.appURL`, `meta.senderAddress`,
    `meta.senderName`.
 
-8. **Real XER exports from GCs.** Resolves two open questions at once: whether
+7. **Real XER exports from GCs.** Resolves two open questions at once: whether
    XER or PMXML should come second, and what import does with P6 per-activity
    calendars. Neither is answerable from here — both need actual files.
 

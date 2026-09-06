@@ -1,7 +1,10 @@
 "use client";
 
-import { Info, TriangleAlert } from "lucide-react";
+import { Info, RefreshCw, TriangleAlert } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
 
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -23,13 +26,33 @@ export function ScheduleAnalysisClient({
   divergence,
   projectFinish,
   error,
+  freshness,
+  computedAt,
 }: {
   rows: Row[];
   divergence: DivergenceReport | null;
   projectFinish: string | null;
   error: string | null;
+  /** Whether the SAVED results still match the inputs. */
+  freshness: "fresh" | "stale" | "never-computed";
+  computedAt: string | null;
 }) {
   const [tab, setTab] = useState<"cpm" | "divergence">("cpm");
+  const [saving, setSaving] = useState(false);
+
+  async function recalculate() {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/schedule/analysis", { method: "POST" });
+      if (!res.ok) throw new Error("Could not save the calculation");
+      toast.success("Saved results updated.");
+      window.location.reload();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   if (error) {
     return (
@@ -137,6 +160,37 @@ export function ScheduleAnalysisClient({
           {projectFinish ? `計 Project finish: ${projectFinish}.` : null}
         </p>
       </div>
+
+      {/*
+        Visible, not a tooltip. The figures ON THIS PAGE are always computed
+        fresh — what can be stale is the copy saved on each activity, which
+        other views may read. Saying which is which matters more than saying
+        "stale".
+      */}
+      {freshness !== "fresh" ? (
+        <div className="flex items-start gap-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+          <div className="flex-1">
+            <p className="font-medium">
+              {freshness === "never-computed"
+                ? "These results have never been saved to the activities."
+                : "The saved results on each activity are out of date."}
+            </p>
+            <p className="mt-0.5">
+              The dates and float shown here are calculated now and are correct. The copy stored on
+              each activity{" "}
+              {freshness === "never-computed"
+                ? "does not exist yet"
+                : `was calculated${computedAt ? ` on ${computedAt.slice(0, 10)}` : ""} from a different schedule or calendar`}
+              , so any other view reading those saved values would be wrong.
+            </p>
+            <Button className="mt-2" variant="outline" onClick={recalculate} disabled={saving}>
+              <RefreshCw className={cn("mr-1 size-3", saving && "animate-spin")} />
+              {saving ? "Saving\u2026" : "Save these results to the activities"}
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="flex gap-2 border-b border-neutral-200">
         {(["cpm", "divergence"] as const).map((t) => (

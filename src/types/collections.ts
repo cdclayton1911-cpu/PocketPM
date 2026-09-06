@@ -366,6 +366,8 @@ export interface Project extends BaseRecord {
   notes: string;
   work_days: unknown;
   holidays: unknown;
+  cpm_inputs_hash: string;
+  cpm_computed_at: string;
 }
 
 /**

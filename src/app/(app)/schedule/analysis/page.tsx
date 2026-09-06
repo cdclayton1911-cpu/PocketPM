@@ -20,7 +20,14 @@ export default async function ScheduleAnalysisPage() {
 
   if (!analysis.outcome.ok) {
     return (
-      <ScheduleAnalysisClient rows={[]} divergence={null} projectFinish={null} error={analysis.outcome.error} />
+      <ScheduleAnalysisClient
+        rows={[]}
+        divergence={null}
+        projectFinish={null}
+        error={analysis.outcome.error}
+        freshness={analysis.freshness.state}
+        computedAt={analysis.computedAt}
+      />
     );
   }
 
@@ -47,6 +54,8 @@ export default async function ScheduleAnalysisPage() {
       divergence={analysis.divergence}
       projectFinish={analysis.outcome.report.projectFinish}
       error={null}
+      freshness={analysis.freshness.state}
+      computedAt={analysis.computedAt}
     />
   );
 }

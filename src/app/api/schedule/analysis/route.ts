@@ -43,6 +43,6 @@ export async function POST() {
   if (!analysis.outcome.ok) {
     return NextResponse.json({ errors: { form: analysis.outcome.error } }, { status: 400 });
   }
-  const written = await persistCpm(pb, analysis);
+  const written = await persistCpm(pb, projectId, analysis);
   return NextResponse.json({ written });
 }
