@@ -34,7 +34,7 @@ story after a deploy.
 | Schedule | `schedule_relationships` (typed, with lag, cycle guard) + `schedule_baselines` and variance. Pure logic, 25 tests. |
 | Project roles | `project_roles`, additive to `projects.members` — a role grants no access on its own. |
 | Workflows | Schema + engine + API routes. No UI. Submittal/RFI creation starts a workflow when a template is active. `workflow_actions` is append-only (null update/delete rules). |
-| Tenancy | `npm run verify:tenancy`, 9 sections (16 workflow checks). `npm run verify:schema` checks the snapshot matches live. |
+| Tenancy | `npm run verify:tenancy`, 9 sections (23 workflow checks). `npm run verify:schema` checks the snapshot matches live. |
 | E2E | Playwright against an **ephemeral local PocketBase per run**. Never production. |
 
 **Password reset** is code-complete and unverifiable: `requestPasswordReset()`
@@ -68,7 +68,26 @@ an internal user acts on their behalf — needs no email and is already built.
 5. `.github/workflows/ci.yml` is written but gitignored — needs
    `gh auth refresh -s workflow` before it can be pushed.
 
-## The first workflow needs an admin, and there is no UI for it
+## Template authoring
+
+Org-wide templates (`project = ""`) are superuser-only — the only path to one is
+the PocketBase admin UI. A **project owner** may create, update and delete
+templates scoped to a project they own; membership alone is not enough.
+
+`project` is frozen after creation (`@request.body.project:isset = false`). An
+ownership predicate alone does not close reparenting, because PocketBase
+evaluates `updateRule` against the stored record: "owner of A" passes while the
+body moves the template to B.
+
+`workflow_steps` inherit their template's writability, which is an addition
+beyond the original decision — an owner who can create a template but not its
+steps gets an empty one, and `startWorkflow` refuses it.
+
+Superusers bypass all of this. `verify:tenancy` asserts that explicitly rather
+than leaving it unstated; see `docs/workflow-hooks.md` for why a hook only
+partially covers it.
+
+## The first workflow still needs an admin for org-wide defaults
 
 `workflow_templates.createRule` is `null` (superuser only) and
 `workflow_instances.template` is required. So **no user can start any workflow

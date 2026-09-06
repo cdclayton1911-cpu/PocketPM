@@ -367,6 +367,7 @@ export const WORKFLOW_ACTION_ACTION = [
   "comment",
   "reassign",
   "cancel",
+  "start",
 ] as const;
 export type WorkflowActionAction = (typeof WORKFLOW_ACTION_ACTION)[number];
 

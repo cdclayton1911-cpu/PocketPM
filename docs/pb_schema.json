@@ -6611,9 +6611,9 @@
     "id": "pbc_4172024801",
     "listRule": "@request.auth.id != \"\" && (project = \"\" || project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
     "viewRule": "@request.auth.id != \"\" && (project = \"\" || project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
-    "createRule": null,
-    "updateRule": null,
-    "deleteRule": null,
+    "createRule": "@request.auth.id != \"\" && project != \"\" && project.owner = @request.auth.id",
+    "updateRule": "@request.auth.id != \"\" && project != \"\" && project.owner = @request.auth.id && @request.body.project:isset = false",
+    "deleteRule": "@request.auth.id != \"\" && project != \"\" && project.owner = @request.auth.id",
     "name": "workflow_templates",
     "type": "base",
     "fields": [
@@ -6741,16 +6741,16 @@
       "CREATE UNIQUE INDEX idx_wf_tpl_project_default ON workflow_templates (project, entity_type) WHERE project != '' AND active = true"
     ],
     "created": "2026-09-05 21:09:10.848Z",
-    "updated": "2026-09-05 21:09:10.848Z",
+    "updated": "2026-09-06 01:45:32.789Z",
     "system": false
   },
   {
     "id": "pbc_2726758865",
     "listRule": "@request.auth.id != \"\" && (template.project = \"\" || template.project.owner = @request.auth.id || template.project.members.id ?= @request.auth.id)",
     "viewRule": "@request.auth.id != \"\" && (template.project = \"\" || template.project.owner = @request.auth.id || template.project.members.id ?= @request.auth.id)",
-    "createRule": null,
-    "updateRule": null,
-    "deleteRule": null,
+    "createRule": "@request.auth.id != \"\" && template.project != \"\" && template.project.owner = @request.auth.id",
+    "updateRule": "@request.auth.id != \"\" && template.project != \"\" && template.project.owner = @request.auth.id && @request.body.template:isset = false",
+    "deleteRule": "@request.auth.id != \"\" && template.project != \"\" && template.project.owner = @request.auth.id",
     "name": "workflow_steps",
     "type": "base",
     "fields": [
@@ -6910,7 +6910,7 @@
       "CREATE UNIQUE INDEX idx_wf_step_order ON workflow_steps (template, step_order)"
     ],
     "created": "2026-09-05 21:09:11.043Z",
-    "updated": "2026-09-05 21:09:11.043Z",
+    "updated": "2026-09-06 01:45:32.949Z",
     "system": false
   },
   {
@@ -7186,7 +7186,8 @@
           "reject",
           "comment",
           "reassign",
-          "cancel"
+          "cancel",
+          "start"
         ]
       },
       {
@@ -7246,7 +7247,7 @@
       "CREATE INDEX idx_wf_action_instance ON workflow_actions (instance, step_order)"
     ],
     "created": "2026-09-05 21:09:11.279Z",
-    "updated": "2026-09-05 21:09:11.279Z",
+    "updated": "2026-09-06 01:45:33.040Z",
     "system": false
   }
 ]

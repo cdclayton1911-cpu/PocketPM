@@ -16,7 +16,13 @@
 export type ApproverMode = "role" | "specific_users" | "any_of_users";
 export type OnReject = "return_to_previous" | "return_to_start" | "terminate";
 export type WorkflowStatus = "pending" | "approved" | "rejected" | "cancelled";
-export type WorkflowActionKind = "approve" | "reject" | "comment" | "reassign" | "cancel";
+export type WorkflowActionKind =
+  | "start"
+  | "approve"
+  | "reject"
+  | "comment"
+  | "reassign"
+  | "cancel";
 
 export interface SnapshotStep {
   step_order: number;
@@ -172,9 +178,16 @@ export function reconstructState(actions: readonly ActionRecord[], snapshot: Tem
       state.status = "cancelled";
       break;
     }
-    // Logged, deliberately inert. A comment on a step that has moved on is
-    // still a legitimate record of what someone said.
-    if (action.action === "comment" || action.action === "reassign") continue;
+    // Logged, deliberately inert.
+    //
+    // `start` records that the workflow opened; it is history, not a
+    // transition — replay already begins at the first step, and treating it as
+    // one would advance past step 1 before anyone had approved anything. A
+    // comment on a step that has moved on is likewise a legitimate record of
+    // what someone said, not a state change.
+    if (action.action === "start" || action.action === "comment" || action.action === "reassign") {
+      continue;
+    }
     // An action cast against a step that is no longer current cannot move the
     // workflow — the same guard `act()` enforces at write time.
     if (action.step_order !== state.current_step_order) continue;

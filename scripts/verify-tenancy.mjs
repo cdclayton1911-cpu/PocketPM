@@ -762,6 +762,69 @@ try {
           }
         }
 
+        /**
+         * Template authoring. Org-wide templates are superuser-only; a project
+         * owner may author templates for a project they own.
+         *
+         * The reparenting case is the reason `project` is frozen rather than
+         * merely predicated: PocketBase evaluates updateRule against the
+         * STORED record, so "owner of A" passes while the body moves the
+         * template to B.
+         */
+        const ownTpl = await api("POST", "/api/collections/workflow_templates/records",
+          { name: `owner tpl ${STAMP}`, entity_type: "submittal", project: dataA.project }, A.token);
+        check("a project owner CAN author a template for their own project", ownTpl.ok,
+          `status ${ownTpl.status} — the positive control for template authoring`);
+
+        // B is a member of A's project (added in section 8) but does not own it.
+        const memberTpl = await api("POST", "/api/collections/workflow_templates/records",
+          { name: `member tpl ${STAMP}`, entity_type: "submittal", project: dataA.project }, B.token);
+        check("a member who is not the owner cannot author a template", !memberTpl.ok,
+          `status ${memberTpl.status} — membership is not authorship`);
+
+        const foreignTpl = await api("POST", "/api/collections/workflow_templates/records",
+          { name: `foreign tpl ${STAMP}`, entity_type: "submittal", project: dataC.project }, A.token);
+        check("an owner cannot author a template for a project they do not own", !foreignTpl.ok,
+          `status ${foreignTpl.status} — the rule must test THIS template's project, not "owns something"`);
+
+        if (ownTpl.ok) {
+          const reparent = await api("PATCH", `/api/collections/workflow_templates/records/${ownTpl.data.id}`,
+            { project: dataC.project }, A.token);
+          check("a template cannot be reparented to another project", !reparent.ok,
+            `status ${reparent.status} — an ownership predicate alone passes here; the frozen field is what refuses it`);
+        }
+
+        const orgWideByUser = await api("POST", "/api/collections/workflow_templates/records",
+          { name: `org tpl ${STAMP}`, entity_type: "submittal", project: "" }, A.token);
+        check("an ordinary user cannot author an org-wide template", !orgWideByUser.ok,
+          `status ${orgWideByUser.status} — org-wide applies to every project`);
+
+        if (admin) {
+          const orgWideByAdmin = await api("POST", "/api/collections/workflow_templates/records",
+            { name: `admin org tpl ${STAMP}`, entity_type: "rfi", project: "" }, admin);
+          check("a superuser CAN author an org-wide template", orgWideByAdmin.ok,
+            `status ${orgWideByAdmin.status} — this is the only path to one`);
+          if (orgWideByAdmin.ok) made.templates.push(orgWideByAdmin.data.id);
+
+          /**
+           * Recorded rather than prevented, deliberately.
+           *
+           * Superusers bypass collection rules entirely, so nothing in the rule
+           * layer can stop an admin writing a template into a project they have
+           * no relationship with. That path is live in this repo, not
+           * hypothetical: this script reads PB_ADMIN_* from .env.local to run
+           * the checks above. Closing it needs a pb_hooks guard
+           * (docs/workflow-hooks.md); until then this asserts the CURRENT
+           * behaviour so that a change to it is noticed.
+           */
+          const adminIntoProject = await api("POST", "/api/collections/workflow_templates/records",
+            { name: `admin scoped tpl ${STAMP}`, entity_type: "rfi", project: dataC.project }, admin);
+          check("a superuser CAN write a template into any project (unguarded — see docs/workflow-hooks.md)",
+            adminIntoProject.ok,
+            `status ${adminIntoProject.status} — asserts today's behaviour; a hook is what would change it`);
+          if (adminIntoProject.ok) made.templates.push(adminIntoProject.data.id);
+        }
+
         // The positive control, in section 8's style. B was added to A's
         // project there, so B is a member and MUST see this. A suite that only
         // proves denial passes trivially against a rule that denies everything.

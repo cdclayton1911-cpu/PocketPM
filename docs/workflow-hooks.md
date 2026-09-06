@@ -45,6 +45,41 @@ rewrite of the engine:
 > current step, by the requesting user, within the last few seconds. Otherwise
 > reject.
 
+## Can a hook guard the superuser path? Not cleanly — tested
+
+The follow-on question was whether a hook could also stop a superuser writing a
+template into a project they have no relationship with, since superusers bypass
+collection rules and that path is live in this repo (`verify:tenancy` reads
+`PB_ADMIN_*` from `.env.local`).
+
+Two hook families were run on 0.40.1, both registered on the same collection:
+
+| | knows who is writing | fires on a migration's `app.save()` |
+|---|---|---|
+| `onRecordCreateRequest` | **yes** — `auth=<id>`, superuser included | **no** |
+| `onRecordCreate` (model) | **no** — `e.auth` is `undefined` | **yes** |
+
+Measured, not inferred. The request hook blocked an API create by a superuser
+and reported that superuser's id. A migration that called `app.save()` on the
+next boot then inserted its row anyway, while the model hook fired for it with
+no auth context at all.
+
+So the two named vectors split cleanly down the middle:
+
+- **An internal tool using the REST API with admin credentials** — covered by a
+  request hook, which can see it is a superuser and refuse.
+- **A migration script** — not covered by a request hook, and the model hook
+  that does see it cannot tell a migration from anyone else.
+
+A guard would therefore be a request hook covering the API path, with migrations
+explicitly out of scope. That is a defensible line — a migration requires repo
+access and a deploy, which is a larger compromise than this control addresses —
+but it is **partial coverage, and should not be described as closing the hole**.
+
+`verify:tenancy` currently asserts today's behaviour explicitly: a superuser CAN
+write a template into any project. If that ever changes, the assertion fails and
+names the reason.
+
 ## Costs, before anyone commits to it
 
 - **Logic duplicated in Goja.** Hooks run in PocketBase's own JS runtime, not

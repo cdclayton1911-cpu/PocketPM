@@ -9,6 +9,8 @@ import { fileFieldsFor } from "@/types/file-fields";
 
 const schema = z.strictObject({
   instanceId: z.string().min(1).max(20),
+  // `start` is deliberately absent: the engine emits it when a workflow opens,
+  // and a client posting one would fabricate a second opening event.
   action: z.enum(["approve", "reject", "comment", "reassign", "cancel"]),
   comment: z.string().trim().max(5000).optional(),
   expectedStepOrder: z.coerce.number().int().min(1),

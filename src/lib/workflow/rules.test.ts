@@ -215,3 +215,33 @@ describe("resolveApprovers", () => {
     expect(resolveApprovers(liveTemplateChangedTo, {})).toEqual(["replacement"]);
   });
 });
+
+describe("the start action", () => {
+  const three = snapshot([step(1), step(2), step(3)]);
+
+  it("is history, not a transition — it does not advance the workflow", () => {
+    expect(reconstructState([at("u1", "start", 1)], three)).toEqual({
+      status: "pending",
+      current_step_order: 1,
+    });
+  });
+
+  it("leaves a following approval to do the advancing", () => {
+    const actions = [at("u1", "start", 1), at("u1", "approve", 1)];
+    expect(reconstructState(actions, three).current_step_order).toBe(2);
+  });
+
+  it("replays identically whether or not the opening event was recorded", () => {
+    // Instances created before `start` existed opened with a comment. Both
+    // must reconstruct to the same state, or the forgery check would flag
+    // every one of them.
+    const withStart = [at("u1", "start", 1), at("u1", "approve", 1)];
+    const withComment = [at("u1", "comment", 1), at("u1", "approve", 1)];
+    expect(reconstructState(withStart, three)).toEqual(reconstructState(withComment, three));
+  });
+
+  it("does not revive a cancelled workflow if it somehow arrives late", () => {
+    const actions = [at("u1", "cancel", 1), at("u1", "start", 1)];
+    expect(reconstructState(actions, three).status).toBe("cancelled");
+  });
+});

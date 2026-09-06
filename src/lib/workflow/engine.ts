@@ -39,12 +39,11 @@ const fail = (code: EngineFailure["code"], message: string): EngineResult<never>
 });
 
 /**
- * The action enum has no "start".
+ * The opening entry.
  *
- * The four collections were specified with approve/reject/comment/reassign/
- * cancel, so the opening entry is recorded as a comment. reconstructState
- * treats comments as inert, which is what we want — the opening row documents
- * that the workflow began without itself advancing anything.
+ * Recorded as `start`, its own action kind. It was briefly a `comment`, which
+ * replayed correctly only because comments are inert — and made "the workflow
+ * began" indistinguishable from someone leaving a note on step 1.
  */
 const OPENING_NOTE = "Workflow started";
 
@@ -162,7 +161,7 @@ export async function startWorkflow(
     return fail("invalid", "Could not start the workflow");
   }
 
-  await writeAction(pb, instance.id, firstOrder, actorId, "comment", OPENING_NOTE);
+  await writeAction(pb, instance.id, firstOrder, actorId, "start", OPENING_NOTE);
   return { ok: true, value: instance };
 }
 
