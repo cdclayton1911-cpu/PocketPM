@@ -60,7 +60,24 @@ an internal user acts on their behalf — needs no email and is already built.
 
 In rough priority order. None of these is blocking.
 
-1. **Submittal and RFI list rows should link to their detail pages.** Right now
+1. **Strict validation on every write path.** `crud-route.ts` validates all 25
+   module routes with a plain `z.object`, which SILENTLY DROPS unknown keys.
+   Two instances have been found — `revisionUpdateSchema` letting a PATCH to an
+   issued revision return 200 with the field discarded, and `projectSchema`
+   about to do the same to the working calendar. Both were found by accident,
+   neither by a test, because **the failure returns 200**: the client has every
+   reason to believe the write landed.
+
+   The fix is `z.strictObject` plus a test asserting unknown keys are rejected.
+
+   **The caveat for whoever does it:** flipping this blindly will break any
+   client that sends a field the schema does not list — a form submitting an
+   extra input, a hook adding a key. Strict turns today's silent success into a
+   400. That is the right outcome, but it needs each route's actual request
+   bodies checked rather than a global find-and-replace, which is why this is
+   its own commit and not a cleanup.
+
+2. **Submittal and RFI list rows should link to their detail pages.** Right now
    the only route in is the approvals inbox, which shows only what is awaiting
    *your* action — so there is no way to look at a submittal mid-workflow that
    you are not the approver for, which is the common case for a PM. Should land
