@@ -140,6 +140,43 @@ drifts the moment someone edits a duration. The columns above are a cache
 written only by an explicit recalculation (`POST /api/schedule/analysis`);
 nothing a PM looks at is served from them.
 
+### CSV import, as built
+
+**CSV only, no spreadsheet dependency.** XLSX brings merged cells, multiple
+sheets, dates as floats in three possible epochs, and duration columns that are
+secretly text — every one a mapping edge case and a support ticket, on a format
+where the user has a one-step escape hatch. The parser is ~150 lines and
+unit-tested against hand-built fixtures.
+
+**The mapping layer is format-agnostic.** The parser produces headers and rows;
+everything after that is shared. Phase 6 (XER) produces the same two things and
+slots in unchanged.
+
+**The file is never stored.** An import source is a transient input, not a
+record. Storing it would create a second copy of the schedule whose
+relationship to `schedule_items` is undefined the moment anyone edits an
+activity. A user who wants the source kept uploads it to project documents.
+
+**Encoding is detected, not assumed.** Excel on Windows writes CP-1252 or
+UTF-16LE with a BOM. Decoding those as UTF-8 turns the diameter sign in a rebar
+callout into mojibake — well-formed output, silently wrong, no comparison
+catches it. The detected encoding is shown in the preview.
+
+**Date order is an explicit choice.** `03/04/2026` is 3 April or 4 March and the
+file does not say which; guessing from the data is worse than useless, since a
+schedule whose days are all ≤ 12 gives no evidence at all. The preview shows the
+raw cell beside the parsed value for every date column, and a toggle re-renders
+it. When a date is impossible in the chosen order but valid in the other, the
+error says so.
+
+**The baseline-match report is the reason the dry run exists.** Baseline items
+join to activities by `activity_id` string, so a renumbered schedule silently
+detaches every baseline item — and a baseline matching nothing reports NO
+variance rather than an error. The dry run counts, per baseline, how many items
+will still match and how many will not; a non-zero orphan count requires
+explicit acknowledgement, re-checked server-side on commit so it is a guard
+rather than a warning.
+
 ### The divergence report is how we find constrained activities
 
 `schedule_items` has no constraint fields — no must-start-on, no
@@ -165,7 +202,7 @@ same number.
 
 | Format | Verdict | Notes |
 |---|---|---|
-| **Excel / CSV** | Do first | We define the template, so it always parses. Also the only path for people who do not run P6. Needs a column mapper and a dry-run preview. |
+| **CSV** | **Done** | Hand-rolled RFC 4180 parser, no dependency. See below. |
 | **P6 XER** | Do second | Tab-delimited text with `%T`/`%F`/`%R` record markers. Ugly but fully parseable in TypeScript, no dependency. The tables that matter: `TASK`, `TASKPRED`, `PROJECT`, `CALENDAR`. |
 | **P6 XML (PMXML)** | Do third | Schema-defined XML; cleaner than XER but needs an XML parser — a dependency conversation, since none is installed. |
 | **MPP** | **Skip** | See below. |
@@ -214,7 +251,7 @@ arrows. Editing by dragging can come later and is where the complexity is.
 | 2 | Project calendar (work days + holidays) | 1 commit | **done** |
 | 3 | CPM engine, pure, with Vitest unit tests | 2 commits | **done** |
 | ~~4~~ | ~~Schedule authoring UI~~ | — | **dropped** — mirrored, not authored |
-| 5 | Excel/CSV import with mapping and dry-run preview | 2 commits | |
+| 5 | CSV import with mapping and dry-run preview | 2 commits | **done** |
 | 6 | XER import | 2 commits | |
 | 7 | Read-only SVG Gantt | 2–3 commits | |
 | — | PMXML | after 6, if wanted | |

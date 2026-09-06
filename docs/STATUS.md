@@ -31,7 +31,7 @@ story after a deploy.
 | AI (7 modules, 14 tasks) | Live in production. Auth gate + 20/hr per-user rate limit. |
 | Documents + revisions | `project_documents`, `document_revisions`, revision UI, `protected: true` on every file field. |
 | Retrieval | Stage 1 (metadata selection) and stage 2 (metadata-only answers). Nothing leaves the droplet. |
-| Schedule | Relationships, baselines, variance, working calendar, and CPM with the divergence report (phases 1–3). Pure logic, 100 tests. Import (5–6) and Gantt (7) next. |
+| Schedule | Relationships, baselines, variance, working calendar, and CPM with the divergence report (phases 1–3). Pure logic, 100 tests. CSV import (5) done. XER (6) and Gantt (7) next. |
 | Project roles | `project_roles`, additive to `projects.members` — a role grants no access on its own. |
 | Workflows | Schema, engine, API routes, and UI: template builder at `/settings/workflows`, approval panel on submittal/RFI detail pages, inbox at `/approvals`. Submittal/RFI creation starts a workflow when a template is active. `workflow_actions` is append-only (null update/delete rules). |
 | Tenancy | `npm run verify:tenancy`, 10 sections. `npm run verify:schema` checks the snapshot matches live. |

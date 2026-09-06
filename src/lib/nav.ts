@@ -27,6 +27,7 @@ import {
   ScrollText,
   Search,
   Sigma,
+  Upload,
   Users,
   Workflow,
 } from "lucide-react";
@@ -90,6 +91,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/budget", label: "Budget & Cost", icon: DollarSign },
       { href: "/schedule", label: "Schedule", icon: CalendarDays },
       { href: "/schedule/analysis", label: "Critical Path", icon: Sigma },
+      { href: "/schedule/import", label: "Import Schedule", icon: Upload },
       { href: "/settings/calendar", label: "Working Calendar", icon: CalendarCheck },
     ],
   },
