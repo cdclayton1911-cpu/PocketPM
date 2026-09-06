@@ -917,7 +917,38 @@ try {
       const r = admin
         ? await api("DELETE", `/api/collections/workflow_templates/records/${id}`, null, admin)
         : { ok: false, status: "no admin token" };
-      line(`  template ${id}: ${r.ok ? "deleted" : `FAILED ${r.status} — delete it by hand`}`);
+      // A 404 means it is already gone — the project-scoped fixture template
+      // cascades when its project is deleted above. Reporting that as a failure
+      // sent a reader hunting for an orphan that never existed.
+      const gone = r.ok || r.status === 404;
+      line(`  template ${id}: ${gone ? "deleted" : `FAILED ${r.status} — delete it by hand`}`);
+    }
+  }
+
+  /**
+   * Verify the cleanup rather than trusting it.
+   *
+   * A cleanup step that can fail and only prints is a convention, not a
+   * comparison. An org-wide template left behind is worse than a stray record:
+   * it is the default for every project without one of its own, so it could
+   * attach itself to a real workflow. This asserts the end state instead.
+   */
+  if (made.templates.length) {
+    const admin = await adminToken();
+    if (admin) {
+      const residual = [];
+      for (const collection of ["workflow_templates", "workflow_steps", "workflow_instances", "workflow_actions"]) {
+        const r = await api("GET", `/api/collections/${collection}/records?perPage=200`, null, admin);
+        const count = (r.data.items || []).length;
+        if (count > 0) residual.push(`${collection}: ${count}`);
+      }
+      if (residual.length) {
+        line(`  RESIDUAL WORKFLOW DATA — ${residual.join(", ")}`);
+        line("    An org-wide template left behind becomes the default for every project.");
+        process.exitCode = 1;
+      } else {
+        line("  workflow collections: all empty");
+      }
     }
   }
 
