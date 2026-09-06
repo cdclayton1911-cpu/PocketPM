@@ -124,8 +124,42 @@ Deliberately **out** of the first pass: resource levelling, constraints
 multiple calendars, and out-of-sequence progress. Each is a real P6 feature and
 each is its own project. Saying so now is cheaper than discovering it mid-build.
 
-Results are **computed, not stored** — a stored critical path drifts the moment
-someone edits a duration. Cache in the client, recompute server-side on read.
+### Computed alongside imported — settled
+
+`schedule_items` keeps `planned_start` and `planned_finish` as the **imported**
+values, untouched. CPM writes to its own fields: `early_start`, `early_finish`,
+`late_start`, `late_finish`, `total_float`, `free_float`, `is_critical`.
+
+The reasoning is not tidiness. The premise of this module is **mirrored, not
+authored**. Overwriting the source destroys the only thing the computation can
+be checked against, and does it silently — and every screen shows both numbers
+side by side so a disagreement is visible rather than assumed away.
+
+Results are still **computed fresh on read**, because a stored critical path
+drifts the moment someone edits a duration. The columns above are a cache
+written only by an explicit recalculation (`POST /api/schedule/analysis`);
+nothing a PM looks at is served from them.
+
+### The divergence report is how we find constrained activities
+
+`schedule_items` has no constraint fields — no must-start-on, no
+start-no-earlier-than, no deadline — and constraints are out of the first pass.
+So for any activity P6 constrained, the computed date **will** disagree with the
+imported one. That is a correct pure-logic answer and a wrong mirror.
+
+`computeDivergence` turns that into the instrument: with no constraint field to
+read, **the disagreement is the only signal available** for which activities are
+constrained. An imported date materially LATER than logic allows is P6 holding a
+constraint we cannot see; an imported date EARLIER usually means a missing or
+wrong relationship, which is a different problem.
+
+The report is PM-facing, and the view says all of this on screen. Without that,
+the first person to open it concludes the CPM is broken — when it is doing
+exactly what it was scoped to do.
+
+Deltas are **calendar** days (a date-to-date comparison); floats and durations
+are **working** days. The typed-units shape is what stops them being read as the
+same number.
 
 ## Import
 
@@ -178,7 +212,7 @@ arrows. Editing by dragging can come later and is where the complexity is.
 |---|---|---|---|
 | 1 | `schedule_relationships`, drop `predecessors`, rules, cycle guard, tenancy check | 1 commit | **done** |
 | 2 | Project calendar (work days + holidays) | 1 commit | **done** |
-| 3 | CPM engine, pure, with Vitest unit tests | 2 commits | |
+| 3 | CPM engine, pure, with Vitest unit tests | 2 commits | **done** |
 | ~~4~~ | ~~Schedule authoring UI~~ | — | **dropped** — mirrored, not authored |
 | 5 | Excel/CSV import with mapping and dry-run preview | 2 commits | |
 | 6 | XER import | 2 commits | |

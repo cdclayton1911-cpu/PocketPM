@@ -1,0 +1,216 @@
+"use client";
+
+import { Info, TriangleAlert } from "lucide-react";
+import { useState } from "react";
+
+import { DataTable, type Column } from "@/components/shared/DataTable";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+import type { CpmResult } from "@/lib/schedule/cpm";
+import type { DivergenceReport, DivergenceRow } from "@/lib/schedule/divergence";
+import { formatDays } from "@/lib/schedule/units";
+
+interface Row extends CpmResult {
+  activity_id: string;
+  activity: string;
+  imported_start: string | null;
+  imported_finish: string | null;
+}
+
+export function ScheduleAnalysisClient({
+  rows,
+  divergence,
+  projectFinish,
+  error,
+}: {
+  rows: Row[];
+  divergence: DivergenceReport | null;
+  projectFinish: string | null;
+  error: string | null;
+}) {
+  const [tab, setTab] = useState<"cpm" | "divergence">("cpm");
+
+  if (error) {
+    return (
+      <div className="p-4">
+        <Card className="p-4">
+          <h1 className="text-base font-semibold">Schedule analysis</h1>
+          <p className="mt-2 text-[13px] text-red-700">
+            {error === "cycle"
+              ? "The schedule contains a circular dependency, so no dates can be calculated. Find and remove the loop in the relationships."
+              : error === "no_working_days"
+                ? "The project calendar has no working days, so no dates can be calculated."
+                : "There are no schedule activities yet."}
+          </p>
+        </Card>
+      </div>
+    );
+  }
+
+  const cpmColumns: Column<Row>[] = [
+    { key: "id", header: "Activity", cell: (r) => r.activity_id },
+    { key: "name", header: "Description", cell: (r) => r.activity },
+    {
+      key: "imported",
+      header: "Imported",
+      // Shown alongside, never replaced: the mirrored dates are the only thing
+      // the computation can be checked against.
+      cell: (r) => (
+        <span className="text-neutral-500 tabular-nums">
+          {r.imported_start ?? "—"} → {r.imported_finish ?? "—"}
+        </span>
+      ),
+    },
+    {
+      key: "computed",
+      header: "Computed (early)",
+      cell: (r) => (
+        <span className="tabular-nums">
+          {r.early_start ?? "—"} → {r.early_finish ?? "—"}
+          {r.pinned_start || r.pinned_finish ? (
+            <span className="ml-1 text-[10px] text-sky-700">actual</span>
+          ) : null}
+        </span>
+      ),
+    },
+    { key: "float", header: "Total float", align: "right", cell: (r) => formatDays(r.total_float) },
+    {
+      key: "critical",
+      header: "Critical",
+      cell: (r) =>
+        r.is_critical ? (
+          <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-800">
+            critical
+          </span>
+        ) : null,
+    },
+  ];
+
+  const divColumns: Column<DivergenceRow>[] = [
+    { key: "id", header: "Activity", cell: (r) => r.activity_id },
+    { key: "name", header: "Description", cell: (r) => r.activity },
+    {
+      key: "imported",
+      header: "Imported start",
+      cell: (r) => <span className="tabular-nums text-neutral-500">{r.imported_start ?? "—"}</span>,
+    },
+    {
+      key: "computed",
+      header: "Computed start",
+      cell: (r) => <span className="tabular-nums">{r.computed_start ?? "—"}</span>,
+    },
+    {
+      key: "delta",
+      header: "Difference",
+      align: "right",
+      cell: (r) => (
+        <span
+          className={cn(
+            "tabular-nums",
+            r.magnitude === "severe" && "font-medium text-red-700",
+            r.magnitude === "notable" && "text-amber-700",
+          )}
+        >
+          {r.start_delta ? formatDays(r.start_delta) : "—"}
+        </span>
+      ),
+    },
+    {
+      key: "why",
+      header: "",
+      cell: (r) =>
+        r.pinned ? (
+          <span className="text-[11px] text-neutral-500">actual progress</span>
+        ) : r.likely_constrained ? (
+          <span className="text-[11px] text-amber-800">likely constrained in P6</span>
+        ) : null,
+    },
+  ];
+
+  return (
+    <div className="space-y-4 p-4">
+      <div>
+        <h1 className="text-base font-semibold">Schedule analysis</h1>
+        <p className="mt-0.5 text-[12px] text-neutral-500">
+          Calculated from the activity logic and the project working calendar.
+          {projectFinish ? `計 Project finish: ${projectFinish}.` : null}
+        </p>
+      </div>
+
+      <div className="flex gap-2 border-b border-neutral-200">
+        {(["cpm", "divergence"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={cn(
+              "-mb-px border-b-2 px-3 py-1.5 text-[13px]",
+              tab === t ? "border-neutral-800 font-medium" : "border-transparent text-neutral-500",
+            )}
+          >
+            {t === "cpm" ? "Critical path" : `Divergence${divergence ? ` (${divergence.likelyConstrained.length})` : ""}`}
+          </button>
+        ))}
+      </div>
+
+      {tab === "cpm" ? (
+        <DataTable
+          columns={cpmColumns}
+          rows={rows}
+          rowKey={(r) => r.id}
+          rowClassName={(r) => (r.is_critical ? "bg-red-50/40" : undefined)}
+          empty={<EmptyState title="No activities" description="Import a schedule to see the critical path." />}
+        />
+      ) : (
+        <div className="space-y-3">
+          {/*
+            Without this, the first PM to open the report concludes the CPM is
+            broken. A divergence is usually correct behaviour meeting a missing
+            feature, and saying so is the difference between a useful diagnostic
+            and a bug report.
+          */}
+          <div className="flex gap-2 rounded border border-sky-200 bg-sky-50 px-3 py-2 text-[12px] text-sky-900">
+            <Info className="mt-0.5 size-4 shrink-0" />
+            <div>
+              <p className="font-medium">A difference here usually is not an error.</p>
+              <p className="mt-0.5">
+                These dates are calculated from activity logic alone. Date constraints —
+                start-no-earlier-than, must-finish-on, deadlines — are not yet supported, and P6
+                schedules are full of them. When an imported date is <strong>later</strong> than the
+                calculated one, P6 is normally holding that activity with a constraint this
+                calculation cannot see. That is what &ldquo;likely constrained&rdquo; marks, and it
+                is the best signal available for finding constrained activities.
+              </p>
+              <p className="mt-1">
+                An imported date <strong>earlier</strong> than the calculated one is different — it
+                usually means a relationship is missing or wrong, which is worth investigating.
+              </p>
+            </div>
+          </div>
+
+          {divergence && divergence.unmatched.length > 0 ? (
+            <p className="flex gap-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+              <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+              {divergence.unmatched.length} activity(ies) could not be matched to a calculated
+              result and are not shown: {divergence.unmatched.slice(0, 5).join(", ")}
+              {divergence.unmatched.length > 5 ? "…" : ""}
+            </p>
+          ) : null}
+
+          <DataTable
+            columns={divColumns}
+            rows={(divergence?.rows ?? []).filter((r) => r.magnitude !== "none")}
+            rowKey={(r) => r.id}
+            empty={
+              <EmptyState
+                title="No differences"
+                description="Every calculated date matches the imported schedule."
+              />
+            }
+          />
+        </div>
+      )}
+    </div>
+  );
+}

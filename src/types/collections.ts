@@ -496,6 +496,13 @@ export interface ScheduleItem extends BaseRecord {
   is_milestone: boolean;
   notes: string;
   sort_order: number;
+  early_start: string;
+  early_finish: string;
+  late_start: string;
+  late_finish: string;
+  total_float: number;
+  free_float: number;
+  is_critical: boolean;
 }
 
 /**
