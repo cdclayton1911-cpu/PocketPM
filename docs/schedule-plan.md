@@ -265,6 +265,39 @@ one. Three options:
 Recommend (1), read-only first: bars, today line, critical path, dependency
 arrows. Editing by dragging can come later and is where the complexity is.
 
+### As built
+
+**Fixed weekly columns, no zoom.** A four-year job is about 220 columns and
+scrolls; daily resolution over the same span is roughly 1,550 and needs
+virtualisation for the axis alone.
+
+**Dependency arrows are selection-based, and that is the better feature.**
+Clicking an activity draws its immediate predecessors and successors, labelled
+with type and lag. Drawing every edge at once is unreadable at any density that
+warrants a Gantt, so the expensive version produces the worse result — and a
+PM's question is "what is driving THIS activity", which is exactly what
+selection answers. The critical path is the one exception and draws unprompted:
+it is a chain rather than a graph, and it is what a Gantt gets opened for.
+
+**Row limit is visible, not silent.** 500 rows by default with an exact count
+of what is not drawn and controls to raise it. Nobody knows the real activity
+count yet — `schedule_items` was empty when this shipped — so virtualisation
+would be built for a load that may never arrive, and silent truncation would be
+a wrong chart that looks complete.
+
+**Bars show the IMPORTED dates only.** Computed early/late dates are on the
+analysis page with the divergence report. Drawing both without a strong visual
+distinction would hide exactly the disagreement the divergence report exists to
+surface.
+
+**The freshness rule is enforced here.** When the marker is not `fresh` the
+critical path is NOT drawn, and the chart says why. A critical path from a stale
+cache is wrong without looking wrong.
+
+**A table view carries the same data**, toggled from the chart rather than
+hidden on another page. An SVG is unreadable to a screen reader by default;
+same reasoning as the keyboard reorder path in 8f52d9f.
+
 ## Scope
 
 | Phase | Contents | Size | State |
@@ -275,7 +308,7 @@ arrows. Editing by dragging can come later and is where the complexity is.
 | ~~4~~ | ~~Schedule authoring UI~~ | — | **dropped** — mirrored, not authored |
 | 5 | CSV import with mapping and dry-run preview | 2 commits | **done** |
 | 6 | XER import | 2 commits | |
-| 7 | Read-only SVG Gantt | 2–3 commits | |
+| 7 | Read-only SVG Gantt | 2–3 commits | **done** |
 | — | PMXML | after 6, if wanted | |
 | — | MPP | not supported, by decision | |
 
