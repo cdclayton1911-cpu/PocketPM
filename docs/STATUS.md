@@ -105,20 +105,29 @@ Roughly in priority order. Only the first has a hard deadline.
    mechanical — flipping to strict turns today's silent successes into 400s, so
    each route's real request bodies need checking.
 
-3. **`docs/workflows-plan.md` rewrite** — still describes the rejected
+3. **Non-transactional import commit.** The commit deletes then re-creates
+   `schedule_items` and `schedule_relationships`; PocketBase has no REST
+   transaction, so an interruption mid-write leaves a partially replaced
+   schedule. Bounded rather than dangerous: the dry run front-loads everything
+   that can fail, and the failure is a *visibly* partial schedule rather than a
+   silently wrong one. Same class as the workflow template save. Working around
+   it means a staging table and a swap — a lot of machinery for a rare
+   interruption, so this is recorded, not scheduled.
+
+4. **`docs/workflows-plan.md` rewrite** — still describes the rejected
    polymorphic model. A stale plan read as current is worse than none.
 
-4. **Submittal and RFI list rows should link to their detail pages.** The only
+5. **Submittal and RFI list rows should link to their detail pages.** The only
    route in today is the approvals inbox, which shows just what awaits *you* —
    so a PM cannot open a submittal mid-workflow they are not approving.
 
-5. **The `pb_hooks` request hook** (`docs/workflow-hooks.md`). Closes the
+6. **The `pb_hooks` request hook** (`docs/workflow-hooks.md`). Closes the
    credentialed-tool vector; does not cover migrations. Leaning build.
 
-6. **SMTP** — provider first, then `meta.appURL`, `meta.senderAddress`,
+7. **SMTP** — provider first, then `meta.appURL`, `meta.senderAddress`,
    `meta.senderName`.
 
-7. **Real XER exports from GCs.** Resolves two open questions at once: whether
+8. **Real XER exports from GCs.** Resolves two open questions at once: whether
    XER or PMXML should come second, and what import does with P6 per-activity
    calendars. Neither is answerable from here — both need actual files.
 
