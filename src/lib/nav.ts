@@ -5,6 +5,7 @@ import {
   Bell,
   Bot,
   Building2,
+  CalendarCheck,
   CalendarDays,
   ClipboardCheck,
   ClipboardList,
@@ -88,6 +89,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/punch-list", label: "Punch List", icon: ClipboardCheck },
       { href: "/budget", label: "Budget & Cost", icon: DollarSign },
       { href: "/schedule", label: "Schedule", icon: CalendarDays },
+      { href: "/settings/calendar", label: "Working Calendar", icon: CalendarCheck },
     ],
   },
   {

@@ -839,6 +839,54 @@ try {
     }
   }
 
+  /**
+   * Section 10 — the project working calendar.
+   *
+   * work_days and holidays are owner-only because changing them shifts every
+   * computed date, float value and critical-path determination on the job.
+   * projects.updateRule otherwise lets any member edit the record, so the
+   * restriction is a pair of :isset clauses rather than a separate collection.
+   *
+   * The positive control matters more than usual here: an over-broad :isset
+   * clause that locked members out of the WHOLE record would sail through a
+   * denial-only suite while quietly breaking ordinary project editing.
+   */
+  line("\n=== 10. project calendar — owner-only, without locking members out ===");
+
+  const calProbe = await api("GET", `/api/collections/projects/records/${dataA.project}`, null, A.token);
+  if (!calProbe.ok || !("work_days" in calProbe.data)) {
+    line("  SKIP  projects has no calendar fields yet");
+    skipped.push("project calendar authorization");
+  } else {
+    const ownerWrite = await api("PATCH", `/api/collections/projects/records/${dataA.project}`,
+      { work_days: [1, 2, 3, 4, 5], holidays: [{ date: "2026-12-25", label: "Christmas" }] }, A.token);
+    check("the project owner can set the working calendar", ownerWrite.ok,
+      `status ${ownerWrite.status}`);
+
+    // B was added to A's project in section 8, so B is a member and not the owner.
+    const memberWorkDays = await api("PATCH", `/api/collections/projects/records/${dataA.project}`,
+      { work_days: [0, 1, 2, 3, 4, 5, 6] }, B.token);
+    check("a member cannot change the working days", !memberWorkDays.ok,
+      `status ${memberWorkDays.status} — this would move every computed date on the job`);
+
+    const memberHolidays = await api("PATCH", `/api/collections/projects/records/${dataA.project}`,
+      { holidays: [] }, B.token);
+    check("a member cannot change the holidays", !memberHolidays.ok,
+      `status ${memberHolidays.status}`);
+
+    // The positive control.
+    const memberOther = await api("PATCH", `/api/collections/projects/records/${dataA.project}`,
+      { notes: `member edit ${STAMP}` }, B.token);
+    check("a member CAN still edit the rest of the project", memberOther.ok,
+      `status ${memberOther.status} — an over-broad :isset clause would fail here while the denials above still passed`);
+
+    // And the calendar the owner set is the one that survived.
+    const finalState = await api("GET", `/api/collections/projects/records/${dataA.project}`, null, A.token);
+    check("the member's refused write did not land",
+      JSON.stringify(finalState.data.work_days) === JSON.stringify([1, 2, 3, 4, 5]),
+      `work_days is ${JSON.stringify(finalState.data.work_days)} — asserting stored data, not just a status code`);
+  }
+
   line("\n=== summary ===");
   const failed = results.filter((r) => !r.pass);
   if (failed.length === 0) {

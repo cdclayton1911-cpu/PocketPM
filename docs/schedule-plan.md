@@ -74,6 +74,37 @@ Three options, and this is the main scoping fork:
 Recommend the middle one. It is a small schema addition and it is the
 difference between a schedule tool and a schedule-shaped table.
 
+### Weather days are explicitly out of scope
+
+A weather day is a **retroactive contractual determination that a specific date
+was unworkable**. It is claim evidence, and it belongs with the daily logs,
+where it already lives.
+
+Baking it into the calendar would mean editing history to reflect a dispute
+outcome — which corrupts the as-planned baseline the claim is argued against.
+The baseline is the only thing a delay claim has to argue from; a calendar that
+gets retroactively amended as disputes resolve is not a baseline.
+
+Recorded here so it is not relitigated: the naive version of this feature is
+appealing until you say that sentence out loud.
+
+### Holiday seeding, and the failure it creates
+
+US federal holidays are recurrence RULES, not dates — third Monday of January,
+fourth Thursday of November, plus the observed-day shift when a fixed-date
+holiday lands on a weekend. A seed of literal dates is right for exactly one
+year.
+
+Rather than ship a recurrence engine, concrete dates are generated once for the
+project's own span plus a margin year, and stored as ordinary editable dates.
+
+That creates one failure, and it is owned rather than ignored: **a project
+extended past its seeded range runs out of holidays and would silently schedule
+through Christmas.** `holidayCoverageGap` detects a schedule running past the
+last holiday on file and the calendar screen shows a warning naming the gap.
+Silent fallback to calendar days is not acceptable — it produces confident,
+wrong dates, which on a delay claim is the worst available failure.
+
 ## The CPM engine
 
 Pure functions over the graph, in `src/lib/schedule/`, with no I/O — which
@@ -146,7 +177,7 @@ arrows. Editing by dragging can come later and is where the complexity is.
 | Phase | Contents | Size | State |
 |---|---|---|---|
 | 1 | `schedule_relationships`, drop `predecessors`, rules, cycle guard, tenancy check | 1 commit | **done** |
-| 2 | Project calendar (work days + holidays) | 1 commit | next |
+| 2 | Project calendar (work days + holidays) | 1 commit | **done** |
 | 3 | CPM engine, pure, with Vitest unit tests | 2 commits | |
 | ~~4~~ | ~~Schedule authoring UI~~ | — | **dropped** — mirrored, not authored |
 | 5 | Excel/CSV import with mapping and dry-run preview | 2 commits | |
@@ -184,6 +215,26 @@ needs more than one.
 that actual dates beat forecast beat planned, that a missing date yields `null`
 variance rather than a wrong number, and that the date arithmetic is UTC-anchored
 so a DST transition does not silently cost a day.
+
+## Open — phase 6: P6 per-activity calendars
+
+P6 supports a calendar per activity. This model has one per project. An import
+therefore has to decide what to do with a schedule whose activities do not all
+share the project calendar:
+
+| Option | Consequence |
+|---|---|
+| **Reject the import** | Safe and unhelpful; a schedule that P6 considers valid cannot be brought in at all. |
+| **Import and flag** | Activities whose calendar differs are imported and marked, so the discrepancy is visible on the activity. |
+| **Recompute silently** | Produces a schedule that LOOKS imported but whose dates differ from the source P6 file. Nobody finds out until the numbers are compared in a meeting. |
+
+**Lean: import and flag**, with the flag visible on the activity. The third
+option is the dangerous one and should not be chosen by default.
+
+Deciding properly needs real XER files — how common multi-calendar schedules
+actually are in the schedules our customers receive is not knowable from here.
+That is the same evidence the parser-ordering question needs, so both resolve
+together once actual exports are in hand.
 
 ## Still open
 

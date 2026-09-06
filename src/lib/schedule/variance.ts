@@ -11,13 +11,23 @@
  * possible answer on a schedule claim.
  */
 
-/** Days between two YYYY-MM-DD dates; null when either is missing or unparseable. */
-export function daysBetween(from: string, to: string): number | null {
+import { calendarDays, compareDays, type Days } from "./units";
+
+/**
+ * CALENDAR days between two YYYY-MM-DD dates; null when either is missing or
+ * unparseable.
+ *
+ * The arithmetic is deliberately unchanged and deliberately calendar-based:
+ * contract time is calendar time, and liquidated damages accrue on Sundays.
+ * What changed is that the answer now carries its unit, so it cannot be
+ * rendered beside a working-day duration as though the two were comparable.
+ */
+export function daysBetween(from: string, to: string): Days | null {
   if (!from || !to) return null;
   const a = Date.parse(`${from}T00:00:00Z`);
   const b = Date.parse(`${to}T00:00:00Z`);
   if (Number.isNaN(a) || Number.isNaN(b)) return null;
-  return Math.round((b - a) / 86_400_000);
+  return calendarDays(Math.round((b - a) / 86_400_000));
 }
 
 export interface BaselineRow {
@@ -45,9 +55,15 @@ export interface VarianceRow {
   baseline_finish: string | null;
   current_start: string | null;
   current_finish: string | null;
-  /** Positive means later than baseline, i.e. slipped. */
-  start_variance_days: number | null;
-  finish_variance_days: number | null;
+  /**
+   * Positive means later than baseline, i.e. slipped.
+   *
+   * Carries its basis. A consumer that wants to compare these against a
+   * working-day duration has to notice the mismatch instead of subtracting one
+   * from the other and getting a number that looks fine.
+   */
+  start_variance: Days | null;
+  finish_variance: Days | null;
 }
 
 export interface VarianceReport {
@@ -91,8 +107,8 @@ export function computeVariance(
       baseline_finish: b.finish || null,
       current_start: cs,
       current_finish: cf,
-      start_variance_days: b.start && cs ? daysBetween(b.start, cs) : null,
-      finish_variance_days: b.finish && cf ? daysBetween(b.finish, cf) : null,
+      start_variance: b.start && cs ? daysBetween(b.start, cs) : null,
+      finish_variance: b.finish && cf ? daysBetween(b.finish, cf) : null,
     });
   }
 
@@ -103,9 +119,21 @@ export function computeVariance(
   return { rows, missingFromCurrent, addedSinceBaseline };
 }
 
-/** Rows that finish later than baseline, worst first. */
-export function slippedActivities(report: VarianceReport, thresholdDays = 0): VarianceRow[] {
+/**
+ * Rows that finish later than baseline, worst first.
+ *
+ * The threshold is a Days value, not a bare number, so a caller cannot pass a
+ * working-day figure and silently filter calendar-day variances against it.
+ */
+export function slippedActivities(
+  report: VarianceReport,
+  threshold: Days = calendarDays(0),
+): VarianceRow[] {
   return report.rows
-    .filter((r) => r.finish_variance_days !== null && r.finish_variance_days > thresholdDays)
-    .sort((a, b) => (b.finish_variance_days ?? 0) - (a.finish_variance_days ?? 0));
+    .filter((r) => {
+      if (!r.finish_variance) return false;
+      const diff = compareDays(r.finish_variance, threshold);
+      return diff !== null && diff > 0;
+    })
+    .sort((a, b) => (b.finish_variance?.value ?? 0) - (a.finish_variance?.value ?? 0));
 }

@@ -364,6 +364,8 @@ export interface Project extends BaseRecord {
   state: string;
   project_type: string;
   notes: string;
+  work_days: unknown;
+  holidays: unknown;
 }
 
 /**

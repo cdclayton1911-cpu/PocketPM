@@ -31,10 +31,10 @@ story after a deploy.
 | AI (7 modules, 14 tasks) | Live in production. Auth gate + 20/hr per-user rate limit. |
 | Documents + revisions | `project_documents`, `document_revisions`, revision UI, `protected: true` on every file field. |
 | Retrieval | Stage 1 (metadata selection) and stage 2 (metadata-only answers). Nothing leaves the droplet. |
-| Schedule | `schedule_relationships` (typed, with lag, cycle guard) + `schedule_baselines` and variance. Pure logic, 25 tests. |
+| Schedule | Relationships, baselines, variance, and the project working calendar (phase 2). Pure logic, 60 tests. CPM (phase 3) not started. |
 | Project roles | `project_roles`, additive to `projects.members` — a role grants no access on its own. |
 | Workflows | Schema, engine, API routes, and UI: template builder at `/settings/workflows`, approval panel on submittal/RFI detail pages, inbox at `/approvals`. Submittal/RFI creation starts a workflow when a template is active. `workflow_actions` is append-only (null update/delete rules). |
-| Tenancy | `npm run verify:tenancy`, 9 sections (23 workflow checks). `npm run verify:schema` checks the snapshot matches live. |
+| Tenancy | `npm run verify:tenancy`, 10 sections. `npm run verify:schema` checks the snapshot matches live. |
 | E2E | Playwright against an **ephemeral local PocketBase per run**. Never production. |
 
 **Password reset** is code-complete and unverifiable: `requestPasswordReset()`

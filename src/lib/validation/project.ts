@@ -38,6 +38,25 @@ export const projectSchema = z.object({
   end_date: isoDate.optional().default(""),
   project_type: z.string().trim().max(120).optional().default(""),
   notes: z.string().trim().max(5000).optional().default(""),
+  /**
+   * The working calendar. Owner-only — projects.updateRule refuses these two
+   * fields from a member, so a member's PATCH containing them 404s rather than
+   * partially applying.
+   *
+   * Present here because Zod STRIPS unknown keys: without these entries a
+   * calendar PATCH would return 200 with the calendar silently discarded, the
+   * same failure revisionUpdateSchema had.
+   */
+  work_days: z.array(z.number().int().min(0).max(6)).max(7).optional(),
+  holidays: z
+    .array(
+      z.strictObject({
+        date: isoDate,
+        label: z.string().trim().max(120).optional(),
+      }),
+    )
+    .max(1000)
+    .optional(),
 });
 
 export type ProjectInput = z.infer<typeof projectSchema>;

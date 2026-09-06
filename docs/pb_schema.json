@@ -285,7 +285,7 @@
     "listRule": "@request.auth.id != \"\" && (owner = @request.auth.id || members.id ?= @request.auth.id)",
     "viewRule": "@request.auth.id != \"\" && (owner = @request.auth.id || members.id ?= @request.auth.id)",
     "createRule": "@request.auth.id != \"\"",
-    "updateRule": "@request.auth.id != \"\" && (owner = @request.auth.id || members.id ?= @request.auth.id)",
+    "updateRule": "@request.auth.id != \"\" && (owner = @request.auth.id || (members.id ?= @request.auth.id && @request.body.work_days:isset = false && @request.body.holidays:isset = false))",
     "deleteRule": "owner = @request.auth.id",
     "name": "projects",
     "type": "base",
@@ -568,11 +568,33 @@
         "presentable": false,
         "system": false,
         "type": "autodate"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "json304565598",
+        "maxSize": 65536,
+        "name": "work_days",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "json"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "json979804428",
+        "maxSize": 65536,
+        "name": "holidays",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "json"
       }
     ],
     "indexes": [],
     "created": "2026-04-28 17:58:17.106Z",
-    "updated": "2026-09-04 01:51:17.062Z",
+    "updated": "2026-09-06 02:17:31.772Z",
     "system": false
   },
   {
