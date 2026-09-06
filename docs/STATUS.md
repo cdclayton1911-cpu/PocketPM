@@ -160,6 +160,27 @@ construction approvals — where the question later is "who approved this and wh
    the only layer below the app that sees writes regardless of origin. If it can,
    the gap closes properly instead of being monitored.
 
+## Open question — is reachability checkable?
+
+This build produced four bugs of one kind: a surface that exists but cannot be
+got to. Missing nav entries for `/approvals` and `/settings/workflows`,
+pointer-only step reordering, and templates needing an admin with no UI. Each
+layer was individually correct — rules in PocketBase, routing in Next.js,
+navigation in a component tree — and nothing sits where it could notice the gap
+between them.
+
+A cheap check is possible: routes are file-based under `app/` and nav is a plain
+array in `src/lib/nav.ts`, so a unit test could assert every non-dynamic route is
+either in nav or in an allowlist with a stated reason. No crawler, milliseconds
+to run. It would have caught the two missing nav entries.
+
+What it would NOT catch: reachability *within* a page (the reorder), and routes
+reached by a computed `href` — those are only visible to a real crawl. The
+suggestion is that dynamic routes just take an allowlist line saying how you get
+to them, which forces the thinking the check exists to provoke.
+
+Not decided, and possibly not worth the maintenance.
+
 ## Open decisions
 
 - **Files API privacy.** Sending document *contents* to Anthropic needs a policy
