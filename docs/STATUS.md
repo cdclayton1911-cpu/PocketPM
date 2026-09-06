@@ -3,6 +3,9 @@
 Living document. Updated as work lands — if it disagrees with the code, the code wins
 and this file is stale, so fix it.
 
+The prioritised queue lives in [CHECKLIST.md](CHECKLIST.md); this file carries
+the state and the reasoning.
+
 Last updated: 2026-09-05 · `d6a549d`
 
 ## Where things stand
