@@ -56,6 +56,22 @@ resolves successfully with SMTP off, so success proves nothing. See
 Nothing else is blocked on this. Option 4 for external reviewers — record the party,
 an internal user acts on their behalf — needs no email and is already built.
 
+## Queued, unstarted
+
+In rough priority order. None of these is blocking.
+
+1. **Submittal and RFI list rows should link to their detail pages.** Right now
+   the only route in is the approvals inbox, which shows only what is awaiting
+   *your* action — so there is no way to look at a submittal mid-workflow that
+   you are not the approver for, which is the common case for a PM. Should land
+   before this feature meets a real user.
+2. **`docs/workflows-plan.md` rewrite** — still describes the polymorphic model
+   that was rejected. A stale plan doc read as current is worse than none.
+3. **The `pb_hooks` request hook** (`docs/workflow-hooks.md`). Closes the
+   credentialed-tool vector; does not cover migrations. Leaning build.
+4. **SMTP** — provider first, then `meta.appURL`, `meta.senderAddress`,
+   `meta.senderName`.
+
 ## Next
 
 1. **Workflow engine** — 6 phases, `docs/workflows-plan.md`. One engine over
@@ -108,6 +124,16 @@ usable at all. It should shape how much of the UI work can be pushed back.
 `verify:tenancy` section 9 hits the same wall — it needs superuser credentials
 from `.env.local` to seed a fixture template, and skips its instance checks with
 an explicit message when they are absent.
+
+## Known gap — template saves are not transactional
+
+PocketBase has no multi-record transaction over the REST API, so writing a
+template and its steps is several calls. A failure partway leaves a template
+with only some of its steps.
+
+Handled rather than hidden: the error surfaces to the user, and `startWorkflow`
+refuses a template with no steps outright, so a partial write cannot silently
+produce a broken workflow. The bad state is visible and re-saving fixes it.
 
 ## Known gap — workflow status forgery
 
