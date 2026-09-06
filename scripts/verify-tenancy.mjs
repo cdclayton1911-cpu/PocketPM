@@ -705,6 +705,63 @@ try {
           `C sees ${(cActions.data.items || []).length} action(s)`,
         );
 
+        /**
+         * The forgery detector, from docs/STATUS.md's Known gap.
+         *
+         * Nothing in the database stops a member PATCHing status directly, so
+         * the append-only action log is the only trustworthy record. This
+         * asserts the stored state equals what replaying that log implies —
+         * and then deliberately forges a status to prove the check can fail.
+         * A detector that has never caught anything is not known to work.
+         */
+        let reconstruct = null;
+        try {
+          ({ reconstructState: reconstruct } = await import("../src/lib/workflow/rules.ts"));
+        } catch {
+          line("  SKIP  reconstructState needs a Node that strips TypeScript (22.18+)");
+          skipped.push("workflow state reconstruction");
+        }
+
+        if (reconstruct) {
+          // Mirror what the engine would have done for the action written
+          // above, so the honest case is genuinely consistent.
+          await api("PATCH", `/api/collections/workflow_instances/records/${good.data.id}`,
+            { status: "approved", current_step_order: 1, completed_at: new Date().toISOString() }, A.token);
+
+          const live = await api("GET", `/api/collections/workflow_instances/records/${good.data.id}`, null, A.token);
+          const hist = await api("GET",
+            `/api/collections/workflow_actions/records?perPage=200&filter=${encodeURIComponent(`instance="${good.data.id}"`)}&sort=acted_at`,
+            null, A.token);
+          const replayed = reconstruct(hist.data.items || [], live.data.template_snapshot);
+          check(
+            "stored state matches the action history",
+            replayed.status === live.data.status && replayed.current_step_order === live.data.current_step_order,
+            `stored ${live.data.status}/${live.data.current_step_order}, replayed ${replayed.status}/${replayed.current_step_order}`,
+          );
+
+          // Now the negative control: a status written with no action behind it.
+          const sub2 = await api("POST", "/api/collections/submittals/records",
+            { project: dataA.project, submittal_number: `PROBE-A2-${STAMP}`, description: "forgery probe" }, A.token);
+          const forgedInst = sub2.ok
+            ? await api("POST", "/api/collections/workflow_instances/records",
+                { ...base, project: dataA.project, submittal: sub2.data.id }, A.token)
+            : { ok: false, status: sub2.status };
+
+          if (!forgedInst.ok) {
+            check("setup: a second instance for the forgery probe", false, `status ${forgedInst.status}`);
+          } else {
+            await api("PATCH", `/api/collections/workflow_instances/records/${forgedInst.data.id}`,
+              { status: "approved" }, A.token);
+            const forgedLive = await api("GET", `/api/collections/workflow_instances/records/${forgedInst.data.id}`, null, A.token);
+            const forgedReplay = reconstruct([], forgedLive.data.template_snapshot);
+            check(
+              "a status written with no action behind it is detected",
+              forgedLive.data.status === "approved" && forgedReplay.status !== "approved",
+              `stored ${forgedLive.data.status}, replayed ${forgedReplay.status} — the PATCH succeeded, which is the known gap; this proves it is at least visible`,
+            );
+          }
+        }
+
         // The positive control, in section 8's style. B was added to A's
         // project there, so B is a member and MUST see this. A suite that only
         // proves denial passes trivially against a rule that denies everything.

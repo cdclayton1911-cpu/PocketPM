@@ -54,6 +54,20 @@ export interface CrudRouteOptions<K extends CollectionName> {
    * there would let a caller create records attributed to someone else.
    */
   ownerField?: string;
+  /**
+   * Run after a successful create, with the caller's own client.
+   *
+   * Exists so submittals and RFIs can start a workflow without either route
+   * being hand-written. Deliberately cannot fail the request: the record is
+   * already committed, and a 500 here would tell the caller their submittal was
+   * not created when it was. A follow-on step that does not run is recoverable;
+   * a phantom failure is not.
+   */
+  afterCreate?: (
+    pb: import("pocketbase").default,
+    record: RecordOf<K>,
+    session: { user: { id: string } },
+  ) => Promise<void>;
 }
 
 function unauthorized() {
@@ -206,6 +220,7 @@ export function createCollectionRoute<K extends CollectionName>(options: CrudRou
     createDefaults,
     ownerField,
     filterable = [],
+    afterCreate,
   } = options;
 
   async function GET(request: Request) {
@@ -276,6 +291,13 @@ export function createCollectionRoute<K extends CollectionName>(options: CrudRou
           project: projectId,
         }),
       );
+      if (afterCreate) {
+        try {
+          await afterCreate(pb, record, session);
+        } catch {
+          // Swallowed on purpose — see afterCreate's contract.
+        }
+      }
       return NextResponse.json({ record }, { status: 201 });
     } catch (err) {
       const fields = pbFieldErrors(err);

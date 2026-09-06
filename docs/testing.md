@@ -103,9 +103,15 @@ tenancy regression would be caught before merge rather than after.
 
 ## Migrations are per-run, deliberately
 
-PocketBase defaults its migrations directory to one **beside the binary**, not
-inside `--dir`. The harness caches the binary in a shared tmpdir, so automigrate
-wrote rule changes into a location that outlived the "ephemeral" instance.
+PocketBase derives its default migrations directory from the data directory's
+**parent**, not from `--dir` itself. The harness creates each run's data
+directory with `mkdtemp` under the system temp directory, so every run resolved
+to the same shared `$TMPDIR/pb_migrations` and automigrate wrote rule changes
+into a location that outlived the "ephemeral" instance.
+
+(An earlier version of this note said the default sits beside the *binary*. It
+does not — the binary is cached under `.cache/pocketbase/`, which was never
+involved. The fix below is unchanged; the explanation was wrong.)
 
 That bit once: proving the narrowed `users.listRule` on a throwaway instance left
 a migration behind, and every later run replayed it at boot — before

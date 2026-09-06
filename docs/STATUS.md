@@ -33,8 +33,8 @@ story after a deploy.
 | Retrieval | Stage 1 (metadata selection) and stage 2 (metadata-only answers). Nothing leaves the droplet. |
 | Schedule | `schedule_relationships` (typed, with lag, cycle guard) + `schedule_baselines` and variance. Pure logic, 25 tests. |
 | Project roles | `project_roles`, additive to `projects.members` — a role grants no access on its own. |
-| Workflows | Schema only — 4 collections, no UI or engine yet. `workflow_actions` is append-only (null update/delete rules). |
-| Tenancy | `npm run verify:tenancy`, 9 sections. `npm run verify:schema` checks the snapshot matches live. |
+| Workflows | Schema + engine + API routes. No UI. Submittal/RFI creation starts a workflow when a template is active. `workflow_actions` is append-only (null update/delete rules). |
+| Tenancy | `npm run verify:tenancy`, 9 sections (16 workflow checks). `npm run verify:schema` checks the snapshot matches live. |
 | E2E | Playwright against an **ephemeral local PocketBase per run**. Never production. |
 
 **Password reset** is code-complete and unverifiable: `requestPasswordReset()`
@@ -88,6 +88,13 @@ Nothing in the database stops a project member PATCHing a `workflow_instances`
 `status` to `approved` without a corresponding `workflow_actions` entry. SQL
 cannot express "this transition must be accompanied by an audit entry", and the
 app has no admin client to funnel writes through.
+
+`verify:tenancy` section 9 now detects it: the stored state is compared against
+`reconstructState(actions, snapshot)`, and a deliberately forged status proves
+the check can fail rather than merely reporting green.
+
+A PocketBase hook **can** close it properly — tested, not assumed; see
+`docs/workflow-hooks.md`. Not implemented.
 
 Today the append-only action log is a **detection** backstop, not prevention. For
 construction approvals — where the question later is "who approved this and when"
