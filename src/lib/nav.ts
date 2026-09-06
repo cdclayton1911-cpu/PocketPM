@@ -16,6 +16,7 @@ import {
   HardHat,
   Handshake,
   HelpCircle,
+  Inbox,
   LayoutGrid,
   Library,
   type LucideIcon,
@@ -26,6 +27,7 @@ import {
   Search,
   Sigma,
   Users,
+  Workflow,
 } from "lucide-react";
 
 export interface NavItem {
@@ -62,6 +64,9 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
       { href: "/team", label: "Project Team", icon: Users },
+      // Not project-scoped: it spans every project the user belongs to, so
+      // switching the active project must not hide work waiting on them.
+      { href: "/approvals", label: "My Approvals", icon: Inbox },
     ],
   },
   {
@@ -78,6 +83,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/documents", label: "Document Finder", icon: FolderSearch },
       { href: "/drawings", label: "Drawings", icon: Ruler },
       { href: "/submittals", label: "Submittals", icon: FileText },
+      { href: "/settings/workflows", label: "Approval Workflows", icon: Workflow },
       { href: "/rfis", label: "RFIs", icon: HelpCircle },
       { href: "/punch-list", label: "Punch List", icon: ClipboardCheck },
       { href: "/budget", label: "Budget & Cost", icon: DollarSign },

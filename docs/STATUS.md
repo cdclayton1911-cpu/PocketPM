@@ -33,7 +33,7 @@ story after a deploy.
 | Retrieval | Stage 1 (metadata selection) and stage 2 (metadata-only answers). Nothing leaves the droplet. |
 | Schedule | `schedule_relationships` (typed, with lag, cycle guard) + `schedule_baselines` and variance. Pure logic, 25 tests. |
 | Project roles | `project_roles`, additive to `projects.members` — a role grants no access on its own. |
-| Workflows | Schema + engine + API routes. No UI. Submittal/RFI creation starts a workflow when a template is active. `workflow_actions` is append-only (null update/delete rules). |
+| Workflows | Schema, engine, API routes, and UI: template builder at `/settings/workflows`, approval panel on submittal/RFI detail pages, inbox at `/approvals`. Submittal/RFI creation starts a workflow when a template is active. `workflow_actions` is append-only (null update/delete rules). |
 | Tenancy | `npm run verify:tenancy`, 9 sections (23 workflow checks). `npm run verify:schema` checks the snapshot matches live. |
 | E2E | Playwright against an **ephemeral local PocketBase per run**. Never production. |
 
@@ -67,6 +67,14 @@ an internal user acts on their behalf — needs no email and is already built.
    SVG Gantt). Schedule is *mirrored* from P6/MSP, not authored here.
 5. `.github/workflows/ci.yml` is written but gitignored — needs
    `gh auth refresh -s workflow` before it can be pushed.
+
+## Submittal and RFI detail pages are new and thin
+
+There were none — both modules were list-plus-dialog — so the approval panel had
+no host and the inbox had nothing to link to. `/submittals/[id]` and `/rfis/[id]`
+exist now, showing enough identity to know what you are approving plus the
+panel. They are not a replacement for the edit dialog, and no list currently
+links to them except through the inbox.
 
 ## Template authoring
 

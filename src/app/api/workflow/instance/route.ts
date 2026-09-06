@@ -30,5 +30,15 @@ export async function GET(request: Request) {
   if (!instance) return NextResponse.json({ instance: null, approvers: [] });
 
   const approvers = instance.status === "pending" ? await getPendingApprovers(pb, instance) : [];
-  return NextResponse.json({ instance, approvers });
+
+  // The panel renders completed steps from the action log, so it comes back
+  // with the instance rather than in a second round trip that could observe a
+  // different state than the instance it is drawn against.
+  const actions = await pb.collection("workflow_actions").getFullList({
+    filter: pb.filter("instance = {:id}", { id: instance.id }),
+    sort: "acted_at",
+    expand: "actor",
+  });
+
+  return NextResponse.json({ instance, approvers, actions });
 }
