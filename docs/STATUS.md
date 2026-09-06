@@ -58,36 +58,42 @@ an internal user acts on their behalf — needs no email and is already built.
 
 ## Queued, unstarted
 
-In rough priority order. None of these is blocking.
+Roughly in priority order. Only the first has a hard deadline.
 
-1. **Strict validation on every write path.** `crud-route.ts` validates all 25
-   module routes with a plain `z.object`, which SILENTLY DROPS unknown keys.
-   Two instances have been found — `revisionUpdateSchema` letting a PATCH to an
-   issued revision return 200 with the field discarded, and `projectSchema`
-   about to do the same to the working calendar. Both were found by accident,
-   neither by a test, because **the failure returns 200**: the client has every
-   reason to believe the write landed.
+1. **Staleness marker on the computed CPM columns — before phase 7.**
+   `early_start`, `total_float`, `is_critical` and the rest are a cache with no
+   invalidation signal. Edit a duration and the stored `total_float` is silently
+   wrong, with nothing to say so. Today's screens are safe because they compute
+   fresh on read — but the Gantt is exactly the consumer that will be tempted to
+   read the columns instead of recomputing per row.
 
-   The fix is `z.strictObject` plus a test asserting unknown keys are rejected.
+   Cheapest fix: a `computed_at` on the project or the analysis run, compared
+   against the latest `updated` on any `schedule_item` or `schedule_relationship`.
+   Newer schedule than computation means the stored values are marked stale
+   rather than displayed. **This must exist before phase 7 reads those fields.**
 
-   **The caveat for whoever does it:** flipping this blindly will break any
-   client that sends a field the schema does not list — a form submitting an
-   extra input, a hook adding a key. Strict turns today's silent success into a
-   400. That is the right outcome, but it needs each route's actual request
-   bodies checked rather than a global find-and-replace, which is why this is
-   its own commit and not a cleanup.
+2. **Strict validation across the 25 `crud-route.ts` module routes.** Plain
+   `z.object` silently drops unknown keys; two instances found, both by
+   accident, neither by a test, because the failure returns 200. Per-route, not
+   mechanical — flipping to strict turns today's silent successes into 400s, so
+   each route's real request bodies need checking.
 
-2. **Submittal and RFI list rows should link to their detail pages.** Right now
-   the only route in is the approvals inbox, which shows only what is awaiting
-   *your* action — so there is no way to look at a submittal mid-workflow that
-   you are not the approver for, which is the common case for a PM. Should land
-   before this feature meets a real user.
-2. **`docs/workflows-plan.md` rewrite** — still describes the polymorphic model
-   that was rejected. A stale plan doc read as current is worse than none.
-3. **The `pb_hooks` request hook** (`docs/workflow-hooks.md`). Closes the
+3. **`docs/workflows-plan.md` rewrite** — still describes the rejected
+   polymorphic model. A stale plan read as current is worse than none.
+
+4. **Submittal and RFI list rows should link to their detail pages.** The only
+   route in today is the approvals inbox, which shows just what awaits *you* —
+   so a PM cannot open a submittal mid-workflow they are not approving.
+
+5. **The `pb_hooks` request hook** (`docs/workflow-hooks.md`). Closes the
    credentialed-tool vector; does not cover migrations. Leaning build.
-4. **SMTP** — provider first, then `meta.appURL`, `meta.senderAddress`,
+
+6. **SMTP** — provider first, then `meta.appURL`, `meta.senderAddress`,
    `meta.senderName`.
+
+7. **Real XER exports from GCs.** Resolves two open questions at once: whether
+   XER or PMXML should come second, and what import does with P6 per-activity
+   calendars. Neither is answerable from here — both need actual files.
 
 ## Next
 
