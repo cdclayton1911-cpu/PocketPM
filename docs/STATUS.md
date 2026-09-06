@@ -56,6 +56,25 @@ resolves successfully with SMTP off, so success proves nothing. See
 Nothing else is blocked on this. Option 4 for external reviewers — record the party,
 an internal user acts on their behalf — needs no email and is already built.
 
+## The schedule work has never met a real schedule
+
+Six phases, 259 tests, all green — against **zero real records**. `schedule_items`
+was empty for every project when the Gantt shipped.
+
+Everything holds together because it was built from one consistent set of
+assumptions. Consistency with itself is not evidence about P6. The first real
+export will disagree with something, and the useful question is *what*.
+
+So **obtaining two or three real XER exports from GCs is the highest-value item
+left, above any remaining code.** It unblocks phase 6, settles parser ordering
+and the per-activity calendar decision, and — more than either — tests whether
+the CPM engine, the divergence report, and the chart survive contact with a real
+schedule. It is a customer conversation, not a build task.
+
+The divergence report was built for exactly this moment: it is the instrument
+that says *how* the first real import disagrees, rather than leaving it to be
+guessed at.
+
 ## The failure shape this codebase keeps producing
 
 Four instances so far, and they are one bug wearing different clothes:
