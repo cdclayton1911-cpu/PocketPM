@@ -38,7 +38,11 @@ Workflow engine complete, schema through UI. Schedule phases 1-5 and 7 complete.
   successes into 400s, so each route's real request bodies need checking. Its
   own commit.
 
-- [ ] **`pb_hooks` request hook for the status-forgery gap.**
+- [x] **`pb_hooks` request hook for the status-forgery gap.** Written and proved
+      (15/15 against an ephemeral instance with hooks loaded). **Awaiting
+      installation on the droplet** — `deploy/HOOKS.md`, then
+      `npm run verify:hooks`. Until installed, that script correctly FAILS
+      against production, which is how you know it detects absence.
   Proven open in production, not theorized — section 9 reports `stored
   approved, replayed pending — the PATCH succeeded`. Closes the
   credentialed-tool vector; migrations stay uncovered, as measured in

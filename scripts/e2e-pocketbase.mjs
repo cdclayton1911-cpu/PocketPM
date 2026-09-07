@@ -125,6 +125,12 @@ export async function startEphemeralPocketBase() {
     throw new Error(`could not create superuser: ${created.stderr || created.stdout}`);
   }
 
+  // The repo's real hooks, not an empty directory. A harness that runs against
+  // a PocketBase behaving differently from production is the divergence
+  // verify:schema exists to prevent - introduced deliberately would be worse
+  // than introduced by accident.
+  const hooksDir = path.join(process.cwd(), "pb_hooks");
+
   const proc = spawn(
     binary,
     [
@@ -132,6 +138,7 @@ export async function startEphemeralPocketBase() {
       `--http=127.0.0.1:${PB_PORT}`,
       `--dir=${dataDir}`,
       `--migrationsDir=${migrationsDir}`,
+      `--hooksDir=${hooksDir}`,
     ],
     { stdio: ["ignore", "pipe", "pipe"] },
   );

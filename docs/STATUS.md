@@ -204,21 +204,34 @@ Handled rather than hidden: the error surfaces to the user, and `startWorkflow`
 refuses a template with no steps outright, so a partial write cannot silently
 produce a broken workflow. The bad state is visible and re-saving fixes it.
 
-## Known gap — workflow status forgery
+## Known gap — the CPM columns are unguarded
 
 Nothing in the database stops a project member PATCHing a `workflow_instances`
 `status` to `approved` without a corresponding `workflow_actions` entry. SQL
 cannot express "this transition must be accompanied by an audit entry", and the
 app has no admin client to funnel writes through.
 
-`verify:tenancy` section 9 now detects it: the stored state is compared against
-`reconstructState(actions, snapshot)`, and a deliberately forged status proves
-the check can fail rather than merely reporting green.
+**The workflow half of this is now CLOSED** by `pb_hooks/main.pb.js`: a status
+or step change on a `workflow_instance` must be accompanied by a justifying
+action row, and a new workflow can only be created in its initial state. See
+`deploy/HOOKS.md` to install and to roll back.
 
-A PocketBase hook **can** close it properly — tested, not assumed; see
-`docs/workflow-hooks.md`. Not implemented.
+**The CPM columns remain open, deliberately.** `schedule_items.early_start`
+through `is_critical`, plus `projects.cpm_inputs_hash` and `cpm_computed_at`,
+are server-computed but written by `persistCpm()` over the same REST API as the
+calling user — a hook cannot tell it from an attacker, and guarding them would
+break the analysis endpoint.
 
-Today the append-only action log is a **detection** backstop, not prevention. For
+The severity distinction is the reason that is acceptable: **forging
+`is_critical` misstates a chart; forging an approval misstates who approved a
+submittal.** Only one of those ends up argued in a delay claim.
+
+Moving `persistCpm` behind a superuser client was rejected — it would put a
+production admin credential in the app and create a write path bypassing all 108
+project tenancy rules, a wider hole than the one it closes.
+
+Migrations and direct SQLite writes bypass request hooks either way, as measured
+in `docs/workflow-hooks.md`. For
 construction approvals — where the question later is "who approved this and when"
 — that may not be enough. Two follow-ups agreed, neither started:
 

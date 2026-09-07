@@ -98,6 +98,54 @@ names the reason.
   satisfy the hook, but any future code path that updates an instance without
   logging an action would start failing — loudly, which is the point.
 
+## What was built, and what was left uncovered
+
+Implemented for `workflow_instances` only. The full enumeration of
+server-controlled fields is in the STEP 1 list; it sorted into four buckets, and
+only one of them was worth guarding.
+
+**Covered.** `workflow_instances.status`, `current_step_order`, `completed_at`
+and `started_by` on create; status and step transitions on update.
+
+**Already enforced by a collection rule**, so a hook would duplicate
+enforcement in a second place that can drift: `workflow_actions.actor` (pinned
+by `createRule`, with `null` update and delete rules), `document_revisions`
+field freezing, and the `:isset` freezes on `workflow_instances`.
+
+**NOT covered, deliberately: the CPM columns.** `schedule_items.early_start`
+through `is_critical`, plus `projects.cpm_inputs_hash` and `cpm_computed_at`.
+
+`persistCpm()` writes all nine over this same REST API as the calling user. A
+hook cannot distinguish it from an attacker, so guarding them would break
+`POST /api/schedule/analysis` outright. Three options were considered:
+
+1. **Leave uncovered** — chosen. Forging `is_critical` misstates a chart;
+   forging an approval misstates who approved a submittal. Different severity,
+   and only one of them ends up in a delay claim.
+2. **Move `persistCpm` behind a superuser client** — rejected. It would put a
+   production admin credential in the app and create a write path that bypasses
+   all 108 project tenancy rules. That is a wider hole than the one it closes.
+3. **Recompute in the hook** — rejected for the same reason a `reconstructState`
+   port was: logic duplicated in Goja drifts from the TypeScript it mirrors.
+
+**Never to be covered: user-authored business status.** `rfis.status`,
+`submittals.disposition`, `punch_list.status` and the rest are set by people
+doing their jobs. A hook over them would break the app while looking like a
+security improvement. This is stated at length in the hook file, because it is
+the mistake a future pass would make.
+
+## One thing that cost an hour
+
+PocketBase runs each hook handler in an **isolated Goja VM**. A handler cannot
+see module-level constants or functions — they are `undefined` inside it, and
+the first comparison against one throws a ReferenceError that PocketBase
+reports as a generic 400 with no indication of the cause.
+
+Worse, that generic 400 made a denial test pass for the wrong reason: the
+forged-create assertion went green because the hook had crashed, not because
+the guard worked. The fix was asserting on the error MESSAGE, not just the
+status code — the same lesson as every positive control in `verify:tenancy`.
+
 ## Recommendation
 
 Worth doing, and cheap in the presence-check form. It should not block UI work:

@@ -13,7 +13,8 @@
     "test:e2e": "playwright test",
     "verify:schema": "node scripts/verify-schema-export.mjs",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "verify:hooks": "node scripts/verify-hooks.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
