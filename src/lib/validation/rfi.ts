@@ -14,7 +14,8 @@ const optionalNumber = (min: number, max?: number) =>
     z.coerce.number().min(min).pipe(max ? z.number().max(max) : z.number()).optional(),
   );
 
-export const rfiSchema = z.object({
+export // strictObject: an unlisted key is REJECTED, not silently dropped.
+const rfiSchema = z.strictObject({
   rfi_number: z.string().trim().min(1, "RFI # is required").max(40),
   subject: z.string().trim().min(1, "Subject is required").max(300),
   question: z.string().trim().min(1, "Question is required").max(5000),
