@@ -6,7 +6,8 @@ const optionalNumber = (min: number, max?: number) =>
     z.coerce.number().min(min).pipe(max ? z.number().max(max) : z.number()).optional(),
   );
 
-export const budgetItemSchema = z.object({
+export // strictObject: an unlisted key is REJECTED, not silently dropped.
+const budgetItemSchema = z.strictObject({
   csi_division: z.string().trim().min(1, "CSI division is required").max(20),
   description: z.string().trim().min(1, "Description is required").max(300),
   budget: optionalNumber(0),
