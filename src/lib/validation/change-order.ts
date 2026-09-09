@@ -15,7 +15,8 @@ const optionalNumber = (min?: number) =>
       : z.coerce.number().min(min).optional(),
   );
 
-export const changeOrderSchema = z.object({
+export // strictObject: an unlisted key is REJECTED, not silently dropped.
+const changeOrderSchema = z.strictObject({
   co_number: z.string().trim().min(1, "CO # is required").max(40),
   description: z.string().trim().min(1, "Description is required").max(300),
   type: z.enum(CHANGE_ORDER_TYPE).optional(),
