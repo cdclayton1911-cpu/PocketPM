@@ -24,7 +24,8 @@ const optionalNumber = (max?: number) =>
     z.coerce.number().min(0, "Cannot be negative").pipe(max ? z.number().max(max) : z.number()).optional(),
   );
 
-export const subcontractorSchema = z.object({
+export // strictObject: an unlisted key is REJECTED, not silently dropped.
+const subcontractorSchema = z.strictObject({
   company_name: z.string().trim().min(1, "Company name is required").max(200),
   trade: z.string().trim().min(1, "Trade is required").max(120),
   status: z.enum(SUBCONTRACTOR_STATUS).optional(),
