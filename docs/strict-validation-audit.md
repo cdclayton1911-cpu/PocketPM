@@ -73,6 +73,23 @@ throws on `.partial()` over an object-level refinement, which killed
 reported `PayApplicationDialog` as a live crash on exactly that mistake. It was
 not. The test executes the call instead of pattern-matching for it.
 
+## The verification gap this exposed
+
+`verify:tenancy` and `verify:hooks` both talk to PocketBase **directly**. Neither
+touches a Next.js route, so neither covered the Zod schemas the routes validate
+with — the layer both known bugs lived in. Nothing could have proved the flip
+worked in production.
+
+`npm run verify:routes` closes that. It signs up a throwaway account, writes
+through the real route handlers over HTTPS, and cleans up through PocketBase
+(the app has no delete route for a project or an account). 8 assertions, with
+the calendar PATCH and an unlisted key as the two that matter, each paired with
+a legitimate write that must still succeed.
+
+Worth noting the gap existed before this audit and nobody had reason to see it.
+It only became visible when there was a change that no existing check could
+verify.
+
 ## Deliberately not flipped
 
 `auth.ts` — `loginSchema`, `signupSchema`, `passwordResetRequestSchema`,

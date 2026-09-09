@@ -14,7 +14,8 @@
     "verify:schema": "node scripts/verify-schema-export.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify:hooks": "node scripts/verify-hooks.mjs"
+    "verify:hooks": "node scripts/verify-hooks.mjs",
+    "verify:routes": "node scripts/verify-routes.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",

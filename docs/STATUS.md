@@ -37,7 +37,7 @@ story after a deploy.
 | Schedule | Relationships, baselines, variance, working calendar, and CPM with the divergence report (phases 1–3). Pure logic, 100 tests. Phases 1-5 and 7 done, including the CPM cache staleness marker. XER (6) is the only schedule work left, blocked on real files. |
 | Project roles | `project_roles`, additive to `projects.members` — a role grants no access on its own. |
 | Workflows | Schema, engine, API routes, and UI: template builder at `/settings/workflows`, approval panel on submittal/RFI detail pages, inbox at `/approvals`. Submittal/RFI creation starts a workflow when a template is active. `workflow_actions` is append-only (null update/delete rules). |
-| Tenancy | `npm run verify:tenancy`, 10 sections, plus `npm run verify:hooks` (15). `npm run verify:schema` checks the snapshot matches live. |
+| Tenancy | `verify:tenancy` (10 sections), `verify:hooks` (15), `verify:routes` (8, over real HTTP through the Next routes). `npm run verify:schema` checks the snapshot matches live. |
 | E2E | Playwright against an **ephemeral local PocketBase per run**. Never production. |
 
 **Password reset** is code-complete and unverifiable: `requestPasswordReset()`
