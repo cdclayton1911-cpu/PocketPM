@@ -8,7 +8,11 @@ import { AI_TASK_NAMES } from "@/lib/ai/tasks";
  * `messages` is a JSON string because the collection field is text — the schema
  * has no JSON type. Validated as a string here and parsed at the edges.
  */
-export const aiSessionSchema = z.object({
+// strictObject: a key this does not list is REJECTED, not dropped. Checked
+// during the audit and clean — useSaveAiSession sends exactly these four keys,
+// constrained by its own TypeScript input type. Strict removes the dependence
+// on that type staying in step with this schema.
+export const aiSessionSchema = z.strictObject({
   /** Which module produced it, so a module can list only its own history. */
   module: z.enum(AI_TASK_NAMES),
   title: z.string().trim().min(1, "Title is required").max(200),
