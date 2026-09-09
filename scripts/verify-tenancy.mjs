@@ -750,14 +750,25 @@ try {
           if (!forgedInst.ok) {
             check("setup: a second instance for the forgery probe", false, `status ${forgedInst.status}`);
           } else {
-            await api("PATCH", `/api/collections/workflow_instances/records/${forgedInst.data.id}`,
+            // Until a59e487 this PATCH SUCCEEDED, and this assertion checked
+            // only that the resulting inconsistency was visible. pb_hooks now
+            // refuses it outright, so the assertion is prevention rather than
+            // detection — and the replay check below still runs, because a
+            // migration's app.save() bypasses request hooks entirely.
+            const forge = await api("PATCH", `/api/collections/workflow_instances/records/${forgedInst.data.id}`,
               { status: "approved" }, A.token);
+            check(
+              "a status written with no action behind it is REFUSED",
+              forge.status === 400,
+              `status ${forge.status} — ${forge.data?.message || "no message: pb_hooks may not be installed (deploy/HOOKS.md)"}`,
+            );
+
             const forgedLive = await api("GET", `/api/collections/workflow_instances/records/${forgedInst.data.id}`, null, A.token);
             const forgedReplay = reconstruct([], forgedLive.data.template_snapshot);
             check(
-              "a status written with no action behind it is detected",
-              forgedLive.data.status === "approved" && forgedReplay.status !== "approved",
-              `stored ${forgedLive.data.status}, replayed ${forgedReplay.status} — the PATCH succeeded, which is the known gap; this proves it is at least visible`,
+              "and the stored state still agrees with the action history",
+              forgedLive.data.status === forgedReplay.status,
+              `stored ${forgedLive.data.status}, replayed ${forgedReplay.status}`,
             );
           }
         }

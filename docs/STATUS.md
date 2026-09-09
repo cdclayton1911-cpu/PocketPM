@@ -37,7 +37,7 @@ story after a deploy.
 | Schedule | Relationships, baselines, variance, working calendar, and CPM with the divergence report (phases 1–3). Pure logic, 100 tests. Phases 1-5 and 7 done, including the CPM cache staleness marker. XER (6) is the only schedule work left, blocked on real files. |
 | Project roles | `project_roles`, additive to `projects.members` — a role grants no access on its own. |
 | Workflows | Schema, engine, API routes, and UI: template builder at `/settings/workflows`, approval panel on submittal/RFI detail pages, inbox at `/approvals`. Submittal/RFI creation starts a workflow when a template is active. `workflow_actions` is append-only (null update/delete rules). |
-| Tenancy | `npm run verify:tenancy`, 10 sections. `npm run verify:schema` checks the snapshot matches live. |
+| Tenancy | `npm run verify:tenancy`, 10 sections, plus `npm run verify:hooks` (15). `npm run verify:schema` checks the snapshot matches live. |
 | E2E | Playwright against an **ephemeral local PocketBase per run**. Never production. |
 
 **Password reset** is code-complete and unverifiable: `requestPasswordReset()`
@@ -211,7 +211,8 @@ Nothing in the database stops a project member PATCHing a `workflow_instances`
 cannot express "this transition must be accompanied by an audit entry", and the
 app has no admin client to funnel writes through.
 
-**The workflow half of this is now CLOSED** by `pb_hooks/main.pb.js`: a status
+**The workflow half is CLOSED — installed and verified in production on
+2026-09-08**, `npm run verify:hooks` 15/15. `pb_hooks/main.pb.js`: a status
 or step change on a `workflow_instance` must be accompanied by a justifying
 action row, and a new workflow can only be created in its initial state. See
 `deploy/HOOKS.md` to install and to roll back.
