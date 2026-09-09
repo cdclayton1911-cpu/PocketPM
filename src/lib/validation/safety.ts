@@ -7,7 +7,8 @@ const isoDate = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD")
   .or(z.literal(""));
 
-export const safetyObservationSchema = z.object({
+export // strictObject: an unlisted key is REJECTED, not silently dropped.
+const safetyObservationSchema = z.strictObject({
   obs_date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Observation date is required"),
