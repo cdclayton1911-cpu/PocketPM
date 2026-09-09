@@ -78,6 +78,16 @@ The divergence report was built for exactly this moment: it is the instrument
 that says *how* the first real import disagrees, rather than leaving it to be
 guessed at.
 
+## Write paths reject what they do not recognise
+
+Every crud-route schema is `z.strictObject` as of 2026-09-08: an unlisted key
+gets a 400, not a 200 with the field discarded. Two bugs of that shape had been
+found by accident (`projectSchema`, `revisionUpdateSchema`), and the audit's
+transferable result is *where to look next time* —
+`docs/strict-validation-audit.md`. Short version: check how a payload is
+constructed, not where it came from. Unconstrained object literals are the risk;
+typed inputs and schema-validated dialogs are not.
+
 ## The failure shape this codebase keeps producing
 
 Four instances so far, and they are one bug wearing different clothes:
