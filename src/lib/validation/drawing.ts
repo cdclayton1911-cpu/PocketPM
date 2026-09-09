@@ -16,7 +16,8 @@ const isoDate = z
  * assigns the stored name. Accepting a `file` string here would let a client
  * point a record at an arbitrary already-stored filename.
  */
-export const drawingSchema = z.object({
+export // strictObject: an unlisted key is REJECTED, not silently dropped.
+const drawingSchema = z.strictObject({
   sheet_number: z.string().trim().min(1, "Sheet number is required").max(40),
   title: z.string().trim().min(1, "Title is required").max(300),
   discipline: z.enum(DRAWING_DISCIPLINE).optional(),
