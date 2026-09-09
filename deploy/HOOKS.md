@@ -16,30 +16,38 @@ isolated VM and cannot see module scope.
 
 ## Where the directory goes
 
-PocketBase looks for `pb_hooks` **beside its data directory** by default, or
-wherever `--hooksDir` points. Find out which is in use before copying anything:
+Confirmed on this droplet:
+
+```
+WorkingDirectory=/opt/pocketbase
+ExecStart=/opt/pocketbase/pocketbase serve --http="127.0.0.1:8090"
+```
+
+No `--dir` and no `--hooksDir`, so PocketBase uses its defaults relative to the
+working directory: data at `/opt/pocketbase/pb_data`, hooks at
+**`/opt/pocketbase/pb_hooks`**. The service unit is `pocketbase`.
+
+Re-check with the command below if the unit ever changes; the defaults move
+with `--dir`.
 
 ```bash
 systemctl cat pocketbase | grep -E 'ExecStart|WorkingDirectory'
 ```
 
-Read the `--dir` value. If the unit passes `--hooksDir` explicitly, use that
-path. Otherwise the default is the sibling of `--dir`: for `--dir=/opt/pb/pb_data`,
-hooks live at `/opt/pb/pb_hooks`.
-
 ## Install
 
-Replace `<PB_ROOT>` with the directory containing `pb_data`, and
-`<PB_SERVICE>` with the unit name from the command above.
+Back up the data directory first — this restarts the database process.
 
 ```bash
-sudo cp -r /opt/pocketpm-web/pb_hooks/. <PB_ROOT>/pb_hooks/
+tar czf ~/pb_pre_hooks_$(date +%F-%H%M).tar.gz /opt/pocketbase/pb_data
 ```
 
-Then restart PocketBase and confirm it came back:
+```bash
+sudo mkdir -p /opt/pocketbase/pb_hooks && sudo cp -r /opt/pocketpm-web/pb_hooks/. /opt/pocketbase/pb_hooks/
+```
 
 ```bash
-sudo systemctl restart <PB_SERVICE> && sleep 2 && systemctl is-active <PB_SERVICE>
+sudo systemctl restart pocketbase && sleep 2 && systemctl is-active pocketbase
 ```
 
 ```bash
@@ -64,11 +72,11 @@ The hooks are additive — removing them restores exactly the previous behaviour
 which is the collection rules alone.
 
 ```bash
-sudo rm -rf <PB_ROOT>/pb_hooks && sudo systemctl restart <PB_SERVICE>
+sudo rm -rf /opt/pocketbase/pb_hooks && sudo systemctl restart pocketbase
 ```
 
 ```bash
-systemctl is-active <PB_SERVICE> && curl -s -o /dev/null -w '%{http_code}\n' https://pb.pocketpm.fyi/api/health
+systemctl is-active pocketbase && curl -s -o /dev/null -w '%{http_code}\n' https://pb.pocketpm.fyi/api/health
 ```
 
 After rollback `npm run verify:hooks` should FAIL — that is the expected result,
