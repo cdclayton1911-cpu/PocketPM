@@ -17,7 +17,12 @@ const isoDate = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD")
   .or(z.literal(""));
 
-export const projectSchema = z.object({
+// strictObject: a key this does not list is REJECTED, not dropped. This schema
+// silently discarded work_days and holidays until the calendar work added them —
+// a PATCH from CalendarSettingsClient returned 200 with the calendar thrown
+// away. That client builds its body as an object literal, so nothing but this
+// constrains which keys it may send.
+export const projectSchema = z.strictObject({
   name: z.string().trim().min(1, "Project name is required").max(200),
   owner_name: z.string().trim().max(200).optional().default(""),
   architect_name: z.string().trim().max(200).optional().default(""),
