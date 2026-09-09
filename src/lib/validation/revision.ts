@@ -22,7 +22,12 @@ const isoDate = z
  * arbitrary stored file.
  */
 export const revisionSchema = z
-  .object({
+  // strictObject: a key this does not list is REJECTED, not dropped. The update
+  // half was already strict after a PATCH of revision_number on an issued
+  // revision returned 200 with the field silently discarded; the create half
+  // has the same exposure, and `createInitialRevision` builds its FormData by
+  // hand rather than from a schema-validated dialog.
+  .strictObject({
     submittal: z.string().trim().max(20).optional().default(""),
     rfi: z.string().trim().max(20).optional().default(""),
     revision_number: z.coerce.number().int().min(0).max(999),
