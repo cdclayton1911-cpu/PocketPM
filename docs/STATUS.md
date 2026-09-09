@@ -37,7 +37,7 @@ story after a deploy.
 | Schedule | Relationships, baselines, variance, working calendar, and CPM with the divergence report (phases 1–3). Pure logic, 100 tests. Phases 1-5 and 7 done, including the CPM cache staleness marker. XER (6) is the only schedule work left, blocked on real files. |
 | Project roles | `project_roles`, additive to `projects.members` — a role grants no access on its own. |
 | Workflows | Schema, engine, API routes, and UI: template builder at `/settings/workflows`, approval panel on submittal/RFI detail pages, inbox at `/approvals`. Submittal/RFI creation starts a workflow when a template is active. `workflow_actions` is append-only (null update/delete rules). |
-| Tenancy | `verify:tenancy` (10 sections), `verify:hooks` (15), `verify:routes` (8, over real HTTP through the Next routes). `npm run verify:schema` checks the snapshot matches live. |
+| Tenancy | `verify:tenancy` (10 sections), `verify:hooks` (15), `verify:routes` (22, over real HTTP through the Next routes — workflow engine, CPM cache, file scoping, AI gate). `npm run verify:schema` checks the snapshot matches live. |
 | E2E | Playwright against an **ephemeral local PocketBase per run**. Never production. |
 
 **Password reset** is code-complete and unverifiable: `requestPasswordReset()`
@@ -87,6 +87,14 @@ transferable result is *where to look next time* —
 `docs/strict-validation-audit.md`. Short version: check how a payload is
 constructed, not where it came from. Unconstrained object literals are the risk;
 typed inputs and schema-validated dialogs are not.
+
+## Before trusting a new check, break what it watches
+
+Three detectors in one afternoon returned confident, wrong answers — a regex
+that matched a field-level `.refine()`, a coverage table built from substring
+matches, and an `ls` with two paths. See
+[when-a-check-reports-clean.md](when-a-check-reports-clean.md). The question is
+never "is the logic right" but **could this have reported dirty?**
 
 ## The failure shape this codebase keeps producing
 
