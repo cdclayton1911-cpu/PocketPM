@@ -10,7 +10,10 @@ import { PROJECT_ROLE_ROLE } from "@/types";
  * Keeping them separate is what makes it safe to record an external architect
  * who must never read the project.
  */
-const projectRoleFields = z.object({
+// strictObject: an unlisted key is REJECTED, not silently dropped. The fields
+// live apart from the refined schema so .partial() has something safe to build
+// from (fc704da); strictness propagates through .refine() and .partial() alike.
+const projectRoleFields = z.strictObject({
     user: z.string().trim().max(20).optional().default(""),
     role: z.enum(PROJECT_ROLE_ROLE),
     company: z.string().trim().max(200).optional().default(""),
@@ -30,7 +33,7 @@ export const projectRoleSchema = projectRoleFields.refine(
   },
 );
 
-export const projectRoleUpdateSchema = z.object({
+export const projectRoleUpdateSchema = z.strictObject({
   user: z.string().trim().max(20).optional(),
   role: z.enum(PROJECT_ROLE_ROLE).optional(),
   company: z.string().trim().max(200).optional(),
