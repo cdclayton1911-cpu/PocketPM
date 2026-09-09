@@ -18,7 +18,8 @@ const isoDate = z
  * is an ordinary edit, and PocketBase's project rule already prevents naming a
  * document in another project.
  */
-export const projectDocumentSchema = z.object({
+export // strictObject: an unlisted key is REJECTED, not silently dropped.
+const projectDocumentSchema = z.strictObject({
   title: z.string().trim().min(1, "Title is required").max(300),
   category: z.enum(PROJECT_DOCUMENT_CATEGORY).optional(),
   doc_number: z.string().trim().max(60).optional().default(""),
