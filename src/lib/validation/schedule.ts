@@ -13,7 +13,8 @@ const optionalNumber = (min: number, max?: number) =>
     z.coerce.number().min(min).pipe(max ? z.number().max(max) : z.number()).optional(),
   );
 
-export const scheduleItemSchema = z.object({
+export // strictObject: an unlisted key is REJECTED, not silently dropped.
+const scheduleItemSchema = z.strictObject({
   activity: z.string().trim().min(1, "Activity is required").max(300),
   activity_id: z.string().trim().max(40).optional().default(""),
   planned_start: isoDate.optional().default(""),
