@@ -8,7 +8,8 @@ const isoDate = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD")
   .or(z.literal(""));
 
-export const submittalSchema = z.object({
+export // strictObject: an unlisted key is REJECTED, not silently dropped.
+const submittalSchema = z.strictObject({
   submittal_number: z.string().trim().min(1, "Submittal # is required").max(40),
   description: z.string().trim().min(1, "Description is required").max(300),
   spec_section: z.string().trim().max(40).optional().default(""),
