@@ -13,7 +13,8 @@ const optionalNumber = (min: number, max?: number) =>
     z.coerce.number().min(min).pipe(max ? z.number().max(max) : z.number()).optional(),
   );
 
-export const dfowSchema = z.object({
+export // strictObject: an unlisted key is REJECTED, not silently dropped.
+const dfowSchema = z.strictObject({
   dfow_number: z.string().trim().min(1, "DFOW # is required").max(40),
   name: z.string().trim().min(1, "Feature of work is required").max(300),
   spec_sections: z.string().trim().max(200).optional().default(""),
