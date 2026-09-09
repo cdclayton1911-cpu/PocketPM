@@ -13,7 +13,8 @@ const optionalNumber = (min: number, max?: number) =>
     z.coerce.number().min(min).pipe(max ? z.number().max(max) : z.number()).optional(),
   );
 
-export const payApplicationSchema = z.object({
+export // strictObject: an unlisted key is REJECTED, not silently dropped.
+const payApplicationSchema = z.strictObject({
   // Required by the schema, and the identifier a G702 is filed under.
   app_number: z.preprocess(
     (v) => (v === "" || v === null || v === undefined ? undefined : v),
