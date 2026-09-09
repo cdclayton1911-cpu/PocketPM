@@ -7,7 +7,8 @@ const isoDate = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD")
   .or(z.literal(""));
 
-export const aiaNoticeSchema = z.object({
+export // strictObject: an unlisted key is REJECTED, not silently dropped.
+const aiaNoticeSchema = z.strictObject({
   notice_type: z.string().trim().min(1, "Notice type is required").max(200),
   aia_article: z.string().trim().max(80).optional().default(""),
   trigger_event: z.string().trim().max(500).optional().default(""),
