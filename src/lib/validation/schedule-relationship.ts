@@ -13,7 +13,8 @@ import { SCHEDULE_RELATIONSHIP_TYPE } from "@/types";
  *
  * What the rule cannot check is a cycle, which is handled in the route.
  */
-export const scheduleRelationshipSchema = z.object({
+export // strictObject: an unlisted key is REJECTED, not silently dropped.
+const scheduleRelationshipSchema = z.strictObject({
   predecessor: z.string().trim().min(1, "Predecessor is required").max(20),
   successor: z.string().trim().min(1, "Successor is required").max(20),
   type: z.enum(SCHEDULE_RELATIONSHIP_TYPE).optional(),
