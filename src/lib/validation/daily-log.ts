@@ -24,7 +24,8 @@ const optionalNumber = (min?: number) =>
  * commercial work happens from Arizona summers to northern winters, and a
  * range that rejects a real reading is worse than one that accepts a typo.
  */
-export const dailyLogSchema = z.object({
+export // strictObject: an unlisted key is REJECTED, not silently dropped.
+const dailyLogSchema = z.strictObject({
   // `error` covers the missing case: a .min(1) message never fires on
   // undefined, so an omitted field would report "expected string, received
   // undefined" to the user.
