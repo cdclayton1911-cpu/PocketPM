@@ -123,6 +123,17 @@ can fail**:
 When a new gap turns up, the useful question is not "who forgot" but **"what
 comparison would have failed?"** If the answer is "none", that is the gap.
 
+## Precedence spec v1.0 needs reconciling
+
+`docs/precedence-spec-reconciliation.md`. Six mismatches: four where the spec
+should change, two where the implementation should. All schema changes are free
+today because `precedence_provisions` holds zero records, and expensive once a
+project has been coded.
+
+The sharpest one is not in the spec's own list: "nobody has recorded a
+provision" and "a person searched the manual and found none" currently produce
+the same answer, and they mean opposite things.
+
 ## `npm test` is red on purpose
 
 Five tests in `src/lib/precedence/classify.test.ts` fail, each naming a
@@ -135,6 +146,10 @@ classifications.
 They fail rather than being skipped so they cannot quietly stay unwritten.
 Transcribe the passages into `src/lib/precedence/negative-fixtures.ts` and the
 suite goes green.
+
+**Expiry: 2026-09-16.** If the passages have not arrived by then, convert these
+to skips with a named TODO. A permanently red suite trains people to ignore it,
+and the step after that is someone deleting the failing tests.
 
 ## Queued, unstarted
 
