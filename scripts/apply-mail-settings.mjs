@@ -7,9 +7,15 @@
  *   1. `meta.appURL` — the base every emailed link is built from. It is
  *      currently the install default (http://localhost:8090), so every reset
  *      link would send the user to their own machine.
- *   2. `users.passwordResetTemplate` — unset, so PocketBase's built-in default
+ *   2. `users.resetPasswordTemplate` — unset, so PocketBase's built-in default
  *      applies, which links to PocketBase's own admin UI rather than to this
  *      app's /reset-password page.
+ *
+ *      NOTE THE FIELD NAME. It is `resetPasswordTemplate`, not
+ *      `passwordResetTemplate`. This script had the two words transposed, and
+ *      PocketBase accepts an unknown key and discards it — the update returned
+ *      200 having written nothing. The verification block below is what caught
+ *      it; without that read-back it would have looked applied.
  *
  * SMTP is deliberately NOT touched. Its host, username, and password are the
  * operator's to enter in the PocketBase admin UI; a script is the wrong place
@@ -86,7 +92,7 @@ console.log("meta.appURL");
 console.log(`  current: ${settings.meta?.appURL ?? "(unset)"}`);
 console.log(`  new    : ${APP_URL}\n`);
 
-const current = users.passwordResetTemplate ?? {};
+const current = users.resetPasswordTemplate ?? {};
 console.log("users.passwordResetTemplate");
 console.log(`  current subject: ${current.subject ?? "(unset — PocketBase's built-in default applies)"}`);
 console.log(`  new subject    : ${TEMPLATE.subject}`);
@@ -102,14 +108,29 @@ if (!APPLY) {
 }
 
 await pb.settings.update({ meta: { ...settings.meta, appURL: APP_URL } });
-await pb.collections.update(users.id, { passwordResetTemplate: TEMPLATE });
+await pb.collections.update(users.id, { resetPasswordTemplate: TEMPLATE });
 
 const after = await pb.settings.getAll();
 const usersAfter = await pb.collections.getOne("users");
 console.log("Written. Verifying:");
 console.log(`  meta.appURL                        : ${after.meta?.appURL}`);
-console.log(`  passwordResetTemplate.subject      : ${usersAfter.passwordResetTemplate?.subject}`);
+console.log(`  resetPasswordTemplate.subject      : ${usersAfter.resetPasswordTemplate?.subject}`);
 console.log(
-  `  template links to /reset-password  : ${/\/reset-password\?token=\{TOKEN\}/.test(usersAfter.passwordResetTemplate?.body ?? "")}`,
+  `  template links to /reset-password  : ${/\/reset-password\?token=\{TOKEN\}/.test(usersAfter.resetPasswordTemplate?.body ?? "")}`,
 );
-console.log("\nMail still will not send until SMTP is enabled in the admin UI.");
+const templateApplied =
+  usersAfter.resetPasswordTemplate?.subject === TEMPLATE.subject &&
+  /\/reset-password\?token=\{TOKEN\}/.test(usersAfter.resetPasswordTemplate?.body ?? "");
+
+if (after.meta?.appURL !== APP_URL || !templateApplied) {
+  // PocketBase accepts an unknown key and discards it, so a 200 is not evidence
+  // the write landed. Exit non-zero rather than printing "false" in a line
+  // somebody skims past.
+  console.error("\nFAILED: the settings did not apply. Nothing above should be trusted.");
+  process.exit(1);
+}
+
+console.log("\nApplied and verified.");
+if (settings.smtp?.enabled !== true) {
+  console.log("SMTP is not enabled — mail will not send until it is set in the admin UI.");
+}

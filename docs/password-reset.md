@@ -121,3 +121,45 @@ Against the running app, signed out:
 
 Not verified, because it cannot be until SMTP works: that an email arrives, that
 its link resolves, and that a token from a real email is accepted.
+
+
+## Configured 2026-09-09
+
+`meta.appURL` is `https://app.pocketpm.fyi` and the reset template links to
+`/reset-password?token={TOKEN}` on this app rather than PocketBase's admin UI.
+SMTP is Resend on port 2587 with `tls: false`, which is correct — 2587 is the
+alternate submission port and uses STARTTLS; `tls: true` is for implicit TLS on
+465.
+
+Sender is `no-reply@pocketpm.fyi`. **Not** the `mail.pocketpm.fyi` subdomain:
+Resend verifies each sending domain separately and a subdomain is a separate
+domain, so `notifications@mail.pocketpm.fyi` needs its own verification and its
+own DNS records. Moving to it later is a DNS change plus one settings edit.
+
+### The field is `resetPasswordTemplate`
+
+Not `passwordResetTemplate`. `scripts/apply-mail-settings.mjs` had the two words
+transposed, and **PocketBase accepted the unknown key, returned 200, and wrote
+nothing.**
+
+The script's own read-back caught it. It now exits non-zero when the values do
+not match what it tried to write, rather than printing `false` in a line
+somebody skims past.
+
+### Testing the send path needs a real account
+
+`requestPasswordReset()` resolves successfully for an address with no account —
+deliberately, so the endpoint cannot be used to enumerate accounts. So a 200
+from `/api/auth/password-reset` is evidence the request was accepted and nothing
+else.
+
+The PocketBase log is where the truth is:
+
+```
+POST /api/collections/users/request-password-reset
+  "failed to fetch users record with email ..."
+```
+
+An end-to-end test therefore requires an account whose mailbox the tester can
+read. Testing from the Resend dashboard does not count — it bypasses the app,
+PocketBase, the template, and `appURL`, which is most of what can be wrong.
