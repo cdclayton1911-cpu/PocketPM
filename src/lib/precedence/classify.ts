@@ -9,7 +9,6 @@
 
 import {
   documentMatches,
-  normalizeDocumentType,
   type ConflictLocus,
   type DetectedConflict,
   type PrecedenceClassification,

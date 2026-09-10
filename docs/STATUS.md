@@ -123,6 +123,19 @@ can fail**:
 When a new gap turns up, the useful question is not "who forgot" but **"what
 comparison would have failed?"** If the answer is "none", that is the gap.
 
+## `npm test` is red on purpose
+
+Five tests in `src/lib/precedence/classify.test.ts` fail, each naming a
+false-positive passage awaiting verbatim text from the project manuals. Keyword
+search for precedence language ran at ~45% precision across four manuals, so the
+negative cases carry as much weight as the positive ones — a system that reads
+CPM "precedence format" as a document hierarchy produces confidently wrong
+classifications.
+
+They fail rather than being skipped so they cannot quietly stay unwritten.
+Transcribe the passages into `src/lib/precedence/negative-fixtures.ts` and the
+suite goes green.
+
 ## Queued, unstarted
 
 Roughly in priority order. None is blocking.
