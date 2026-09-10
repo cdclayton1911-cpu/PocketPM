@@ -177,6 +177,49 @@ describe("choosing between provisions", () => {
     expect(result.explanation).toMatch(/none is incorporated by reference/);
   });
 
+  /**
+   * Documented so it reads as intended rather than as something to tighten.
+   *
+   * A DIVISION_SCOPED provision reaches a conflict when EITHER side sits in the
+   * division - not both. This is deliberate: drawings usually carry no division
+   * of their own, so requiring both would make a plumbing clause fail to reach
+   * a plumbing specification against the drawing that shows the plumbing.
+   *
+   * The cost is that a conflict spanning two divisions can be reached by a rule
+   * scoped to only one of them. That is the correct reading of a clause saying
+   * "in the event there is a discrepancy between the drawings, specifications,
+   * and current code" INSIDE Section 22 00 00 - it is about Division 22 work,
+   * whatever the other side of the conflict happens to be.
+   */
+  it("reaches a conflict when EITHER locus is in the division, not only both", () => {
+    const specSide = classifyConflict(
+      conflict(spec({ division: "22" }), drawing()),
+      [REES],
+    );
+    expect(specSide.provisionId).toBe("rees-1");
+
+    // Same conflict, sides swapped: the division may be on either one.
+    const drawingSide = classifyConflict(
+      conflict(drawing(), spec({ division: "22" })),
+      [REES],
+    );
+    expect(drawingSide.provisionId).toBe("rees-1");
+
+    // And a locus carrying only the full section number counts too.
+    const bySection = classifyConflict(
+      conflict(spec({ section: "22 00 00" }), drawing()),
+      [REES],
+    );
+    expect(bySection.provisionId).toBe("rees-1");
+  });
+
+  it("is NOT reached when neither locus is in the division", () => {
+    // The other half of the asymmetry, and the Rees Division 08 case.
+    expect(
+      provisionReaches(REES, conflict(spec({ division: "08" }), drawing({ division: "09" }))),
+    ).toBe(false);
+  });
+
   it("knows a division-scoped provision does not reach an unrelated conflict", () => {
     expect(provisionReaches(REES, conflict(spec({ division: "08" }), drawing()))).toBe(false);
     expect(provisionReaches(REES, conflict(spec({ division: "22" }), drawing()))).toBe(true);
