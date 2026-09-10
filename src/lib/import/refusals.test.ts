@@ -173,3 +173,23 @@ describe("a refused import says why", () => {
     if (!outcome.ok) expect(outcome.message).toMatch(/no header row/);
   });
 });
+
+describe("mixed encoding reaches the preview", () => {
+  it("as a warning naming the line, not a refusal", () => {
+    // windows-1252 (the £ forces it), with a UTF-8 byte-order mark pasted into
+    // one note — the shape found in a real P6 export.
+    const bytes = new Uint8Array([
+      ...new TextEncoder().encode("Activity ID,Description,Notes\nA1,Slab,"),
+      0xa3,
+      ...new TextEncoder().encode("5 allowance\nA2,Walls,"),
+      0xef, 0xbb, 0xbf,
+      ...new TextEncoder().encode("<b>see memo</b>\n"),
+    ]);
+    const outcome = previewImport({ bytes, rawMapping: null, rawOrder: "month-first", baselines: [] });
+    if (!outcome.ok) throw new Error(outcome.message);
+    const note = outcome.report.problems.find((p) => /byte-order mark/.test(p.message));
+    expect(note).toMatchObject({ severity: "warning" });
+    expect(note?.message).toMatch(/^Line 3 /);
+    expect(outcome.report.canImport).toBe(true);
+  });
+});

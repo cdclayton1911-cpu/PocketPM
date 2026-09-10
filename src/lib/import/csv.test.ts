@@ -137,3 +137,46 @@ describe("readCsv", () => {
     expect(table.rowNumbers).toEqual([2, 4]);
   });
 });
+
+describe("mixed encoding", () => {
+  /** Bytes from text and raw byte runs, so windows-1252 can be written exactly. */
+  const cp = (...parts: (string | number[])[]) =>
+    new Uint8Array(parts.flatMap((p) => (typeof p === "string" ? [...utf8(p)] : p)));
+
+  it("keeps the currency symbols a windows-1252 file carries", () => {
+    // 0xA3 £, 0xA5 ¥, 0x80 € — lone high bytes, never valid UTF-8 on their own.
+    const decoded = decodeCsv(cp("id,symbol\n13,", [0xa3], "\n14,", [0xa5], "\n15,", [0x80], "\n"));
+    expect(decoded.encoding).toBe("windows-1252");
+    expect(decoded.text).toContain("13,£");
+    expect(decoded.text).toContain("14,¥");
+    expect(decoded.text).toContain("15,€");
+    // The positive control: an ordinary windows-1252 file flags nothing.
+    expect(decoded.embeddedUtf8).toEqual([]);
+  });
+
+  it("flags an embedded UTF-8 byte-order mark instead of garbling it", () => {
+    const decoded = decodeCsv(cp("id,note\n1,", [0xa3], "\n2,", [0xef, 0xbb, 0xbf], "<HTML>note</HTML>\n"));
+    expect(decoded.text).not.toContain("ï»¿");
+    expect(decoded.text).toContain("2,<HTML>note</HTML>");
+    expect(decoded.text).toContain("1,£");
+    expect(decoded.embeddedUtf8).toEqual([{ line: 3, decoded: "U+FEFF", byteOrderMark: true }]);
+  });
+
+  it("decodes embedded UTF-8 text and says which line it was on", () => {
+    const decoded = decodeCsv(cp("a,b\n1,", [0xa3], "\n2,caf", [0xc3, 0xa9], "\n"));
+    expect(decoded.text).toContain("2,café");
+    expect(decoded.embeddedUtf8).toEqual([{ line: 3, decoded: "é", byteOrderMark: false }]);
+  });
+
+  it("does not touch a file that is valid UTF-8 throughout", () => {
+    const decoded = decodeCsv(utf8("a,b\n1,café\n"));
+    expect(decoded.encoding).toBe("utf-8");
+    expect(decoded.embeddedUtf8).toEqual([]);
+  });
+
+  it("carries the finding through readCsv", () => {
+    const table = readCsv(cp("a,b\n1,", [0xa3], "\n2,", [0xef, 0xbb, 0xbf], "x\n"));
+    expect(table.embeddedUtf8).toHaveLength(1);
+    expect(table.rows[1]).toEqual(["2", "x"]);
+  });
+});

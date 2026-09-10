@@ -23,6 +23,92 @@ export interface DecodedFile {
   encoding: DetectedEncoding;
   /** True when the encoding was guessed rather than declared by a BOM. */
   guessed: boolean;
+  /** UTF-8 found inside a windows-1252 file — see decodeMixed. Empty otherwise. */
+  embeddedUtf8: EmbeddedUtf8[];
+}
+
+/**
+ * UTF-8 text found inside a file that is otherwise windows-1252.
+ *
+ * P6 writes windows-1252, but free-text fields — HTML notes especially — can
+ * carry UTF-8 pasted from another program, byte-order mark included. Decoding
+ * the whole file one way turns that BOM into "ï»¿": well-formed, silently
+ * wrong. So each such span is decoded as UTF-8 and REPORTED, one entry per line.
+ */
+export interface EmbeddedUtf8 {
+  /** 1-based physical line in the file. */
+  line: number;
+  /** The characters found, decoded as UTF-8; "U+FEFF" for a byte-order mark. */
+  decoded: string;
+  /** A byte-order mark, which is removed rather than shown. */
+  byteOrderMark: boolean;
+}
+
+/** windows-1252, one entry per byte, built once. */
+const CP1252: string[] = (() => {
+  const decoder = new TextDecoder("windows-1252");
+  return Array.from({ length: 256 }, (_, b) => decoder.decode(Uint8Array.of(b)));
+})();
+
+/** A complete, well-formed UTF-8 sequence starting at `i`, or null. */
+function utf8SequenceAt(bytes: Uint8Array, i: number): { length: number; codePoint: number } | null {
+  const b0 = bytes[i];
+  let length: number;
+  let min: number;
+  if (b0 >= 0xc2 && b0 <= 0xdf) [length, min] = [2, 0x80];
+  else if (b0 >= 0xe0 && b0 <= 0xef) [length, min] = [3, 0x800];
+  else if (b0 >= 0xf0 && b0 <= 0xf4) [length, min] = [4, 0x10000];
+  else return null;
+  if (i + length > bytes.length) return null;
+  let codePoint = b0 & (length === 2 ? 0x1f : length === 3 ? 0x0f : 0x07);
+  for (let k = 1; k < length; k += 1) {
+    const c = bytes[i + k];
+    if ((c & 0xc0) !== 0x80) return null;
+    codePoint = (codePoint << 6) | (c & 0x3f);
+  }
+  // Overlong forms and surrogates are not UTF-8; treating them as such would
+  // "repair" bytes that were always meant as windows-1252.
+  if (codePoint < min || codePoint > 0x10ffff || (codePoint >= 0xd800 && codePoint <= 0xdfff)) return null;
+  return { length, codePoint };
+}
+
+/**
+ * Decode windows-1252, except where the bytes form well-formed UTF-8.
+ *
+ * A lone high byte — £ is 0xA3, ¥ 0xA5, € 0x80 — is never a valid UTF-8
+ * sequence on its own, so currency symbols decode as windows-1252 exactly as
+ * before. Only a lead byte followed by the right continuation bytes is read as
+ * UTF-8.
+ *
+ * The one ambiguity: a genuine windows-1252 "Â£" is also valid UTF-8 for "£".
+ * Those two characters together are the classic sign of text that was already
+ * double-encoded, so repairing it is almost always right — and every repair is
+ * reported, so it is visible rather than assumed.
+ */
+function decodeMixed(bytes: Uint8Array): { text: string; embedded: EmbeddedUtf8[] } {
+  let text = "";
+  const byLine = new Map<number, EmbeddedUtf8>();
+  let line = 1;
+  for (let i = 0; i < bytes.length; ) {
+    const b = bytes[i];
+    if (b >= 0x80) {
+      const seq = utf8SequenceAt(bytes, i);
+      if (seq) {
+        const bom = seq.codePoint === 0xfeff;
+        const entry = byLine.get(line) ?? { line, decoded: "", byteOrderMark: false };
+        entry.decoded += bom ? (entry.decoded ? " U+FEFF" : "U+FEFF") : String.fromCodePoint(seq.codePoint);
+        entry.byteOrderMark ||= bom;
+        byLine.set(line, entry);
+        if (!bom) text += String.fromCodePoint(seq.codePoint);
+        i += seq.length;
+        continue;
+      }
+    }
+    if (b === 0x0a) line += 1;
+    text += CP1252[b];
+    i += 1;
+  }
+  return { text, embedded: [...byLine.values()].sort((a, b) => a.line - b.line) };
 }
 
 /**
@@ -38,6 +124,7 @@ export function decodeCsv(bytes: Uint8Array): DecodedFile {
       text: new TextDecoder("utf-8").decode(bytes.subarray(3)),
       encoding: "utf-8-bom",
       guessed: false,
+      embeddedUtf8: [],
     };
   }
   if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
@@ -45,6 +132,7 @@ export function decodeCsv(bytes: Uint8Array): DecodedFile {
       text: new TextDecoder("utf-16le").decode(bytes.subarray(2)),
       encoding: "utf-16le",
       guessed: false,
+      embeddedUtf8: [],
     };
   }
   if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
@@ -52,6 +140,7 @@ export function decodeCsv(bytes: Uint8Array): DecodedFile {
       text: new TextDecoder("utf-16be").decode(bytes.subarray(2)),
       encoding: "utf-16be",
       guessed: false,
+      embeddedUtf8: [],
     };
   }
 
@@ -62,13 +151,11 @@ export function decodeCsv(bytes: Uint8Array): DecodedFile {
       text: new TextDecoder("utf-8", { fatal: true }).decode(bytes),
       encoding: "utf-8",
       guessed: true,
+      embeddedUtf8: [],
     };
   } catch {
-    return {
-      text: new TextDecoder("windows-1252").decode(bytes),
-      encoding: "windows-1252",
-      guessed: true,
-    };
+    const { text, embedded } = decodeMixed(bytes);
+    return { text, encoding: "windows-1252", guessed: true, embeddedUtf8: embedded };
   }
 }
 
@@ -186,11 +273,13 @@ export interface ParsedTable {
   delimiter: Delimiter;
   /** 1-based line numbers, for error messages that point at the file. */
   rowNumbers: number[];
+  /** UTF-8 found inside a windows-1252 file, by line. */
+  embeddedUtf8: EmbeddedUtf8[];
 }
 
 /** Decode, detect, parse, and drop fully blank rows. */
 export function readCsv(bytes: Uint8Array): ParsedTable {
-  const { text, encoding, guessed } = decodeCsv(bytes);
+  const { text, encoding, guessed, embeddedUtf8 } = decodeCsv(bytes);
   const delimiter = detectDelimiter(text);
   const all = parseCsv(text, delimiter);
 
@@ -208,5 +297,5 @@ export function readCsv(bytes: Uint8Array): ParsedTable {
     rowNumbers.push(i + 1);
   }
 
-  return { headers, rows, encoding, encodingGuessed: guessed, delimiter, rowNumbers };
+  return { headers, rows, encoding, encodingGuessed: guessed, delimiter, rowNumbers, embeddedUtf8 };
 }

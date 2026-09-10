@@ -10,7 +10,7 @@
 
 import { importPreviewSchema } from "@/lib/validation/schedule-import";
 
-import { readCsv } from "./csv";
+import { readCsv, type EmbeddedUtf8 } from "./csv";
 import type { DateOrder } from "./dates";
 import { buildDryRun, type DryRunReport, type ExistingBaseline } from "./dryrun";
 import {
@@ -21,6 +21,7 @@ import {
   unmappedColumns,
   type ColumnMapping,
   type MappedActivity,
+  type RowProblem,
 } from "./mapping";
 import { detectUnsupportedShape } from "./shape";
 
@@ -115,7 +116,26 @@ export function previewImport(input: {
     problems,
     skipped: table.rows.length - activities.length,
     activityIdMapped: mapping.activity_id !== undefined,
+    fileProblems: encodingNotes(table.embeddedUtf8),
   });
 
   return { ok: true, report, mapping, order, activities };
+}
+
+/**
+ * One warning per line of UTF-8 found inside a windows-1252 file.
+ *
+ * Warnings, not errors: the text was decoded correctly. But it was decoded by
+ * a rule rather than read as declared, so it is shown for someone to check.
+ */
+function encodingNotes(found: EmbeddedUtf8[]): RowProblem[] {
+  return found.map((e) => ({
+    rowNumber: 0,
+    severity: "warning" as const,
+    message: e.byteOrderMark
+      ? `Line ${e.line} has a UTF-8 byte-order mark inside a windows-1252 file — usually text pasted from ` +
+        `another program. It was removed rather than shown as "\u00ef\u00bb\u00bf".`
+      : `Line ${e.line} has UTF-8 text ("${e.decoded}") inside a windows-1252 file. It was decoded as UTF-8 ` +
+        "rather than shown garbled — check it reads correctly.",
+  }));
 }
