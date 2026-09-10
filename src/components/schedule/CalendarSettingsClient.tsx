@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   holidayCoverageGap,
+  holidayCoverageGaps,
   seedHolidays,
   type Holiday,
   type ProjectCalendar,
@@ -53,6 +54,12 @@ export function CalendarSettingsClient({
   const [newLabel, setNewLabel] = useState("");
 
   const gap = holidayCoverageGap({ work_days: workDays, holidays }, scheduleEnds);
+  // Holes INSIDE the list, which the end check above cannot see: a calendar
+  // with holidays before and after the project but none during it. The end
+  // and none-at-all cases are already covered by the warning above.
+  const spanEnd = [scheduleEnds, projectEnd].filter(Boolean).sort().at(-1) ?? "";
+  const holes = holidayCoverageGaps({ work_days: workDays, holidays }, { start: projectStart, end: spanEnd })
+    .filter((g) => g.kind === "within" || g.kind === "before");
 
   const save = useMutation({
     mutationFn: async () => {
@@ -107,6 +114,23 @@ export function CalendarSettingsClient({
               , but the schedule runs to <strong>{gap.scheduleEnds}</strong>. Dates after that are
               calculated with no holidays — work will be scheduled through Christmas. Add the
               missing years below.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      {holes.length ? (
+        <div className="flex gap-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+          <div>
+            <p className="font-medium">There are years with no holidays inside the project.</p>
+            <p className="mt-0.5">
+              {holes
+                .map((g) => (g.fromYear === g.toYear ? `${g.fromYear}` : `${g.fromYear}–${g.toYear}`))
+                .join(", ")}{" "}
+              {holes.length === 1 && holes[0].fromYear === holes[0].toYear ? "has" : "have"} no holidays on
+              file, though other years do. Work in {holes.length === 1 && holes[0].fromYear === holes[0].toYear ? "that year" : "those years"} is
+              calculated with no holidays at all. An imported calendar can arrive like this.
             </p>
           </div>
         </div>

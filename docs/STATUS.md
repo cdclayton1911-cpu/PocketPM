@@ -113,8 +113,9 @@ lags are whole days; no leads, no SF, no cross-project links, no negative float.
 - in-progress activities need remaining duration, not original
 - 4 level-of-effort activities have no representation
 - relationships reference P6's internal task id, not the activity id
-- `holidayCoverageGap` checks only the END of the holiday list, and this
-  calendar has a five-year hole in the middle of the project window
+- ~~`holidayCoverageGap` checks only the END of the holiday list~~ — FIXED:
+  `holidayCoverageGaps` finds holes inside the list too, and the calendar page
+  warns about them
 - constraints, WBS, activity codes, resources, costs and notes have no home
 
 The CSV path met the file first: a flattened XER produced thousands of true but

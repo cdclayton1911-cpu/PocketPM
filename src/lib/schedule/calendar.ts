@@ -275,3 +275,66 @@ export function holidayCoverageGap(
   if (coveredThrough && coveredThrough >= scheduleEnds) return null;
   return { coveredThrough, scheduleEnds };
 }
+
+export interface HolidayGap {
+  /** First and last calendar years with no holiday, inclusive. */
+  fromYear: number;
+  toYear: number;
+  /**
+   * Where the hole sits relative to the holidays that do exist. "within" is the
+   * case holidayCoverageGap cannot see: holidays before AND after, none between.
+   */
+  kind: "before" | "within" | "after" | "none_at_all";
+}
+
+/**
+ * Every run of years inside the schedule's span that has no holidays at all.
+ *
+ * holidayCoverageGap checks only where the list ENDS. A real P6 calendar had
+ * holidays for 2013–2017 and 2023–2025 and none between, on a project that
+ * started in 2022. The end check calls that covered through 2025, while every
+ * 2022 holiday is missing and CPM schedules straight through them.
+ *
+ * Year granularity, deliberately: a year with at least one holiday counts as
+ * covered, so a calendar holding only May–December of a year is not caught. A
+ * finer test would need to know which holidays a year "should" have — the
+ * recurrence rule this module declined to ship. The coarse check is still a
+ * comparison that can fail, which the end-only check was not, for this case.
+ */
+export function holidayCoverageGaps(
+  calendar: ProjectCalendar,
+  span: { start: string; end: string },
+): HolidayGap[] {
+  const startY = parseDate(span.start)?.getUTCFullYear();
+  const endY = parseDate(span.end)?.getUTCFullYear();
+  if (startY === undefined || endY === undefined || endY < startY) return [];
+
+  const covered = new Set(
+    (calendar.holidays ?? [])
+      .map((h) => parseDate(h.date)?.getUTCFullYear())
+      .filter((y): y is number => y !== undefined),
+  );
+  if (covered.size === 0) return [{ fromYear: startY, toYear: endY, kind: "none_at_all" }];
+
+  const first = Math.min(...covered);
+  const last = Math.max(...covered);
+  const lo = Math.min(first, startY);
+  const hi = Math.max(last, endY);
+
+  const gaps: HolidayGap[] = [];
+  let runStart: number | null = null;
+  // One past `hi` so a run reaching the end of the range is closed.
+  for (let year = lo; year <= hi + 1; year += 1) {
+    const hole = year <= hi && !covered.has(year);
+    if (hole && runStart === null) runStart = year;
+    if (!hole && runStart !== null) {
+      const from = runStart;
+      const to = year - 1;
+      runStart = null;
+      // Only holes the schedule actually runs through matter to it.
+      if (to < startY || from > endY) continue;
+      gaps.push({ fromYear: from, toYear: to, kind: to < first ? "before" : from > last ? "after" : "within" });
+    }
+  }
+  return gaps;
+}

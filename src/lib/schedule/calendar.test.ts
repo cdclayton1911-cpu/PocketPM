@@ -4,6 +4,7 @@ import {
   addWorkingDays,
   defaultCalendar,
   holidayCoverageGap,
+  holidayCoverageGaps,
   isWorkingDay,
   normalizeCalendar,
   seedHolidays,
@@ -232,5 +233,75 @@ describe("normalizeCalendar", () => {
     // The pure function stays honest: an explicitly empty array means nothing
     // is worked, and addWorkingDays says so instead of inventing dates.
     expect(addWorkingDays(FRIDAY, 1, { work_days: [], holidays: [] })).toBeNull();
+  });
+});
+
+describe("holidayCoverageGaps — holes inside the list, not only at its end", () => {
+  /**
+   * The shape of a real P6 calendar: holidays for 2013–2017 and 2023–2025 and
+   * none between, on a project that started in 2022. Generic US holiday dates;
+   * nothing that identifies the project.
+   */
+  const REAL_SHAPE: ProjectCalendar = {
+    work_days: [1, 2, 3, 4, 5],
+    holidays: [
+      "2013-07-04", "2013-09-02", "2013-11-21", "2013-11-22", "2013-12-25", "2014-01-01",
+      "2015-11-26", "2015-12-25", "2016-01-01", "2016-07-04", "2016-09-05", "2016-11-24",
+      "2016-11-25", "2016-12-23", "2017-07-04", "2017-11-23", "2017-11-24", "2017-12-25",
+      "2023-05-29", "2023-07-04", "2023-09-04", "2023-11-23", "2023-11-24", "2023-12-25",
+      "2023-12-26", "2024-01-01", "2024-05-27", "2024-07-04", "2024-09-02", "2024-11-28",
+      "2024-11-29", "2024-12-25", "2024-12-26", "2025-01-01",
+    ].map((date) => ({ date })),
+  };
+  const PROJECT = { start: "2022-02-24", end: "2024-10-23" };
+
+  it("reports the 2018–2022 hole the project starts inside", () => {
+    expect(holidayCoverageGaps(REAL_SHAPE, PROJECT)).toEqual([
+      { fromYear: 2018, toYear: 2022, kind: "within" },
+    ]);
+  });
+
+  it("which the end-only check misses entirely", () => {
+    // The list runs past the finish, so the old check calls this covered.
+    expect(holidayCoverageGap(REAL_SHAPE, PROJECT.end)).toBeNull();
+  });
+
+  it("finds nothing when every year of the span has holidays", () => {
+    // The positive control: a check that reported a gap for everything would
+    // pass the test above and be useless.
+    const cal = { work_days: [1, 2, 3, 4, 5], holidays: seedHolidays("2026-01-01", "2027-12-31", 0) };
+    expect(holidayCoverageGaps(cal, { start: "2026-03-01", end: "2027-06-30" })).toEqual([]);
+  });
+
+  it("reports a tail gap as after", () => {
+    const cal = { work_days: [1, 2, 3, 4, 5], holidays: [{ date: "2026-12-25" }] };
+    expect(holidayCoverageGaps(cal, { start: "2026-01-05", end: "2028-06-30" })).toEqual([
+      { fromYear: 2027, toYear: 2028, kind: "after" },
+    ]);
+  });
+
+  it("reports a head gap as before", () => {
+    const cal = { work_days: [1, 2, 3, 4, 5], holidays: [{ date: "2028-07-04" }] };
+    expect(holidayCoverageGaps(cal, { start: "2026-01-05", end: "2028-09-30" })).toEqual([
+      { fromYear: 2026, toYear: 2027, kind: "before" },
+    ]);
+  });
+
+  it("says so when there are no holidays at all", () => {
+    expect(holidayCoverageGaps(defaultCalendar(), { start: "2026-01-05", end: "2027-03-01" })).toEqual([
+      { fromYear: 2026, toYear: 2027, kind: "none_at_all" },
+    ]);
+  });
+
+  it("ignores a hole the schedule never runs through", () => {
+    const cal = {
+      work_days: [1, 2, 3, 4, 5],
+      holidays: [{ date: "2010-12-25" }, { date: "2015-12-25" }, { date: "2016-12-25" }],
+    };
+    expect(holidayCoverageGaps(cal, { start: "2015-01-05", end: "2016-11-30" })).toEqual([]);
+  });
+
+  it("returns nothing for an unreadable span rather than guessing one", () => {
+    expect(holidayCoverageGaps(REAL_SHAPE, { start: "", end: "2024-01-01" })).toEqual([]);
   });
 });
