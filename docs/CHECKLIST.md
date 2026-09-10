@@ -12,7 +12,7 @@ Workflow engine complete, schema through UI. Schedule phases 1-5 and 7 complete.
 
 ## Tier 0 — not a build task, gates everything below it
 
-- [ ] **Get 2-3 real XER exports from actual GCs.**
+- [ ] **Get 2-3 real XER exports from actual GCs.** *One received and inventoried 2026-09-10 (see STATUS.md). One file cannot say whether multi-calendar schedules are common, so two more are still needed.*
 
   A customer conversation, not development. It resolves four open questions at
   once: parser ordering (XER vs PMXML), the P6 per-activity calendar decision,

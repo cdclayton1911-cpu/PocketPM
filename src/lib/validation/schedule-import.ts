@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { TARGET_FIELDS } from "@/lib/import/mapping";
+import { describeFields, duplicateColumns, TARGET_FIELDS } from "@/lib/import/mapping";
 
 /**
  * Request bodies for schedule import.
@@ -10,12 +10,25 @@ import { TARGET_FIELDS } from "@/lib/import/mapping";
  * silently drops unknown keys, so a mis-typed mapping field would import a
  * schedule missing a column and return 200 (docs/STATUS.md).
  */
-const columnMapping = z.strictObject(
-  Object.fromEntries(TARGET_FIELDS.map((f) => [f, z.number().int().min(0).max(500).optional()])) as Record<
-    (typeof TARGET_FIELDS)[number],
-    z.ZodOptional<z.ZodNumber>
-  >,
-);
+const columnMapping = z
+  .strictObject(
+    Object.fromEntries(TARGET_FIELDS.map((f) => [f, z.number().int().min(0).max(500).optional()])) as Record<
+      (typeof TARGET_FIELDS)[number],
+      z.ZodOptional<z.ZodNumber>
+    >,
+  )
+  // A column supplies at most one field. Enforced here as well as in the
+  // mapper and the UI, because the server must not trust how a mapping was
+  // built: a client that sends one column for every field would otherwise
+  // import one value fifteen times and report success.
+  .superRefine((mapping, ctx) => {
+    for (const { index, fields } of duplicateColumns(mapping)) {
+      ctx.addIssue({
+        code: "custom",
+        message: `Column ${index + 1} is mapped to ${describeFields(fields)}. A column can supply one field only.`,
+      });
+    }
+  });
 
 export const dateOrder = z.enum(["day-first", "month-first"]);
 

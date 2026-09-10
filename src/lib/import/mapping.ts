@@ -289,3 +289,51 @@ export function unmappedColumns(headers: readonly string[], mapping: ColumnMappi
   const used = new Set(Object.values(mapping));
   return headers.filter((_, i) => !used.has(i));
 }
+
+/**
+ * Point `field` at column `index`, or clear it with `null`.
+ *
+ * Keeps the one-column-one-field invariant: if another field already holds the
+ * column, the column MOVES and the other field is cleared. A mapping where many
+ * fields read one column imports many copies of one value while looking
+ * configured, so the rule lives here — tested once — rather than being trusted
+ * in a component.
+ */
+export function assignColumn(
+  mapping: ColumnMapping,
+  field: TargetField,
+  index: number | null,
+): ColumnMapping {
+  const next: ColumnMapping = {};
+  for (const f of TARGET_FIELDS) {
+    const current = mapping[f];
+    if (current === undefined || f === field) continue;
+    if (index !== null && current === index) continue;
+    next[f] = current;
+  }
+  if (index !== null) next[field] = index;
+  return next;
+}
+
+/** Columns claimed by more than one field. Empty when the mapping is sound. */
+export function duplicateColumns(mapping: ColumnMapping): { index: number; fields: TargetField[] }[] {
+  const byIndex = new Map<number, TargetField[]>();
+  for (const f of TARGET_FIELDS) {
+    const index = mapping[f];
+    if (index === undefined) continue;
+    const list = byIndex.get(index);
+    if (list) list.push(f);
+    else byIndex.set(index, [f]);
+  }
+  return [...byIndex.entries()]
+    .filter(([, fields]) => fields.length > 1)
+    .map(([index, fields]) => ({ index, fields }));
+}
+
+/** "a and b", or "a, b, c and 4 other fields" — for messages a person reads. */
+export function describeFields(fields: readonly string[]): string {
+  if (fields.length <= 2) return fields.join(" and ");
+  if (fields.length === 3) return `${fields[0]}, ${fields[1]} and ${fields[2]}`;
+  const rest = fields.length - 3;
+  return `${fields.slice(0, 3).join(", ")} and ${rest} other field${rest === 1 ? "" : "s"}`;
+}

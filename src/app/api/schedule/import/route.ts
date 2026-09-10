@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { resolveActiveProjectId } from "@/lib/active-project";
-import { readCsv } from "@/lib/import/csv";
-import { buildDryRun, orphansBaselineItems, type ExistingBaseline } from "@/lib/import/dryrun";
-import { guessMapping, mapRows, unmappedColumns } from "@/lib/import/mapping";
+import { orphansBaselineItems, type ExistingBaseline } from "@/lib/import/dryrun";
+import { previewImport } from "@/lib/import/preview";
 import { createClient } from "@/lib/pocketbase";
 import { getSession } from "@/lib/session";
-import { importCommitSchema, importPreviewSchema } from "@/lib/validation/schedule-import";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
@@ -45,6 +43,11 @@ async function readUpload(request: Request): Promise<
   return { ok: true, form, bytes: new Uint8Array(await file.arrayBuffer()) };
 }
 
+function field(form: FormData, name: string): string | null {
+  const value = form.get(name);
+  return typeof value === "string" && value !== "" ? value : null;
+}
+
 async function loadBaselines(
   pb: ReturnType<typeof createClient>,
   projectId: string,
@@ -75,51 +78,26 @@ export async function POST(request: Request) {
   const upload = await readUpload(request);
   if (!upload.ok) return upload.response;
 
-  const table = readCsv(upload.bytes);
-  if (table.headers.length === 0) {
-    return NextResponse.json({ errors: { form: "That file has no header row" } }, { status: 400 });
-  }
-
-  const rawMapping = upload.form.get("mapping");
-  const rawOrder = upload.form.get("order");
-  const parsed = importPreviewSchema.safeParse({
-    mapping: rawMapping ? JSON.parse(String(rawMapping)) : guessMapping(table.headers),
-    order: rawOrder ? String(rawOrder) : "month-first",
-  });
-  if (!parsed.success) {
-    return NextResponse.json({ errors: { form: "Invalid mapping" } }, { status: 400 });
-  }
-
-  const { activities, problems } = mapRows(
-    table.headers,
-    table.rows,
-    table.rowNumbers,
-    parsed.data.mapping,
-    parsed.data.order,
-  );
-
   const pb = createClient(session.token);
-  const report = buildDryRun({
-    encoding: table.encoding,
-    encodingGuessed: table.encodingGuessed,
-    delimiter: table.delimiter,
-    headers: table.headers,
-    unmapped: unmappedColumns(table.headers, parsed.data.mapping),
-    activities,
-    problems,
-    skipped: table.rows.length - activities.length,
+  const outcome = previewImport({
+    bytes: upload.bytes,
+    rawMapping: field(upload.form, "mapping"),
+    rawOrder: field(upload.form, "order"),
     baselines: await loadBaselines(pb, projectId),
   });
+  // The message is specific — which header, which fields — so it is passed
+  // through rather than replaced with a generic "invalid mapping".
+  if (!outcome.ok) return NextResponse.json({ errors: { form: outcome.message } }, { status: 400 });
 
-  return NextResponse.json({ report, mapping: parsed.data.mapping, order: parsed.data.order });
+  return NextResponse.json({ report: outcome.report, mapping: outcome.mapping, order: outcome.order });
 }
 
 /**
  * Commit. Replaces the project's schedule.
  *
- * The dry run is re-run server-side rather than trusting a report the client
- * says it saw — that is what makes the baseline acknowledgement a guard rather
- * than a warning.
+ * Re-runs the same preview server-side rather than trusting a report the
+ * client says it saw — that is what makes the baseline acknowledgement a guard
+ * rather than a warning.
  */
 export async function PUT(request: Request) {
   const session = await getSession();
@@ -133,41 +111,23 @@ export async function PUT(request: Request) {
   const upload = await readUpload(request);
   if (!upload.ok) return upload.response;
 
-  const table = readCsv(upload.bytes);
-  const parsed = importCommitSchema.safeParse({
-    mapping: JSON.parse(String(upload.form.get("mapping") ?? "{}")),
-    order: String(upload.form.get("order") ?? "month-first"),
-    acknowledgeBaselineOrphans: upload.form.get("acknowledgeBaselineOrphans") === "true",
-  });
-  if (!parsed.success) {
-    return NextResponse.json({ errors: { form: "Invalid mapping" } }, { status: 400 });
-  }
-
-  const { activities, problems } = mapRows(
-    table.headers,
-    table.rows,
-    table.rowNumbers,
-    parsed.data.mapping,
-    parsed.data.order,
-  );
-
   const pb = createClient(session.token);
-  const report = buildDryRun({
-    encoding: table.encoding,
-    encodingGuessed: table.encodingGuessed,
-    delimiter: table.delimiter,
-    headers: table.headers,
-    unmapped: unmappedColumns(table.headers, parsed.data.mapping),
-    activities,
-    problems,
-    skipped: table.rows.length - activities.length,
+  const outcome = previewImport({
+    bytes: upload.bytes,
+    rawMapping: field(upload.form, "mapping") ?? "{}",
+    rawOrder: field(upload.form, "order"),
     baselines: await loadBaselines(pb, projectId),
   });
+  if (!outcome.ok) return NextResponse.json({ errors: { form: outcome.message } }, { status: 400 });
 
+  const { report, activities } = outcome;
   if (!report.canImport) {
-    return NextResponse.json({ errors: { form: "This file still has errors" }, report }, { status: 400 });
+    return NextResponse.json(
+      { errors: { form: report.refusal ?? "This file cannot be imported." }, report },
+      { status: 400 },
+    );
   }
-  if (orphansBaselineItems(report) && !parsed.data.acknowledgeBaselineOrphans) {
+  if (orphansBaselineItems(report) && upload.form.get("acknowledgeBaselineOrphans") !== "true") {
     return NextResponse.json(
       {
         errors: {

@@ -55,3 +55,9 @@ next-env.d.ts
 # Pending: needs a credential with GitHub `workflow` scope (see docs/testing.md).
 # Remove this line and commit the file once `gh auth refresh -s workflow` is done.
 .github/workflows/ci.yml
+
+# Real project schedules used for import work. These are client documents:
+# never committed. Keep local copies under fixtures/private/ if one is needed.
+*.xer
+*.XER
+fixtures/private/

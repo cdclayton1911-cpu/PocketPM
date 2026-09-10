@@ -59,24 +59,39 @@ resolves successfully with SMTP off, so success proves nothing. See
 Nothing else is blocked on this. Option 4 for external reviewers — record the party,
 an internal user acts on their behalf — needs no email and is already built.
 
-## The schedule work has never met a real schedule
+## The schedule work has met one real schedule — by inventory, not import
 
-Six phases, 259 tests, all green — against **zero real records**. `schedule_items`
-was empty for every project when the Gantt shipped.
+A real Primavera P6 22.12 XER arrived on 2026-09-10: 1,005 activities, 1,913
+relationships, 128 activities progressed, resource- and cost-loaded. It was
+inventoried field by field **without a parser**, deliberately, so nothing in it
+could be dropped unnoticed. The file is not in the repo (`*.xer` is gitignored),
+and figures that would identify the client stay out of the repo too.
 
-Everything holds together because it was built from one consistent set of
-assumptions. Consistency with itself is not evidence about P6. The first real
-export will disagree with something, and the useful question is *what*.
+**Confirmed:** every activity uses one calendar; only FS, SS and FF appear; all
+lags are whole days; no leads, no SF, no cross-project links, no negative float.
 
-So **obtaining two or three real XER exports from GCs is the highest-value item
-left, above any remaining code.** It unblocks phase 6, settles parser ordering
-and the per-activity calendar decision, and — more than either — tests whether
-the CPM engine, the divergence report, and the chart survive contact with a real
-schedule. It is a customer conversation, not a build task.
+**Contradicted — decisions pending, no code yet:**
 
-The divergence report was built for exactly this moment: it is the instrument
-that says *how* the first real import disagrees, rather than leaving it to be
-guessed at.
+- the project's default calendar is NOT the one the activities use (6-day, no
+  holidays versus 5-day with 34 holidays). An import reading the project
+  calendar would be wrong everywhere
+- start and finish milestones differ, and `is_milestone` cannot say which —
+  every finish milestone would diverge by one working day
+- 90 activities are As Late As Possible: a scheduling mode, not a date, which
+  the divergence report would mislabel "likely constrained"
+- P6 ran retained logic with a data date; the model has no data date, so
+  remaining work can be scheduled in the past
+- `planned_start` is ambiguous between P6's target and early dates, and the
+  divergence report needs early
+- in-progress activities need remaining duration, not original
+- 4 level-of-effort activities have no representation
+- relationships reference P6's internal task id, not the activity id
+- `holidayCoverageGap` checks only the END of the holiday list, and this
+  calendar has a five-year hole in the middle of the project window
+- constraints, WBS, activity codes, resources, costs and notes have no home
+
+The CSV path met the file first: a flattened XER produced thousands of true but
+useless row errors and never the reason. Fixed alongside this note.
 
 ## Write paths reject what they do not recognise
 

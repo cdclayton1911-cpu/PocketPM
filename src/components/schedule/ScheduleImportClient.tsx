@@ -10,7 +10,13 @@ import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { DATE_FIELDS, NUMBER_FIELDS, TARGET_FIELDS, type TargetField } from "@/lib/import/mapping";
+import {
+  assignColumn,
+  DATE_FIELDS,
+  NUMBER_FIELDS,
+  TARGET_FIELDS,
+  type TargetField,
+} from "@/lib/import/mapping";
 import type { DryRunReport } from "@/lib/import/dryrun";
 
 type Step = "upload" | "map" | "preview" | "done";
@@ -28,6 +34,9 @@ export function ScheduleImportClient() {
   const [acknowledged, setAcknowledged] = useState(false);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ activities: number; relationships: number } | null>(null);
+  // Shown on the page, not only in a toast: a refusal the user can miss is a
+  // refusal with no stated reason.
+  const [error, setError] = useState<string | null>(null);
 
   async function runPreview(next?: { mapping?: typeof mapping; order?: Order }) {
     if (!file) return;
@@ -42,10 +51,12 @@ export function ScheduleImportClient() {
       const res = await fetch("/api/schedule/import", { method: "POST", body });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.errors?.form ?? "Could not read that file");
+      setError(null);
       setReport(data.report);
       setMapping(data.mapping);
       setStep((s) => (s === "upload" ? "map" : s));
     } catch (err) {
+      setError((err as Error).message);
       toast.error((err as Error).message);
     } finally {
       setBusy(false);
@@ -67,6 +78,7 @@ export function ScheduleImportClient() {
       setResult(data.imported);
       setStep("done");
     } catch (err) {
+      setError((err as Error).message);
       toast.error((err as Error).message);
     } finally {
       setBusy(false);
@@ -74,6 +86,7 @@ export function ScheduleImportClient() {
   }
 
   const orphaning = (report?.baselines ?? []).filter((b) => b.willOrphan > 0);
+  const holderOf = (index: number) => TARGET_FIELDS.find((f) => mapping[f] === index);
 
   return (
     <div className="mx-auto max-w-4xl space-y-4 p-4">
@@ -99,11 +112,15 @@ export function ScheduleImportClient() {
           <Button className="mt-3" disabled={!file || busy} onClick={() => runPreview()}>
             {busy ? "Reading…" : "Read the file"}
           </Button>
+          {error ? <p className="mt-2 text-[12px] text-red-700">{error}</p> : null}
         </Card>
       ) : null}
 
       {report && step !== "upload" && step !== "done" ? (
         <>
+          {error ? (
+            <Card className="border-red-300 bg-red-50 p-3 text-[12px] text-red-800">{error}</Card>
+          ) : null}
           <Card className="p-4">
             <h2 className="mb-2 text-[13px] font-semibold">What was detected</h2>
             <dl className="grid grid-cols-3 gap-3 text-[13px]">
@@ -172,9 +189,14 @@ export function ScheduleImportClient() {
                     className="h-8 flex-1 rounded border border-neutral-300 px-2 text-[13px]"
                     value={mapping[field] ?? ""}
                     onChange={(e) => {
-                      const next = { ...mapping };
-                      if (e.target.value === "") delete next[field];
-                      else next[field] = Number(e.target.value);
+                      // A column supplies one field. Choosing a column another
+                      // field holds MOVES it there, rather than letting two
+                      // fields read the same cell.
+                      const next = assignColumn(
+                        mapping,
+                        field,
+                        e.target.value === "" ? null : Number(e.target.value),
+                      );
                       setMapping(next);
                       void runPreview({ mapping: next });
                     }}
@@ -183,6 +205,7 @@ export function ScheduleImportClient() {
                     {report.headers.map((h, i) => (
                       <option key={`${h}-${i}`} value={i}>
                         {h || `(column ${i + 1})`}
+                        {holderOf(i) && holderOf(i) !== field ? ` — now ${holderOf(i)}` : ""}
                       </option>
                     ))}
                   </select>
@@ -303,11 +326,9 @@ export function ScheduleImportClient() {
               {busy ? "Importing…" : `Replace the schedule with ${report.counts.activities} activities`}
             </Button>
           </div>
-          {!report.canImport ? (
-            <p className="text-[12px] text-red-700">
-              Fix the errors above, or remap the columns, before importing.
-            </p>
-          ) : null}
+          {/* The reason itself, never a generic "fix the errors above" — that
+              line once rendered over an empty space. */}
+          {report.refusal ? <p className="text-[12px] text-red-700">{report.refusal}</p> : null}
         </>
       ) : null}
 

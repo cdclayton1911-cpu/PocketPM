@@ -55,6 +55,12 @@ export interface DryRunReport {
   /** Non-null when the imported logic would form a cycle. */
   cycle: string | null;
   canImport: boolean;
+  /**
+   * Why the import is refused, in one sentence. Non-null whenever canImport is
+   * false. A refusal with no stated reason is how the page came to say "fix
+   * the errors above" over an empty space.
+   */
+  refusal: string | null;
 }
 
 export interface ExistingBaseline {
@@ -74,11 +80,37 @@ export interface DryRunInput {
   skipped: number;
   baselines: ExistingBaseline[];
   sampleSize?: number;
+  /**
+   * Problems with the FILE rather than a row — e.g. it is a P6 XER export, not
+   * an activity table. Listed first: they explain a refusal no row can.
+   */
+  fileProblems?: RowProblem[];
+  /**
+   * False when no column is mapped to activity_id. Every row then fails for
+   * the same reason, so one file-level message replaces a copy per row.
+   */
+  activityIdMapped?: boolean;
 }
 
 export function buildDryRun(input: DryRunInput): DryRunReport {
   const { activities } = input;
-  const problems = [...input.problems];
+  const fileProblems = [...(input.fileProblems ?? [])];
+  let rowProblems = [...input.problems];
+
+  // No column on activity_id: every row fails identically. One message naming
+  // the cause is the reason; a copy per row buries it.
+  if (input.activityIdMapped === false && rowProblems.some((p) => p.field === "activity_id")) {
+    rowProblems = rowProblems.filter((p) => !(p.field === "activity_id" && p.rowNumber > 0));
+    fileProblems.push({
+      rowNumber: 0,
+      field: "activity_id",
+      severity: "error",
+      message:
+        "No column is mapped to activity_id, so no row can be imported. Choose the column that holds each activity's ID.",
+    });
+  }
+
+  const problems = [...fileProblems, ...rowProblems];
 
   // Duplicates within the file. A repeated id makes "which activity is this"
   // unanswerable, and the unique-per-baseline join would pick arbitrarily.
@@ -154,8 +186,27 @@ export function buildDryRun(input: DryRunInput): DryRunReport {
     };
   });
 
+  // Nothing read and nothing said why. Without this, canImport is false with
+  // an empty problem list — "fix the errors above" over nothing.
+  const totalRows = activities.length + input.skipped;
+  if (activities.length === 0 && !problems.some((p) => p.severity === "error")) {
+    problems.push({
+      rowNumber: 0,
+      severity: "error",
+      message:
+        totalRows === 0
+          ? "The file has a header row but no rows beneath it, so there is nothing to import."
+          : "No activities were read from this file, so there is nothing to import.",
+    });
+  }
+
+  // File-level problems first: they are the explanation, and a long list of
+  // row errors must not push them out of view.
+  problems.sort((a, b) => (a.rowNumber === 0 ? 0 : 1) - (b.rowNumber === 0 ? 0 : 1));
+
   const errors = problems.filter((p) => p.severity === "error").length;
   const warnings = problems.filter((p) => p.severity === "warning").length;
+  const canImport = errors === 0 && activities.length > 0;
 
   return {
     encoding: input.encoding,
@@ -172,8 +223,27 @@ export function buildDryRun(input: DryRunInput): DryRunReport {
     cycle,
     // Warnings do not block. Errors do — importing a file with known-bad rows
     // would put exactly the wrong data behind a schedule that looks imported.
-    canImport: errors === 0 && activities.length > 0,
+    canImport,
+    refusal: canImport ? null : refusalFor(problems, errors),
   };
+}
+
+/**
+ * One sentence saying why an import is refused.
+ *
+ * A file-level error is the reason when there is one. Otherwise it is the row
+ * errors, counted, with the first quoted, so the sentence stays useful when
+ * the list is long.
+ */
+function refusalFor(problems: RowProblem[], errors: number): string {
+  const fileError = problems.find((p) => p.rowNumber === 0 && p.severity === "error");
+  if (fileError) return fileError.message;
+  const first = problems.find((p) => p.severity === "error");
+  return (
+    `${errors} row${errors === 1 ? " has an error" : "s have errors"}, listed above` +
+    (first ? ` — the first: \u201c${first.message}\u201d` : "") +
+    ". Fix them in the file or remap the columns."
+  );
 }
 
 /** True when any baseline loses items, which the user must acknowledge. */
