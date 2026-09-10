@@ -53,11 +53,11 @@ export async function analyzeSchedule(pb: PocketBase, projectId: string): Promis
   const activities: CpmActivity[] = items.map((i) => ({
     id: i.id,
     duration_days: i.duration_days as number,
-    planned_start: i.planned_start as string,
-    planned_finish: i.planned_finish as string,
+    target_start: i.target_start as string,
+    target_finish: i.target_finish as string,
     actual_start: i.actual_start as string,
     actual_finish: i.actual_finish as string,
-    is_milestone: Boolean(i.is_milestone),
+    activity_type: (i.activity_type || "task") as CpmActivity["activity_type"],
   }));
 
   const rels: CpmRelationship[] = relationships.map((r) => ({
@@ -82,8 +82,10 @@ export async function analyzeSchedule(pb: PocketBase, projectId: string): Promis
           id: i.id,
           activity_id: i.activity_id as string,
           activity: i.activity as string,
-          planned_start: i.planned_start as string,
-          planned_finish: i.planned_finish as string,
+          // The SOURCE scheduler's early dates, not the target dates: divergence
+          // asks where our logic disagrees with the tool that made the schedule.
+          source_early_start: i.source_early_start as string,
+          source_early_finish: i.source_early_finish as string,
         })),
         outcome.report.activities,
       )
@@ -115,10 +117,11 @@ export async function persistCpm(
   let written = 0;
   for (const row of analysis.outcome.report.activities) {
     await pb.collection("schedule_items").update(row.id, {
-      early_start: row.early_start ?? "",
-      early_finish: row.early_finish ?? "",
-      late_start: row.late_start ?? "",
-      late_finish: row.late_finish ?? "",
+      // Column names say whose dates these are; the values are the engine's.
+      cpm_early_start: row.early_start ?? "",
+      cpm_early_finish: row.early_finish ?? "",
+      cpm_late_start: row.late_start ?? "",
+      cpm_late_finish: row.late_finish ?? "",
       // Working days — the basis lives in the type layer, not the column.
       total_float: row.total_float?.value ?? null,
       free_float: row.free_float?.value ?? null,

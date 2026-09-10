@@ -94,21 +94,21 @@ describe("barGeometry", () => {
   const scale = buildScale("2026-01-05", "2026-06-01")!;
 
   it("makes a one-day activity one day wide, not zero", () => {
-    const bar = barGeometry(scale, { planned_start: "2026-01-05", planned_finish: "2026-01-05" });
+    const bar = barGeometry(scale, { target_start: "2026-01-05", target_finish: "2026-01-05" });
     expect(bar.kind).toBe("bar");
     expect(bar.width).toBe(PX_PER_DAY);
   });
 
   it("includes both endpoints", () => {
     // Mon to Fri is five days, not four.
-    const bar = barGeometry(scale, { planned_start: "2026-01-05", planned_finish: "2026-01-09" });
+    const bar = barGeometry(scale, { target_start: "2026-01-05", target_finish: "2026-01-09" });
     expect(bar.width).toBe(5 * PX_PER_DAY);
   });
 
   it("renders a milestone as a marker with no width", () => {
     const bar = barGeometry(scale, {
-      planned_start: "2026-01-07",
-      planned_finish: "2026-01-07",
+      target_start: "2026-01-07",
+      target_finish: "2026-01-07",
       is_milestone: true,
     });
     expect(bar.kind).toBe("milestone");
@@ -116,7 +116,7 @@ describe("barGeometry", () => {
   });
 
   it("treats a zero-duration non-milestone as one day", () => {
-    const bar = barGeometry(scale, { planned_start: "2026-01-07", planned_finish: "2026-01-07" });
+    const bar = barGeometry(scale, { target_start: "2026-01-07", target_finish: "2026-01-07" });
     expect(bar.kind).toBe("bar");
     expect(bar.width).toBe(PX_PER_DAY);
   });
@@ -130,16 +130,16 @@ describe("barGeometry", () => {
   });
 
   it("uses the finish when only a finish is present", () => {
-    expect(barGeometry(scale, { planned_finish: "2026-02-02" }).kind).toBe("bar");
+    expect(barGeometry(scale, { target_finish: "2026-02-02" }).kind).toBe("bar");
   });
 
   it("never produces a negative width from a finish before its start", () => {
-    const bar = barGeometry(scale, { planned_start: "2026-02-10", planned_finish: "2026-02-01" });
+    const bar = barGeometry(scale, { target_start: "2026-02-10", target_finish: "2026-02-01" });
     expect(bar.width).toBeGreaterThan(0);
   });
 
   it("draws nothing for an unreadable date", () => {
-    expect(barGeometry(scale, { planned_start: "the third" }).kind).toBe("none");
+    expect(barGeometry(scale, { target_start: "the third" }).kind).toBe("none");
   });
 });
 
@@ -177,8 +177,8 @@ describe("nonWorkingSpans", () => {
 describe("scheduleBounds", () => {
   it("spans the earliest and latest activity dates", () => {
     const bounds = scheduleBounds([
-      { planned_start: "2026-03-01", planned_finish: "2026-03-10" },
-      { planned_start: "2026-01-05", planned_finish: "2026-01-09" },
+      { target_start: "2026-03-01", target_finish: "2026-03-10" },
+      { target_start: "2026-01-05", target_finish: "2026-01-09" },
     ]);
     expect(bounds).toEqual({ from: "2026-01-05", to: "2026-03-10" });
   });

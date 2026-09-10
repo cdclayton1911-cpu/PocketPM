@@ -12,8 +12,10 @@ import { parseBoolCell, parseDateCell, parseNumberCell, type DateOrder, type Par
 export const TARGET_FIELDS = [
   "activity_id",
   "activity",
-  "planned_start",
-  "planned_finish",
+  "target_start",
+  "target_finish",
+  "source_early_start",
+  "source_early_finish",
   "duration_days",
   "actual_start",
   "actual_finish",
@@ -28,8 +30,10 @@ export const TARGET_FIELDS = [
 export type TargetField = (typeof TARGET_FIELDS)[number];
 
 export const DATE_FIELDS: TargetField[] = [
-  "planned_start",
-  "planned_finish",
+  "target_start",
+  "target_finish",
+  "source_early_start",
+  "source_early_finish",
   "actual_start",
   "actual_finish",
 ];
@@ -47,8 +51,11 @@ export type ColumnMapping = Partial<Record<TargetField, number>>;
 const HEADER_HINTS: Record<TargetField, RegExp> = {
   activity_id: /^(activity[\s_-]*(id|code)?|id|task[\s_-]*(id|code)|wbs[\s_-]*code)$/i,
   activity: /^(activity([\s_-]*name)?|description|task([\s_-]*name)?|name|title)$/i,
-  planned_start: /^(planned[\s_-]*start|start([\s_-]*date)?|early[\s_-]*start|bl[\s_-]*start)$/i,
-  planned_finish: /^(planned[\s_-]*finish|finish([\s_-]*date)?|end([\s_-]*date)?|early[\s_-]*finish)$/i,
+  target_start: /^(planned[\s_-]*start|target[\s_-]*start|start([\s_-]*date)?|bl[\s_-]*start|baseline[\s_-]*start)$/i,
+  // An Early Start column is what the source scheduler calculated, not the plan.
+  source_early_start: /^(early[\s_-]*start|es)$/i,
+  target_finish: /^(planned[\s_-]*finish|target[\s_-]*finish|finish([\s_-]*date)?|end([\s_-]*date)?|bl[\s_-]*finish|baseline[\s_-]*finish)$/i,
+  source_early_finish: /^(early[\s_-]*finish|ef)$/i,
   duration_days: /^(duration([\s_-]*days?)?|orig(inal)?[\s_-]*dur(ation)?|days)$/i,
   actual_start: /^(actual[\s_-]*start|act[\s_-]*start)$/i,
   actual_finish: /^(actual[\s_-]*finish|act[\s_-]*finish|actual[\s_-]*end)$/i,
@@ -135,8 +142,10 @@ export interface MappedActivity {
   rowNumber: number;
   activity_id: string;
   activity: string;
-  planned_start: string;
-  planned_finish: string;
+  target_start: string;
+  target_finish: string;
+  source_early_start: string;
+  source_early_finish: string;
   actual_start: string;
   actual_finish: string;
   duration_days: number | null;
@@ -234,7 +243,13 @@ export function mapRows(
       });
     }
 
-    if (!dates.planned_start && !dates.planned_finish && numbers.duration_days === null) {
+    if (
+      !dates.target_start &&
+      !dates.target_finish &&
+      !dates.source_early_start &&
+      !dates.source_early_finish &&
+      numbers.duration_days === null
+    ) {
       problems.push({
         rowNumber,
         severity: "warning",
@@ -242,11 +257,11 @@ export function mapRows(
       });
     }
 
-    if (dates.planned_start && dates.planned_finish && dates.planned_finish < dates.planned_start) {
+    if (dates.target_start && dates.target_finish && dates.target_finish < dates.target_start) {
       problems.push({
         rowNumber,
         severity: "error",
-        message: `Finish ${dates.planned_finish} is before start ${dates.planned_start}.`,
+        message: `Finish ${dates.target_finish} is before start ${dates.target_start}.`,
       });
     }
 
@@ -266,8 +281,10 @@ export function mapRows(
       rowNumber,
       activity_id: activityId,
       activity: cellAt(row, mapping.activity).trim() || activityId,
-      planned_start: dates.planned_start,
-      planned_finish: dates.planned_finish,
+      target_start: dates.target_start,
+      target_finish: dates.target_finish,
+      source_early_start: dates.source_early_start,
+      source_early_finish: dates.source_early_finish,
       actual_start: dates.actual_start,
       actual_finish: dates.actual_finish,
       duration_days: numbers.duration_days,

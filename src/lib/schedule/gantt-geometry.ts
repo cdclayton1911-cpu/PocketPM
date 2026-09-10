@@ -124,8 +124,8 @@ export interface BarGeometry {
 }
 
 export interface GanttActivity {
-  planned_start?: string;
-  planned_finish?: string;
+  target_start?: string;
+  target_finish?: string;
   is_milestone?: boolean;
 }
 
@@ -137,7 +137,7 @@ export interface GanttActivity {
  * invisible at any scale.
  */
 export function barGeometry(scale: GanttScale, activity: GanttActivity): BarGeometry {
-  const start = activity.planned_start || activity.planned_finish || "";
+  const start = activity.target_start || activity.target_finish || "";
   if (!start) return { kind: "none", x: 0, width: 0, reason: "no dates" };
 
   const x = dateToX(scale, start);
@@ -147,7 +147,7 @@ export function barGeometry(scale: GanttScale, activity: GanttActivity): BarGeom
     return { kind: "milestone", x, width: 0 };
   }
 
-  const finish = activity.planned_finish || activity.planned_start || "";
+  const finish = activity.target_finish || activity.target_start || "";
   const startDays = daysFromStart(scale, start);
   const finishDays = daysFromStart(scale, finish);
   if (startDays === null || finishDays === null) {
@@ -207,7 +207,7 @@ export function scheduleBounds(
   fallbackEnd?: string,
 ): { from: string; to: string } | null {
   const dates = activities
-    .flatMap((a) => [a.planned_start, a.planned_finish])
+    .flatMap((a) => [a.target_start, a.target_finish])
     .filter((d): d is string => Boolean(d))
     .sort();
 

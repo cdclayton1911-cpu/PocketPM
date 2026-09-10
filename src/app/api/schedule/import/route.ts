@@ -157,14 +157,18 @@ export async function PUT(request: Request) {
       project: projectId,
       activity_id: a.activity_id,
       activity: a.activity,
-      planned_start: a.planned_start,
-      planned_finish: a.planned_finish,
+      target_start: a.target_start,
+      target_finish: a.target_finish,
+      source_early_start: a.source_early_start,
+      source_early_finish: a.source_early_finish,
       actual_start: a.actual_start,
       actual_finish: a.actual_finish,
       duration_days: a.duration_days ?? undefined,
       pct_complete: a.pct_complete ?? undefined,
       status: a.status || undefined,
-      is_milestone: a.is_milestone,
+      // A CSV milestone column cannot say which end it marks; a start milestone
+      // keeps the behaviour this had before activity_type existed.
+      activity_type: a.is_milestone ? "start_milestone" : "task",
       notes: a.notes,
       sort_order: a.sort_order ?? index,
     });

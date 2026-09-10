@@ -48,8 +48,8 @@ type Filter = (typeof FILTERS)[number]["value"];
  * would imply a confidence that does not exist.
  */
 function slipDays(row: ScheduleItem): number | null {
-  if (!row.planned_finish || !row.forecast_finish) return null;
-  const planned = daysUntil(row.planned_finish);
+  if (!row.target_finish || !row.forecast_finish) return null;
+  const planned = daysUntil(row.target_finish);
   const forecast = daysUntil(row.forecast_finish);
   if (planned === null || forecast === null) return null;
   return forecast - planned;
@@ -70,7 +70,7 @@ export function ScheduleClient({
 
   const rows = useMemo(() => {
     if (filter === "all") return data;
-    if (filter === "milestones") return data.filter((r) => r.is_milestone);
+    if (filter === "milestones") return data.filter(isMilestone);
     if (filter === "slipping") return data.filter((r) => (slipDays(r) ?? 0) > 0);
     return data.filter((r) => r.status === filter);
   }, [data, filter]);
@@ -81,7 +81,7 @@ export function ScheduleClient({
     const slipping = data.filter((r) => (slipDays(r) ?? 0) > 0);
     const worstSlip = slipping.reduce((max, r) => Math.max(max, slipDays(r) ?? 0), 0);
     return [
-      { label: "Activities", value: data.length, sub: `${data.filter((r) => r.is_milestone).length} milestones` },
+      { label: "Activities", value: data.length, sub: `${data.filter(isMilestone).length} milestones` },
       { label: "Complete", value: complete.length, tone: "success" as const },
       {
         label: "At risk",
@@ -102,14 +102,14 @@ export function ScheduleClient({
       key: "activity",
       header: "Activity",
       cell: (r) => (
-        <span className={cn("flex items-center gap-1.5", r.is_milestone && "font-semibold")}>
-          {r.is_milestone ? <Diamond className="size-3 shrink-0 text-primary" aria-label="Milestone" /> : null}
+        <span className={cn("flex items-center gap-1.5", isMilestone(r) && "font-semibold")}>
+          {isMilestone(r) ? <Diamond className="size-3 shrink-0 text-primary" aria-label="Milestone" /> : null}
           {r.activity}
         </span>
       ),
     },
-    { key: "start", header: "Planned start", cell: (r) => r.planned_start || "—" },
-    { key: "finish", header: "Planned finish", cell: (r) => r.planned_finish || "—" },
+    { key: "start", header: "Planned start", cell: (r) => r.target_start || "—" },
+    { key: "finish", header: "Planned finish", cell: (r) => r.target_finish || "—" },
     {
       key: "forecast",
       header: "Forecast",
@@ -179,4 +179,9 @@ export function ScheduleClient({
       <ScheduleDialog projectId={projectId} open={dialogOpen} onOpenChange={setDialogOpen} item={editTarget} />
     </CollectionView>
   );
+}
+
+/** Either kind of milestone. `activity_type` replaced the old is_milestone boolean. */
+function isMilestone(r: { activity_type?: string }): boolean {
+  return r.activity_type === "start_milestone" || r.activity_type === "finish_milestone";
 }

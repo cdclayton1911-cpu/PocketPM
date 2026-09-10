@@ -62,6 +62,12 @@ export interface DivergenceReport {
   /** Activities present in the schedule but absent from the CPM result. */
   unmatched: string[];
   counts: Record<DivergenceMagnitude, number>;
+  /**
+   * Activities with no source early dates to compare against — a CSV without
+   * an Early Start column, say. Counted, because a row with nothing to compare
+   * shows no divergence, and "no divergence" read at face value is wrong.
+   */
+  missingSourceDates: number;
 }
 
 export interface DivergenceThresholds {
@@ -91,8 +97,8 @@ export interface DivergenceInput {
   id: string;
   activity_id?: string;
   activity?: string;
-  planned_start?: string;
-  planned_finish?: string;
+  source_early_start?: string;
+  source_early_finish?: string;
 }
 
 export function computeDivergence(
@@ -115,12 +121,12 @@ export function computeDivergence(
     }
 
     const startDelta =
-      item.planned_start && result.early_start
-        ? daysBetween(result.early_start, item.planned_start)
+      item.source_early_start && result.early_start
+        ? daysBetween(result.early_start, item.source_early_start)
         : null;
     const finishDelta =
-      item.planned_finish && result.early_finish
-        ? daysBetween(result.early_finish, item.planned_finish)
+      item.source_early_finish && result.early_finish
+        ? daysBetween(result.early_finish, item.source_early_finish)
         : null;
 
     // The worse of the two drives the banding: an activity whose start agrees
@@ -134,8 +140,8 @@ export function computeDivergence(
       id: item.id,
       activity_id: item.activity_id || item.id,
       activity: item.activity || item.activity_id || item.id,
-      imported_start: item.planned_start || null,
-      imported_finish: item.planned_finish || null,
+      imported_start: item.source_early_start || null,
+      imported_finish: item.source_early_finish || null,
       computed_start: result.early_start,
       computed_finish: result.early_finish,
       start_delta: startDelta,
@@ -155,6 +161,7 @@ export function computeDivergence(
 
   return {
     rows,
+    missingSourceDates: items.filter((i) => !i.source_early_start && !i.source_early_finish).length,
     likelyConstrained: rows
       .filter((r) => r.likely_constrained)
       .sort((a, b) => (b.start_delta?.value ?? 0) - (a.start_delta?.value ?? 0)),

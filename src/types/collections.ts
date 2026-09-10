@@ -1,7 +1,7 @@
 // GENERATED — do not edit by hand.
 // Source: docs/pb_schema.json  ·  Regenerate: npm run generate:types
 //
-// 31 application collections. The architecture PDF lists 21 and names
+// 32 application collections. The architecture PDF lists 21 and names
 // closeout_items and contract_notices; neither exists on the deployed instance.
 // See docs/schema-notes.md.
 //
@@ -50,6 +50,9 @@ import type {
   SafetyObservationSeverity,
   SafetyObservationStatus,
   SafetyObservationType,
+  ScheduleImportSourceFormat,
+  ScheduleItemActivityType,
+  ScheduleItemConstraintType,
   ScheduleItemStatus,
   ScheduleRelationshipType,
   SubcontractorA401Status,
@@ -523,6 +526,26 @@ export interface ScheduleBaseline extends BaseRecord {
 }
 
 /**
+ * `schedule_imports`
+ * Required on create: project, source_format
+ *
+ * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
+ */
+export interface ScheduleImport extends BaseRecord {
+  project: RelationId; // required, -> projects, cascade delete
+  imported_by: RelationId; // -> users
+  source_format: ScheduleImportSourceFormat; // required
+  data_date: string;
+  calendar_name: string;
+  hours_per_day: number; // 0..*
+  work_days: unknown;
+  holidays: unknown;
+  calendar_warnings: unknown;
+  activity_count: number; // 0..*
+  relationship_count: number; // 0..*
+}
+
+/**
  * `schedule_items`
  * Required on create: project, activity
  *
@@ -532,24 +555,29 @@ export interface ScheduleItem extends BaseRecord {
   project: RelationId; // required, -> projects, cascade delete
   activity_id: string;
   activity: string; // required
-  planned_start: string;
-  planned_finish: string;
+  target_start: string;
+  target_finish: string;
   actual_start: string;
   actual_finish: string;
   forecast_finish: string;
   duration_days: number; // 0..*
   pct_complete: number; // 0..100
   status: ScheduleItemStatus;
-  is_milestone: boolean;
   notes: string;
   sort_order: number;
-  early_start: string;
-  early_finish: string;
-  late_start: string;
-  late_finish: string;
+  cpm_early_start: string;
+  cpm_early_finish: string;
+  cpm_late_start: string;
+  cpm_late_finish: string;
   total_float: number;
   free_float: number;
   is_critical: boolean;
+  source_early_start: string;
+  source_early_finish: string;
+  activity_type: ScheduleItemActivityType;
+  remaining_duration_days: number; // 0..*
+  constraint_type: ScheduleItemConstraintType;
+  constraint_date: string;
 }
 
 /**
@@ -745,6 +773,7 @@ export interface Collections {
   safety_observations: SafetyObservation;
   schedule_baseline_items: ScheduleBaselineItem;
   schedule_baselines: ScheduleBaseline;
+  schedule_imports: ScheduleImport;
   schedule_items: ScheduleItem;
   schedule_relationships: ScheduleRelationship;
   subcontractors: Subcontractor;

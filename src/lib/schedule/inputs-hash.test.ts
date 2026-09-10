@@ -4,8 +4,8 @@ import { cacheFreshness, hashCpmInputs, type CpmInputs } from "./inputs-hash";
 
 const BASE: CpmInputs = {
   activities: [
-    { id: "a", duration_days: 5, planned_start: "2026-01-05", planned_finish: "2026-01-09" },
-    { id: "b", duration_days: 3, planned_start: "2026-01-12", planned_finish: "2026-01-14" },
+    { id: "a", duration_days: 5, target_start: "2026-01-05", target_finish: "2026-01-09" },
+    { id: "b", duration_days: 3, target_start: "2026-01-12", target_finish: "2026-01-14" },
   ],
   relationships: [{ predecessor: "a", successor: "b", type: "FS", lag_days: 0 }],
   calendar: { work_days: [1, 2, 3, 4, 5], holidays: [{ date: "2026-12-25", label: "Christmas" }] },

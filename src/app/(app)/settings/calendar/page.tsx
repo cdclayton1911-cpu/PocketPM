@@ -21,7 +21,7 @@ export default async function CalendarSettingsPage() {
     filter: pb.filter("project = {:p}", { p: activeProject.id }),
   });
   const scheduleEnds = items
-    .flatMap((i) => [i.planned_finish, i.forecast_finish, i.actual_finish])
+    .flatMap((i) => [i.target_finish, i.forecast_finish, i.actual_finish])
     .filter((d): d is string => Boolean(d))
     .reduce((max, d) => (d > max ? d : max), activeProject.end_date || "");
 

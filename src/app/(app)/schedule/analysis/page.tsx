@@ -43,8 +43,8 @@ export default async function ScheduleAnalysisPage() {
       ...a,
       activity_id: item?.activity_id ?? a.id,
       activity: item?.activity ?? "",
-      imported_start: item?.planned_start || null,
-      imported_finish: item?.planned_finish || null,
+      imported_start: item?.target_start || null,
+      imported_finish: item?.target_finish || null,
     };
   });
 

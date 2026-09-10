@@ -4,7 +4,6 @@ import { useState, type FormEvent } from "react";
 
 import { dropEmptyNumbers, Field, NativeSelect } from "@/components/shared/FormField";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -14,10 +13,22 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { fieldErrorsFromZod, type FieldErrors } from "@/lib/validation/auth";
 import { scheduleItemSchema } from "@/lib/validation/schedule";
 import { SCHEDULE_ITEM_STATUS, type ScheduleItem } from "@/types";
+
+/**
+ * One field for what an activity is. Replaced an is_milestone checkbox, which
+ * could not say which end a milestone marks — and editing a finish milestone
+ * through a checkbox would have saved it back as the only kind it knew.
+ */
+const ACTIVITY_TYPES = ["task", "start_milestone", "finish_milestone", "level_of_effort"] as const;
+const ACTIVITY_TYPE_LABEL: Record<(typeof ACTIVITY_TYPES)[number], string> = {
+  task: "Task",
+  start_milestone: "Start milestone",
+  finish_milestone: "Finish milestone",
+  level_of_effort: "Level of effort",
+};
 
 import { scheduleHooks } from "./ScheduleClient";
 
@@ -34,9 +45,6 @@ export function ScheduleDialog({
 }) {
   const editing = Boolean(item);
   const [errors, setErrors] = useState<FieldErrors>({});
-  // Controlled: shadcn's Checkbox is a Radix button, so it never appears in
-  // FormData. Its value is merged in explicitly on submit.
-  const [isMilestone, setIsMilestone] = useState(Boolean(item?.is_milestone));
   const create = scheduleHooks.useCreate(projectId);
   const update = scheduleHooks.useUpdate(projectId);
   const pending = create.isPending || update.isPending;
@@ -48,10 +56,9 @@ export function ScheduleDialog({
       Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>,
       ["duration_days", "pct_complete", "sort_order"],
     );
-    const parsed = (editing ? scheduleItemSchema.partial() : scheduleItemSchema).safeParse({
-      ...raw,
-      is_milestone: isMilestone,
-    });
+    // activity_type is a native select, so it arrives in FormData with
+    // everything else — no controlled state to fall out of step.
+    const parsed = (editing ? scheduleItemSchema.partial() : scheduleItemSchema).safeParse(raw);
     if (!parsed.success) {
       setErrors(fieldErrorsFromZod(parsed.error));
       return;
@@ -86,11 +93,11 @@ export function ScheduleDialog({
           </div>
 
           <div className="grid grid-cols-3 gap-3">
-            <Field id="planned_start" label="Planned start" error={errors.planned_start}>
-              <Input id="planned_start" name="planned_start" type="date" defaultValue={item?.planned_start ?? ""} disabled={pending} />
+            <Field id="target_start" label="Target start" error={errors.target_start}>
+              <Input id="target_start" name="target_start" type="date" defaultValue={item?.target_start ?? ""} disabled={pending} />
             </Field>
-            <Field id="planned_finish" label="Planned finish" error={errors.planned_finish}>
-              <Input id="planned_finish" name="planned_finish" type="date" defaultValue={item?.planned_finish ?? ""} disabled={pending} />
+            <Field id="target_finish" label="Target finish" error={errors.target_finish}>
+              <Input id="target_finish" name="target_finish" type="date" defaultValue={item?.target_finish ?? ""} disabled={pending} />
             </Field>
             <Field id="forecast_finish" label="Forecast finish" error={errors.forecast_finish}>
               <Input id="forecast_finish" name="forecast_finish" type="date" defaultValue={item?.forecast_finish ?? ""} disabled={pending} />
@@ -104,18 +111,16 @@ export function ScheduleDialog({
             <Field id="pct_complete" label="% complete" error={errors.pct_complete}>
               <Input id="pct_complete" name="pct_complete" type="number" min={0} max={100} defaultValue={item?.pct_complete || ""} disabled={pending} />
             </Field>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="is_milestone"
-              checked={isMilestone}
-              onCheckedChange={(checked) => setIsMilestone(checked === true)}
-              disabled={pending}
-            />
-            <Label htmlFor="is_milestone" className="text-sm font-normal">
-              This activity is a milestone
-            </Label>
+            <Field id="activity_type" label="Type" error={errors.activity_type}>
+              <NativeSelect
+                id="activity_type"
+                name="activity_type"
+                labels={ACTIVITY_TYPE_LABEL}
+                defaultValue={item?.activity_type || "task"}
+                disabled={pending}
+                options={ACTIVITY_TYPES}
+              />
+            </Field>
           </div>
 
           <DialogFooter>

@@ -74,8 +74,8 @@ export function DashboardView({
   const growth = project.contract_value > 0 ? (coTotal / project.contract_value) * 100 : 0;
 
   const slipping = data.schedule_items.filter((s) => {
-    if (!s.planned_finish || !s.forecast_finish) return false;
-    const p = daysUntil(s.planned_finish);
+    if (!s.target_finish || !s.forecast_finish) return false;
+    const p = daysUntil(s.target_finish);
     const f = daysUntil(s.forecast_finish);
     return p !== null && f !== null && f > p;
   });

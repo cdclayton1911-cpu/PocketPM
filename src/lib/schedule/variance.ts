@@ -41,8 +41,8 @@ export interface CurrentRow {
   activity_id: string;
   activity?: string;
   /** Actual dates win over planned when present — that is what "current" means. */
-  planned_start?: string;
-  planned_finish?: string;
+  target_start?: string;
+  target_finish?: string;
   actual_start?: string;
   actual_finish?: string;
   forecast_finish?: string;
@@ -76,10 +76,10 @@ export interface VarianceReport {
 
 /** The date a row is actually working to: actual, else forecast, else planned. */
 function currentStart(row: CurrentRow): string | null {
-  return row.actual_start || row.planned_start || null;
+  return row.actual_start || row.target_start || null;
 }
 function currentFinish(row: CurrentRow): string | null {
-  return row.actual_finish || row.forecast_finish || row.planned_finish || null;
+  return row.actual_finish || row.forecast_finish || row.target_finish || null;
 }
 
 export function computeVariance(

@@ -76,7 +76,7 @@ export function ScheduleAnalysisClient({
     { key: "name", header: "Description", cell: (r) => r.activity },
     {
       key: "imported",
-      header: "Imported",
+      header: "Target",
       // Shown alongside, never replaced: the mirrored dates are the only thing
       // the computation can be checked against.
       cell: (r) => (
@@ -115,7 +115,7 @@ export function ScheduleAnalysisClient({
     { key: "name", header: "Description", cell: (r) => r.activity },
     {
       key: "imported",
-      header: "Imported start",
+      header: "Source early start",
       cell: (r) => <span className="tabular-nums text-neutral-500">{r.imported_start ?? "—"}</span>,
     },
     {
@@ -242,6 +242,14 @@ export function ScheduleAnalysisClient({
               </p>
             </div>
           </div>
+
+          {divergence && divergence.missingSourceDates > 0 ? (
+            <p className="rounded border border-neutral-300 bg-neutral-50 px-3 py-2 text-[12px] text-neutral-700">
+              {divergence.missingSourceDates} activit{divergence.missingSourceDates === 1 ? "y has" : "ies have"} no
+              early dates from the source schedule, so there is nothing to compare them against. No
+              difference shown for {divergence.missingSourceDates === 1 ? "it" : "them"} means not compared, not agreed.
+            </p>
+          ) : null}
 
           {divergence && divergence.unmatched.length > 0 ? (
             <p className="flex gap-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">

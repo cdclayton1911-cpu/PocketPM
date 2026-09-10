@@ -3,7 +3,7 @@
  *
  * ## Computed dates never touch imported ones
  *
- * The caller's `planned_start` / `planned_finish` are the mirrored values from
+ * The caller's `target_start` / `target_finish` are the mirrored values from
  * P6 or Excel and are read here, never written. Everything this module produces
  * lands in its own fields. Overwriting the source would destroy the only thing
  * the computation can be checked against — and do it silently, which on a
@@ -43,12 +43,17 @@ export interface CpmActivity {
   id: string;
   duration_days?: number;
   /** Mirrored from the source schedule. Read, never written. */
-  planned_start?: string;
-  planned_finish?: string;
+  target_start?: string;
+  target_finish?: string;
   /** Progress. Present values PIN the activity — see pinning below. */
   actual_start?: string;
   actual_finish?: string;
-  is_milestone?: boolean;
+  /**
+   * task | start_milestone | finish_milestone | level_of_effort; absent means task.
+   * One field rather than a boolean plus an LOE flag, so an impossible
+   * "LOE finish milestone" cannot be stored.
+   */
+  activity_type?: "task" | "start_milestone" | "finish_milestone" | "level_of_effort";
 }
 
 export interface CpmRelationship extends Edge {
@@ -85,7 +90,7 @@ export type CpmOutcome =
   | { ok: false; error: "cycle" | "no_activities" | "no_working_days" };
 
 function durationOf(activity: CpmActivity): number {
-  if (activity.is_milestone) return 0;
+  if (activity.activity_type === "start_milestone" || activity.activity_type === "finish_milestone") return 0;
   const d = activity.duration_days;
   return Number.isFinite(d) && (d as number) > 0 ? Math.floor(d as number) : 1;
 }
@@ -203,7 +208,7 @@ export function computeCpm(
   const fallbackStart =
     options.projectStart ||
     activities
-      .flatMap((a) => [a.actual_start, a.planned_start])
+      .flatMap((a) => [a.actual_start, a.target_start])
       .filter((d): d is string => Boolean(d))
       .sort()[0] ||
     null;

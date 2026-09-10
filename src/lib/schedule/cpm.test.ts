@@ -44,7 +44,7 @@ describe("forward pass", () => {
   });
 
   it("a milestone starts and finishes the same day", () => {
-    const { by } = run([act("M", 0, { is_milestone: true })], []);
+    const { by } = run([act("M", 0, { activity_type: "start_milestone" })], []);
     expect(by.get("M")?.early_start).toBe(by.get("M")?.early_finish);
   });
 
@@ -249,14 +249,14 @@ describe("refusals", () => {
 });
 
 describe("imported dates are never written", () => {
-  it("leaves planned_start and planned_finish untouched in the input", () => {
-    const activities = [act("A", 5, { planned_start: "2020-01-01", planned_finish: "2020-01-05" })];
+  it("leaves target_start and target_finish untouched in the input", () => {
+    const activities = [act("A", 5, { target_start: "2020-01-01", target_finish: "2020-01-05" })];
     const { by } = run(activities, []);
     // The computed dates differ from the mirrored ones — which is the point:
     // the divergence stays visible instead of overwriting the source.
     expect(by.get("A")?.early_start).toBe(START);
-    expect(activities[0].planned_start).toBe("2020-01-01");
-    expect(activities[0].planned_finish).toBe("2020-01-05");
+    expect(activities[0].target_start).toBe("2020-01-01");
+    expect(activities[0].target_finish).toBe("2020-01-05");
   });
 
   it("returns results without mutating the activities it was given", () => {

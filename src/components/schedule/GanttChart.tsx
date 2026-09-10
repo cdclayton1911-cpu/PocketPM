@@ -22,15 +22,15 @@ export interface GanttRow {
   id: string;
   activity_id: string;
   activity: string;
-  planned_start: string;
-  planned_finish: string;
+  target_start: string;
+  target_finish: string;
   actual_start: string;
   actual_finish: string;
   pct_complete: number;
   is_milestone: boolean;
   is_critical: boolean;
   sort_order: number;
-  early_start: string;
+  cpm_early_start: string;
 }
 
 export interface GanttEdge {
@@ -68,7 +68,7 @@ export function GanttChart({
       [...rows].sort(
         (a, b) =>
           (a.sort_order ?? 0) - (b.sort_order ?? 0) ||
-          (a.early_start || a.planned_start || "").localeCompare(b.early_start || b.planned_start || ""),
+          (a.cpm_early_start || a.target_start || "").localeCompare(b.cpm_early_start || b.target_start || ""),
       ),
     [rows],
   );
@@ -122,8 +122,8 @@ export function GanttChart({
   const tableColumns: Column<GanttRow>[] = [
     { key: "id", header: "Activity", cell: (r) => r.activity_id },
     { key: "name", header: "Description", cell: (r) => r.activity },
-    { key: "start", header: "Start", cell: (r) => r.planned_start || "—" },
-    { key: "finish", header: "Finish", cell: (r) => r.planned_finish || "—" },
+    { key: "start", header: "Start", cell: (r) => r.target_start || "—" },
+    { key: "finish", header: "Finish", cell: (r) => r.target_finish || "—" },
     { key: "pct", header: "Complete", align: "right", cell: (r) => (r.pct_complete ? `${r.pct_complete}%` : "—") },
     {
       key: "critical",

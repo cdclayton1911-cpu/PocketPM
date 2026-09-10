@@ -34,9 +34,9 @@ describe("daysBetween", () => {
 describe("computeVariance", () => {
   it("reports slip against the baseline", () => {
     const current: CurrentRow[] = [
-      { activity_id: "A1010", planned_start: "2026-03-02", actual_finish: "2026-03-06" },
-      { activity_id: "A1020", planned_start: "2026-03-11", planned_finish: "2026-03-25" },
-      { activity_id: "A1030", planned_start: "2026-03-23", planned_finish: "2026-04-10" },
+      { activity_id: "A1010", target_start: "2026-03-02", actual_finish: "2026-03-06" },
+      { activity_id: "A1020", target_start: "2026-03-11", target_finish: "2026-03-25" },
+      { activity_id: "A1030", target_start: "2026-03-23", target_finish: "2026-04-10" },
     ];
     const report = computeVariance(BASE, current);
     expect(report.rows).toHaveLength(3);
@@ -48,7 +48,7 @@ describe("computeVariance", () => {
   it("prefers actual dates over planned — that is what current means", () => {
     const report = computeVariance(
       [{ activity_id: "X", start: "2026-01-01", finish: "2026-01-10" }],
-      [{ activity_id: "X", planned_finish: "2026-01-10", actual_finish: "2026-01-18" }],
+      [{ activity_id: "X", target_finish: "2026-01-10", actual_finish: "2026-01-18" }],
     );
     expect(report.rows[0].finish_variance).toEqual({ value: 8, basis: "calendar" });
   });
@@ -56,14 +56,14 @@ describe("computeVariance", () => {
   it("falls back to forecast when there is no actual", () => {
     const report = computeVariance(
       [{ activity_id: "X", finish: "2026-01-10" }],
-      [{ activity_id: "X", planned_finish: "2026-01-10", forecast_finish: "2026-01-15" }],
+      [{ activity_id: "X", target_finish: "2026-01-10", forecast_finish: "2026-01-15" }],
     );
     expect(report.rows[0].finish_variance).toEqual({ value: 5, basis: "calendar" });
   });
 
   it("REPORTS activities missing from the current schedule rather than dropping them", () => {
     const report = computeVariance(BASE, [
-      { activity_id: "A1010", planned_finish: "2026-03-06" },
+      { activity_id: "A1010", target_finish: "2026-03-06" },
     ]);
     expect(report.missingFromCurrent).toEqual(["A1020", "A1030"]);
     expect(report.rows).toHaveLength(1);
@@ -73,8 +73,8 @@ describe("computeVariance", () => {
     const report = computeVariance(
       [{ activity_id: "A1010", finish: "2026-03-06" }],
       [
-        { activity_id: "A1010", planned_finish: "2026-03-06" },
-        { activity_id: "A9999", planned_finish: "2026-05-01" },
+        { activity_id: "A1010", target_finish: "2026-03-06" },
+        { activity_id: "A9999", target_finish: "2026-05-01" },
       ],
     );
     expect(report.addedSinceBaseline).toEqual(["A9999"]);
@@ -98,9 +98,9 @@ describe("computeVariance", () => {
 describe("slippedActivities", () => {
   it("returns only late activities, worst first", () => {
     const report = computeVariance(BASE, [
-      { activity_id: "A1010", planned_finish: "2026-03-06" },
-      { activity_id: "A1020", planned_finish: "2026-03-25" },
-      { activity_id: "A1030", planned_finish: "2026-05-10" },
+      { activity_id: "A1010", target_finish: "2026-03-06" },
+      { activity_id: "A1020", target_finish: "2026-03-25" },
+      { activity_id: "A1030", target_finish: "2026-05-10" },
     ]);
     const slipped = slippedActivities(report);
     expect(slipped.map((r) => r.activity_id)).toEqual(["A1030", "A1020"]);
@@ -108,7 +108,7 @@ describe("slippedActivities", () => {
 
   it("respects a threshold", () => {
     const report = computeVariance(BASE, [
-      { activity_id: "A1020", planned_finish: "2026-03-25" },
+      { activity_id: "A1020", target_finish: "2026-03-25" },
     ]);
     expect(slippedActivities(report, calendarDays(10))).toHaveLength(0);
   });

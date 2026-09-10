@@ -73,8 +73,8 @@ describe("header guessing", () => {
     const mapping = guessMapping(["Activity ID", "Description", "Start", "Finish", "Predecessors"]);
     expect(mapping.activity_id).toBe(0);
     expect(mapping.activity).toBe(1);
-    expect(mapping.planned_start).toBe(2);
-    expect(mapping.planned_finish).toBe(3);
+    expect(mapping.target_start).toBe(2);
+    expect(mapping.target_finish).toBe(3);
     expect(mapping.predecessors).toBe(4);
   });
 
@@ -91,7 +91,7 @@ describe("header guessing", () => {
 });
 
 const HEADERS = ["Activity ID", "Description", "Start", "Finish", "Predecessors"];
-const MAPPING = { activity_id: 0, activity: 1, planned_start: 2, planned_finish: 3, predecessors: 4 };
+const MAPPING = { activity_id: 0, activity: 1, target_start: 2, target_finish: 3, predecessors: 4 };
 
 function map(rows: string[][], order: "day-first" | "month-first" = "day-first") {
   return mapRows(HEADERS, rows, rows.map((_, i) => i + 2), MAPPING, order);

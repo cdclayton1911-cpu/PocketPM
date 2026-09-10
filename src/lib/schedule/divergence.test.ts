@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { computeCpm, type CpmActivity, type CpmRelationship } from "./cpm";
-import { computeDivergence, DEFAULT_THRESHOLDS } from "./divergence";
+import { computeDivergence, DEFAULT_THRESHOLDS, type DivergenceInput } from "./divergence";
 import type { ProjectCalendar } from "./calendar";
 
 const MON_FRI: ProjectCalendar = { work_days: [1, 2, 3, 4, 5], holidays: [] };
@@ -24,9 +24,9 @@ function cpm(activities: CpmActivity[], relationships: CpmRelationship[]) {
  * SEVEN calendar days — derived from the dates, not read off the output.
  */
 describe("a constrained activity produces a known divergence", () => {
-  const activities: CpmActivity[] = [
-    { id: "a", duration_days: 5, planned_start: START, planned_finish: "2026-01-09" },
-    { id: "b", duration_days: 3, planned_start: "2026-01-19", planned_finish: "2026-01-21" },
+  const activities: Array<CpmActivity & DivergenceInput> = [
+    { id: "a", duration_days: 5, source_early_start: START, source_early_finish: "2026-01-09" },
+    { id: "b", duration_days: 3, source_early_start: "2026-01-19", source_early_finish: "2026-01-21" },
   ];
   const rels: CpmRelationship[] = [{ predecessor: "a", successor: "b", type: "FS", lag_days: 0 }];
 
@@ -59,12 +59,12 @@ describe("a constrained activity produces a known divergence", () => {
 });
 
 describe("direction matters", () => {
-  const base: CpmActivity[] = [{ id: "a", duration_days: 5, planned_start: START, planned_finish: "2026-01-09" }];
+  const base: Array<CpmActivity & DivergenceInput> = [{ id: "a", duration_days: 5, source_early_start: START, source_early_finish: "2026-01-09" }];
 
   it("an imported date EARLIER than logic is not a constraint", () => {
     // Our logic being more restrictive than the source usually means a missing
     // or wrong relationship, which is a different problem with a different fix.
-    const items = [{ ...base[0], planned_start: "2025-12-01", planned_finish: "2025-12-05" }];
+    const items = [{ ...base[0], source_early_start: "2025-12-01", source_early_finish: "2025-12-05" }];
     const report = computeDivergence(items, cpm(base, []));
     const row = report.rows[0];
     expect(row.start_delta?.value).toBeLessThan(0);
@@ -73,7 +73,7 @@ describe("direction matters", () => {
   });
 
   it("deltas are calendar days, so they cannot be read as float", () => {
-    const items = [{ ...base[0], planned_start: "2026-01-12", planned_finish: "2026-01-16" }];
+    const items = [{ ...base[0], source_early_start: "2026-01-12", source_early_finish: "2026-01-16" }];
     const report = computeDivergence(items, cpm(base, []));
     expect(report.rows[0].start_delta?.basis).toBe("calendar");
   });
@@ -83,8 +83,8 @@ describe("progress and gaps", () => {
   it("does not flag an activity whose divergence comes from actual progress", () => {
     // A pinned activity diverges because it really started when it started.
     // Calling that a suspected constraint would bury the real ones.
-    const activities: CpmActivity[] = [
-      { id: "a", duration_days: 5, planned_start: START, planned_finish: "2026-01-09", actual_start: "2026-01-19" },
+    const activities: Array<CpmActivity & DivergenceInput> = [
+      { id: "a", duration_days: 5, source_early_start: START, source_early_finish: "2026-01-09", actual_start: "2026-01-19" },
     ];
     const report = computeDivergence(activities, cpm(activities, []));
     expect(report.rows[0].pinned).toBe(true);
@@ -93,7 +93,7 @@ describe("progress and gaps", () => {
 
   it("reports an activity missing from the CPM result rather than dropping it", () => {
     const report = computeDivergence(
-      [{ id: "ghost", activity_id: "GH-1", planned_start: START }],
+      [{ id: "ghost", activity_id: "GH-1", source_early_start: START }],
       [],
     );
     expect(report.unmatched).toEqual(["GH-1"]);
@@ -101,7 +101,7 @@ describe("progress and gaps", () => {
   });
 
   it("is silent when an imported date is absent", () => {
-    const activities: CpmActivity[] = [{ id: "a", duration_days: 5 }];
+    const activities: Array<CpmActivity & DivergenceInput> = [{ id: "a", duration_days: 5 }];
     const report = computeDivergence(activities, cpm(activities, []));
     expect(report.rows[0].start_delta).toBeNull();
     expect(report.rows[0].magnitude).toBe("none");
@@ -109,8 +109,8 @@ describe("progress and gaps", () => {
 
   it("bands on the worse of start and finish", () => {
     // A start that agrees and a finish a fortnight out is not minor.
-    const activities: CpmActivity[] = [
-      { id: "a", duration_days: 5, planned_start: START, planned_finish: "2026-01-30" },
+    const activities: Array<CpmActivity & DivergenceInput> = [
+      { id: "a", duration_days: 5, source_early_start: START, source_early_finish: "2026-01-30" },
     ];
     const report = computeDivergence(activities, cpm(activities, []));
     expect(report.rows[0].start_delta?.value).toBe(0);
@@ -120,8 +120,8 @@ describe("progress and gaps", () => {
 
 describe("thresholds", () => {
   it("are configurable, since tolerance differs by schedule", () => {
-    const activities: CpmActivity[] = [
-      { id: "a", duration_days: 5, planned_start: "2026-01-07", planned_finish: "2026-01-09" },
+    const activities: Array<CpmActivity & DivergenceInput> = [
+      { id: "a", duration_days: 5, source_early_start: "2026-01-07", source_early_finish: "2026-01-09" },
     ];
     const results = cpm(activities, []);
     expect(computeDivergence(activities, results).rows[0].magnitude).toBe("minor");

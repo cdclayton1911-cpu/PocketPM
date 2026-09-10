@@ -42,6 +42,7 @@ const MODEL_NAMES = {
   schedule_relationships: "ScheduleRelationship",
   schedule_baselines: "ScheduleBaseline",
   schedule_baseline_items: "ScheduleBaselineItem",
+  schedule_imports: "ScheduleImport",
   dfow: "Dfow",
   deficiencies: "Deficiency",
   daily_logs: "DailyLog",

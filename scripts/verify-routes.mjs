@@ -216,7 +216,7 @@ async function main() {
 
   const activity = await call("POST", "/api/schedule-items", {
     activity: "Route probe activity", activity_id: "RP-001",
-    planned_start: "2026-10-05", planned_finish: "2026-10-09", duration_days: 5,
+    target_start: "2026-10-05", target_finish: "2026-10-09", duration_days: 5,
   });
   check("create a schedule activity", activity.status === 201, `status ${activity.status}`);
 

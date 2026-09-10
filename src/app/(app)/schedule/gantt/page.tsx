@@ -32,15 +32,15 @@ export default async function GanttPage() {
     id: i.id,
     activity_id: i.activity_id ?? "",
     activity: i.activity ?? "",
-    planned_start: i.planned_start ?? "",
-    planned_finish: i.planned_finish ?? "",
+    target_start: i.target_start ?? "",
+    target_finish: i.target_finish ?? "",
     actual_start: i.actual_start ?? "",
     actual_finish: i.actual_finish ?? "",
     pct_complete: Number(i.pct_complete ?? 0),
-    is_milestone: Boolean(i.is_milestone),
+    is_milestone: i.activity_type === "start_milestone" || i.activity_type === "finish_milestone",
     is_critical: Boolean((i as unknown as { is_critical?: boolean }).is_critical),
     sort_order: Number(i.sort_order ?? 0),
-    early_start: String((i as unknown as { early_start?: string }).early_start ?? ""),
+    cpm_early_start: i.cpm_early_start ?? "",
   }));
 
   const edges: GanttEdge[] = relationships.map((r) => ({

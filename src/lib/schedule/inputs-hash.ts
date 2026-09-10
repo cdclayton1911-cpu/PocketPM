@@ -3,7 +3,7 @@
  *
  * ## Why a hash and not timestamps
  *
- * The persisted CPM columns (early_start, total_float, is_critical, and the
+ * The persisted CPM columns (cpm_early_start, total_float, is_critical, and the
  * rest) are a cache. A cache that cannot say whether it is fresh is worse than
  * no cache: a stale critical path is indistinguishable from a current one, and
  * the Gantt is exactly the consumer that will read the columns rather than
@@ -57,11 +57,11 @@ export function canonicalInputs(inputs: CpmInputs): string {
       [
         a.id,
         a.duration_days ?? "",
-        a.planned_start ?? "",
-        a.planned_finish ?? "",
+        a.target_start ?? "",
+        a.target_finish ?? "",
         a.actual_start ?? "",
         a.actual_finish ?? "",
-        a.is_milestone ? "1" : "0",
+        a.activity_type ?? "task",
       ].join("\u0001"),
     )
     .sort();

@@ -80,7 +80,7 @@ describe("a column maps to at most one field", () => {
     const parsed = importPreviewSchema.safeParse({ mapping: allOnOne, order: "month-first" });
     expect(parsed.success).toBe(false);
     if (!parsed.success) {
-      expect(parsed.error.issues[0].message).toMatch(/activity_id, activity, planned_start and \d+ other fields/);
+      expect(parsed.error.issues[0].message).toMatch(/activity_id, activity, target_start and \d+ other fields/);
     }
   });
 

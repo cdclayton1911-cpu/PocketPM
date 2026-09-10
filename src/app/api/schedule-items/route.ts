@@ -6,7 +6,7 @@ const routes = createCollectionRoute({
   createSchema: scheduleItemSchema,
   updateSchema: scheduleItemUpdateSchema,
   // A schedule reads chronologically, not by when rows were entered.
-  defaultSort: "sort_order,planned_start",
+  defaultSort: "sort_order,target_start",
   createDefaults: { status: "not_started" },
 });
 

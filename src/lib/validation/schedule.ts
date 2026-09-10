@@ -17,8 +17,8 @@ export // strictObject: an unlisted key is REJECTED, not silently dropped.
 const scheduleItemSchema = z.strictObject({
   activity: z.string().trim().min(1, "Activity is required").max(300),
   activity_id: z.string().trim().max(40).optional().default(""),
-  planned_start: isoDate.optional().default(""),
-  planned_finish: isoDate.optional().default(""),
+  target_start: isoDate.optional().default(""),
+  target_finish: isoDate.optional().default(""),
   actual_start: isoDate.optional().default(""),
   actual_finish: isoDate.optional().default(""),
   forecast_finish: isoDate.optional().default(""),
@@ -26,7 +26,7 @@ const scheduleItemSchema = z.strictObject({
   pct_complete: optionalNumber(0, 100),
   status: z.enum(SCHEDULE_ITEM_STATUS).optional(),
   // Checkbox: absent when unchecked, "on" when checked.
-  is_milestone: z.preprocess((v) => v === "on" || v === true || v === "true", z.boolean()).optional(),
+  activity_type: z.enum(["task", "start_milestone", "finish_milestone", "level_of_effort"]).optional(),
   notes: z.string().trim().max(5000).optional().default(""),
   sort_order: optionalNumber(0),
 });

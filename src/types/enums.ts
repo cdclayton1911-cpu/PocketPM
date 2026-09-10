@@ -313,6 +313,13 @@ export const SAFETY_OBSERVATION_STATUS = [
 ] as const;
 export type SafetyObservationStatus = (typeof SAFETY_OBSERVATION_STATUS)[number];
 
+/** `schedule_imports.source_format` */
+export const SCHEDULE_IMPORT_SOURCE_FORMAT = [
+  "csv",
+  "xer",
+] as const;
+export type ScheduleImportSourceFormat = (typeof SCHEDULE_IMPORT_SOURCE_FORMAT)[number];
+
 /** `schedule_items.status` */
 export const SCHEDULE_ITEM_STATUS = [
   "not_started",
@@ -323,6 +330,29 @@ export const SCHEDULE_ITEM_STATUS = [
   "critical",
 ] as const;
 export type ScheduleItemStatus = (typeof SCHEDULE_ITEM_STATUS)[number];
+
+/** `schedule_items.activity_type` */
+export const SCHEDULE_ITEM_ACTIVITY_TYPE = [
+  "task",
+  "start_milestone",
+  "finish_milestone",
+  "level_of_effort",
+] as const;
+export type ScheduleItemActivityType = (typeof SCHEDULE_ITEM_ACTIVITY_TYPE)[number];
+
+/** `schedule_items.constraint_type` */
+export const SCHEDULE_ITEM_CONSTRAINT_TYPE = [
+  "start_on",
+  "start_on_or_after",
+  "start_on_or_before",
+  "finish_on",
+  "finish_on_or_after",
+  "finish_on_or_before",
+  "mandatory_start",
+  "mandatory_finish",
+  "as_late_as_possible",
+] as const;
+export type ScheduleItemConstraintType = (typeof SCHEDULE_ITEM_CONSTRAINT_TYPE)[number];
 
 /** `schedule_relationships.type` */
 export const SCHEDULE_RELATIONSHIP_TYPE = [

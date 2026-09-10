@@ -59,6 +59,33 @@ resolves successfully with SMTP off, so success proves nothing. See
 Nothing else is blocked on this. Option 4 for external reviewers — record the party,
 an internal user acts on their behalf — needs no email and is already built.
 
+## Schedule schema v2 — dates say whose they are
+
+Applied 2026-09-10, driven by the first real P6 export.
+
+- `planned_*` became **`target_*`**: the plan dates in the source. The old name
+  could mean target or early, which is the ambiguity removed.
+- **`source_early_*`** added: the early dates the source scheduler calculated.
+  The divergence report compares against these, and counts activities that
+  have none rather than showing them as agreeing.
+- our CPM output became **`cpm_*`** (was `early_*` / `late_*`).
+- **`activity_type`** (task | start_milestone | finish_milestone |
+  level_of_effort) replaced `is_milestone`. One field, so an impossible "LOE
+  finish milestone" cannot be stored.
+- `remaining_duration_days`, `constraint_type`, `constraint_date` added.
+- **`schedule_imports`**: one row per import, with the data date and the
+  calendar the activities used. Calendar precedence for CPM: latest import,
+  then project. History, so update and delete are null.
+
+The 38 schedule items and 43 relationships that existed (one test import into
+Riverside Medical, no baselines) were deleted rather than migrated — whether
+their `planned_*` meant target or early was unknowable, and guessing was the
+ambiguity being removed. Snapshotted locally before deletion.
+
+**Behaviour is not changed yet.** Finish-milestone placement, ALAP, LOE
+exclusion, the data-date floor, remaining duration and calendar precedence are
+decided but not implemented.
+
 ## The schedule work has met one real schedule — by inventory, not import
 
 A real Primavera P6 22.12 XER arrived on 2026-09-10: 1,005 activities, 1,913
