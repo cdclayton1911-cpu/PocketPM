@@ -274,6 +274,41 @@ describe("false positives from keyword search", () => {
     );
   });
 
+  /**
+   * The sixth row is not like the other five.
+   *
+   * "...the order of precedence noted in Article 2C" IS about document
+   * precedence — telling someone it might not be would be wrong, and would
+   * teach them to dismiss the advisory. The error is that it points at the
+   * provision instead of being it.
+   */
+  it("tells a cross-reference apart from a passage about something else", () => {
+    const pointer = falsePositiveSignals(
+      "...giving due consideration to the order of precedence noted in Article 2C",
+    );
+    expect(pointer.map((s) => s.kind)).toEqual(["POINTS_ELSEWHERE"]);
+    expect(pointer[0].reason).toMatch(/paste that instead/i);
+    // And it must NOT say "this may not be a precedence provision" — it is one.
+    expect(pointer[0].reason).not.toMatch(/looks like/i);
+  });
+
+  it("does not flag a real clause that states its own order of precedence", () => {
+    // WCU contains the words "order of precedence" and is the genuine article.
+    // A pattern keyed on that phrase alone would flag it; this one keys on a
+    // REFERENCE following it ("noted in", "set forth in").
+    expect(falsePositiveSignals(WCU.source_text)).toEqual([]);
+    expect(
+      falsePositiveSignals("In case of discrepancy, the order of precedence shall be: Form of Contract, specifications"),
+    ).toEqual([]);
+  });
+
+  it("gives the other five a different kind, and so a different remedy", () => {
+    for (const fixture of NEGATIVE_FIXTURES.filter((f) => f.id !== "cross-reference")) {
+      const signals = falsePositiveSignals(fixture.text);
+      expect(signals.some((s) => s.kind === "NOT_A_PROVISION")).toBe(true);
+    }
+  });
+
   it("reports every signal, not just the first", () => {
     // A passage can look like two things at once. Showing one reason would
     // imply the others had been ruled out.

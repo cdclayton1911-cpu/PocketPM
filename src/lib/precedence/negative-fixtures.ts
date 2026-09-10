@@ -7,9 +7,11 @@
  * error, it moved it to the person pasting — so these are the cases
  * `false-positives.ts` warns about, and the ones its patterns are tuned against.
  *
- * INCOMPLETE: the message supplying these truncated partway through item 5, and
- * a sixth entry was named but never arrived. Table 10 may hold further rows not
- * transcribed here. Recorded so the gap is visible rather than assumed closed.
+ * Table 10 is FULLY TRANSCRIBED: six rows, all present.
+ *
+ * Five are passages about something other than document precedence. The sixth
+ * is about document precedence and merely points at it, which needs a different
+ * warning and a different remedy — see SignalKind in false-positives.ts.
  */
 
 export interface NegativeFixture {
@@ -17,7 +19,7 @@ export interface NegativeFixture {
   category: string;
   /** Verbatim passage. */
   text: string;
-  /** Why it is not a document-precedence provision. */
+  /** Why it is not a usable document-precedence provision. */
   whyNot: string;
 }
 
@@ -56,8 +58,15 @@ export const NEGATIVE_FIXTURES: NegativeFixture[] = [
     text:
       "Should the requirements of local, regional or state authorities exceed... the more " +
       "stringent shall govern",
+    whyNot: "Contract-versus-code, not document-versus-document.",
+  },
+  {
+    id: "cross-reference",
+    category: "Cross-reference to a provision elsewhere",
+    text: "...giving due consideration to the order of precedence noted in Article 2C",
     whyNot:
-      "Ranks an outside authority's requirements against the contract, not one contract document " +
-      "against another. (Rationale not supplied — the source message truncated here.)",
+      "Points at the provision; is not itself the provision. Recording it would store a provision " +
+      "with no rules, which classifies every conflict as requires_clarification while looking as " +
+      "though the work was done.",
   },
 ];

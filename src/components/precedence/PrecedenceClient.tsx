@@ -216,7 +216,14 @@ export function PrecedenceClient({ projectId, projectName }: { projectId: string
               */}
               {falsePositiveSignals(draft.source_text).map((signal) => (
                 <p key={signal.category} className="mt-1 rounded bg-amber-50 px-2 py-1 text-[11px] text-amber-900">
-                  Check this is the right passage. {signal.reason}
+                  {/* The remedy differs by kind: five of the six are passages
+                      about something else, and telling someone a genuine
+                      precedence cross-reference "may not be one" would teach
+                      them to dismiss the advisory. */}
+                  {signal.kind === "POINTS_ELSEWHERE"
+                    ? "This is not the provision itself. "
+                    : "Check this is the right passage. "}
+                  {signal.reason}
                 </p>
               ))}
               {errors.source_text ? <p className="mt-1 text-[11px] text-red-600">{errors.source_text}</p> : null}

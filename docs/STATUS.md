@@ -138,18 +138,25 @@ pooled — a research decision, not a schema one.
 
 ## Precedence false positives are checked, not described
 
-The four documented false positives from Table 10 — plus jurisdictional
-stringency, a fifth of the same class — are asserted in
+All six rows of Table 10 are transcribed and asserted in
 `src/lib/precedence/classify.test.ts`, and the checker warns in the paste box.
+
+Five are passages about something other than document precedence. The sixth is
+a **cross-reference** — it genuinely is about document precedence and merely
+points at it — so it carries a different signal kind and a different remedy:
+"find the provision it points at and paste that instead". Saying "this may not
+be a precedence provision" about a passage that plainly is would teach people to
+dismiss the advisory.
 
 The positive control is the half that matters: all four REAL provisions are
 asserted **not** to be flagged. A checker that warned about everything would
 pass every negative case and be worthless, and an advisory people ignore is
 worse than none.
 
-**Table 10 may hold more rows.** The message supplying these truncated partway
-through item 5, and a sixth entry was named but never arrived. Recorded in
-`negative-fixtures.ts` so the gap stays visible.
+The pattern that catches the cross-reference keys on a REFERENCE following
+"order of precedence" ("noted in", "set forth in"). WCU's genuine clause
+contains the same phrase, so a pattern matching it alone would flag the real
+provision — there is a test for exactly that.
 
 ## Queued, unstarted
 

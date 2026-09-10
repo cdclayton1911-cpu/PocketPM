@@ -28,14 +28,31 @@
  * becoming a checker that warns about everything and gets ignored.
  */
 
+/**
+ * What KIND of mistake this is, because the remedy differs.
+ *
+ * Five of the six documented false positives are passages about something other
+ * than document precedence. The sixth genuinely IS about document precedence —
+ * it just points at the provision instead of being it. Telling someone "this
+ * may not be a precedence provision" when it plainly is would be wrong, and
+ * would train them to dismiss the advisory.
+ */
+export type SignalKind =
+  /** The passage is about something else entirely. */
+  | "NOT_A_PROVISION"
+  /** The passage refers to a provision located elsewhere. */
+  | "POINTS_ELSEWHERE";
+
 export interface FalsePositiveMatch {
   category: string;
+  kind: SignalKind;
   /** What to tell the person who pasted it. */
   reason: string;
 }
 
 interface Pattern {
   category: string;
+  kind: SignalKind;
   test: RegExp;
   reason: string;
 }
@@ -47,6 +64,7 @@ interface Pattern {
 const PATTERNS: Pattern[] = [
   {
     category: "cpm-scheduling",
+    kind: "NOT_A_PROVISION",
     test: /precedence\s+(format|diagram|network)|precedence\s+relationships?\b/i,
     reason:
       "This looks like CPM scheduling language. \u201cPrecedence\u201d there means activity " +
@@ -54,6 +72,7 @@ const PATTERNS: Pattern[] = [
   },
   {
     category: "stated-vs-scaled",
+    kind: "NOT_A_PROVISION",
     test: /scaled?\s+dimensions?/i,
     reason:
       "This looks like the stated-versus-scaled dimension convention. It governs how to read a " +
@@ -61,6 +80,7 @@ const PATTERNS: Pattern[] = [
   },
   {
     category: "manufacturer-requirements",
+    kind: "NOT_A_PROVISION",
     test: /manufacturer(?:'|\u2019)?s?\s+(requirements?|instructions?|recommendations?|directions?)/i,
     reason:
       "This looks like contract-versus-manufacturer precedence. It ranks the Contract Documents " +
@@ -68,6 +88,7 @@ const PATTERNS: Pattern[] = [
   },
   {
     category: "warranty-duration",
+    kind: "NOT_A_PROVISION",
     test: /\b(warrant(y|ies)|guarantees?)\b/i,
     reason:
       "This looks like a warranty-duration rule. It governs which time period applies, not which " +
@@ -75,10 +96,34 @@ const PATTERNS: Pattern[] = [
   },
   {
     category: "jurisdictional-stringency",
+    kind: "NOT_A_PROVISION",
     test: /\b(authorit(y|ies)|jurisdictions?|authorities having jurisdiction)\b/i,
     reason:
-      "This looks like jurisdictional stringency \u2014 code or authority requirements against the " +
-      "contract. It is not a hierarchy among the contract documents.",
+      "This looks like jurisdictional stringency \u2014 contract against code. It ranks an outside " +
+      "authority's requirements against the contract, not one contract document against another.",
+  },
+  {
+    /**
+     * The odd one out, and the reason `kind` exists.
+     *
+     * This passage IS about document precedence. The error is that it REFERS to
+     * the provision rather than being it, so pasting it records a provision
+     * with no rules — which classifies every conflict on the project as
+     * requires_clarification while looking as though the work was done.
+     *
+     * The pattern keys on a REFERENCE following "order of precedence" ("noted
+     * in", "set forth in"), which is exactly what distinguishes it from WCU's
+     * genuine clause: "the order of precedence shall be: Form of Contract,
+     * specifications, ...". A pattern matching "order of precedence" alone
+     * would flag the real provision too.
+     */
+    category: "cross-reference",
+    kind: "POINTS_ELSEWHERE",
+    test: /order of precedence\s+(?:as\s+)?(?:noted|set forth|described|stated|specified|referenced|established|defined)\s+in\b/i,
+    reason:
+      "This references a precedence provision located elsewhere rather than stating one. Find the " +
+      "provision it points at and paste that instead \u2014 recording this would store a provision " +
+      "with no rules in it.",
   },
 ];
 
@@ -90,8 +135,9 @@ const PATTERNS: Pattern[] = [
  */
 export function falsePositiveSignals(text: string): FalsePositiveMatch[] {
   const value = text ?? "";
-  return PATTERNS.filter((p) => p.test.test(value)).map(({ category, reason }) => ({
+  return PATTERNS.filter((p) => p.test.test(value)).map(({ category, kind, reason }) => ({
     category,
+    kind,
     reason,
   }));
 }
