@@ -49,6 +49,7 @@ const MODEL_NAMES = {
   document_revisions: "DocumentRevision",
   project_documents: "ProjectDocument",
   project_roles: "ProjectRole",
+  precedence_provisions: "PrecedenceProvisionRecord",
   workflow_templates: "WorkflowTemplate",
   workflow_steps: "WorkflowStep",
   workflow_instances: "WorkflowInstance",

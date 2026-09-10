@@ -1,7 +1,7 @@
 // GENERATED — do not edit by hand.
 // Source: docs/pb_schema.json  ·  Regenerate: npm run generate:types
 //
-// 29 application collections. The architecture PDF lists 21 and names
+// 30 application collections. The architecture PDF lists 21 and names
 // closeout_items and contract_notices; neither exists on the deployed instance.
 // See docs/schema-notes.md.
 //
@@ -32,6 +32,7 @@ import type {
   DrawingStatus,
   InvitationRole,
   PayApplicationStatus,
+  PrecedenceProvisionRecordScope,
   ProjectContractType,
   ProjectDocumentCategory,
   ProjectRoleRole,
@@ -298,6 +299,27 @@ export interface PayApplication extends BaseRecord {
   notes: string;
   sov_json: string;
   created_by: RelationId; // -> users
+}
+
+/**
+ * `precedence_provisions`
+ * Required on create: project, section, scope, source_text
+ *
+ * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
+ */
+export interface PrecedenceProvisionRecord extends BaseRecord {
+  project: RelationId; // required, -> projects, cascade delete
+  section: string; // required
+  page: number; // 1..*
+  scope: PrecedenceProvisionRecordScope; // required
+  scope_target: string;
+  rules: unknown;
+  resolves_drawing_vs_spec: boolean;
+  external_instrument_name: string;
+  external_instrument_edition: string;
+  source_text: string; // required
+  recorded_by: RelationId; // -> users
+  notes: string;
 }
 
 /**
@@ -690,6 +712,7 @@ export interface Collections {
   drawings: Drawing;
   invitations: Invitation;
   pay_applications: PayApplication;
+  precedence_provisions: PrecedenceProvisionRecord;
   project_documents: ProjectDocument;
   project_roles: ProjectRole;
   projects: Project;

@@ -131,6 +131,15 @@ export const PAY_APPLICATION_STATUS = [
 ] as const;
 export type PayApplicationStatus = (typeof PAY_APPLICATION_STATUS)[number];
 
+/** `precedence_provisions.scope` */
+export const PRECEDENCE_PROVISION_RECORD_SCOPE = [
+  "PROJECT_WIDE",
+  "DIVISION_SCOPED",
+  "EXTERNAL",
+  "NONE_FOUND",
+] as const;
+export type PrecedenceProvisionRecordScope = (typeof PRECEDENCE_PROVISION_RECORD_SCOPE)[number];
+
 /** `project_documents.category` */
 export const PROJECT_DOCUMENT_CATEGORY = [
   "contract",
