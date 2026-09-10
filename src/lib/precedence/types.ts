@@ -25,6 +25,47 @@
  * reach the conflict in front of you.
  */
 
+/**
+ * What KIND of conflict this is, decided from the documents alone.
+ *
+ * Determined BEFORE precedence is assessed. That ordering is a coding-bias
+ * control: knowing the contract resolves something pulls a coder toward
+ * deciding no conflict existed. It is enforced structurally here — a
+ * `DetectedConflict` cannot be built without a class, so precedence cannot be
+ * classified for a conflict whose class was never decided.
+ */
+export type ConflictClass =
+  /** Direct contradiction between a specification and a drawing. */
+  | "E1"
+  /** Drawing against drawing. */
+  | "E2"
+  /** Specification against specification. */
+  | "E3"
+  /** Specified but not shown. */
+  | "E4"
+  /** Shown but not specified. */
+  | "E5";
+
+export const CONFLICT_CLASSES: ConflictClass[] = ["E1", "E2", "E3", "E4", "E5"];
+
+/** E1 sub-types. Only E1 is sub-typed. */
+export type E1Subtype =
+  | "material_type"
+  | "material_thickness"
+  | "system_type"
+  | "frame_material"
+  | "dimension_spacing"
+  | "grade_standard"
+  | "performance_rating"
+  | "method_sequence"
+  | "beneficial_exceedance";
+
+export const E1_SUBTYPES: E1Subtype[] = [
+  "material_type", "material_thickness", "system_type", "frame_material",
+  "dimension_spacing", "grade_standard", "performance_rating", "method_sequence",
+  "beneficial_exceedance",
+];
+
 /** What the applicable provision can do about this conflict. */
 export type PrecedenceClass =
   /** A provision exists and deterministically settles which requirement governs. */
@@ -75,7 +116,17 @@ export type PrecedenceRule =
   /** "the more stringent or higher quality requirement shall apply". */
   | { type: "STRINGENCY"; condition?: string }
   /** Reserved to a named person: a judgment the document does not make. */
-  | { type: "DISCRETION"; authority: string };
+  | { type: "DISCRETION"; authority: string }
+  /**
+   * Points at another document, conditionally.
+   *
+   * Rees 22 00 00 defers to Division 01 "when available". The condition is not
+   * one the classifier can evaluate — whether a document is available is a fact
+   * about the set, not about the clause — so this always ends in a
+   * clarification that NAMES what it defers to, rather than falling silently
+   * through to the next rule.
+   */
+  | { type: "DEFER"; to: string; condition?: string };
 
 export interface PrecedenceProvision {
   id: string;
@@ -98,12 +149,22 @@ export interface PrecedenceProvision {
    */
   rules: PrecedenceRule[];
   /**
-   * Whether this provision settles a drawing-vs-specification conflict AT ALL.
+   * Which conflict classes this provision can settle.
    *
-   * Recorded explicitly because it is the question most often asked of a
-   * precedence clause, and because UCCS looks like it should and does not.
+   * Was a `resolves_drawing_vs_spec` boolean, which could not record WCU: it
+   * sub-ranks drawings, so it settles E2 as well as E1. A provision that
+   * settles one class and not another has no boolean representation.
+   *
+   * A set of CLASSES rather than document pairs — pairs would require every
+   * named document type enumerated per provision, and manuals name their
+   * documents in their own words.
+   *
+   * This is a claim, and it is CHECKABLE: classify.test.ts asserts that a
+   * provision claiming a class actually classifies a conflict of that class as
+   * resolvable. As a boolean it was an unverifiable assertion by whoever typed
+   * it.
    */
-  resolves_drawing_vs_spec: boolean;
+  resolves: ConflictClass[];
   /** Named instrument and edition, when scope is EXTERNAL. */
   external_instrument: { name: string; edition: string | null } | null;
   /** The verbatim passage. Required: traceability to the page is the point. */
@@ -131,13 +192,45 @@ export interface ConflictLocus {
  * is one of the cases this has to classify.
  */
 export interface DetectedConflict {
+  /**
+   * Required, and required first. See ConflictClass: this is the coding-bias
+   * control made structural rather than procedural.
+   */
+  conflict_class: ConflictClass;
+  /** Only E1 is sub-typed. */
+  conflict_subtype?: E1Subtype;
   between: [ConflictLocus, ConflictLocus];
   /** Optional description, echoed into the explanation. */
   description?: string;
 }
 
+/**
+ * Whether anyone has looked.
+ *
+ * `no_precedence_provision` means the same thing in both of these cases and
+ * they are opposite: one is a finding, the other is an absence of work. Kept
+ * beside the class rather than folded into it, so the five classes stay as the
+ * spec defines them while the difference stays observable.
+ */
+export type SearchState =
+  /** A provision was found and applied. */
+  | "PROVISION_APPLIED"
+  /** Someone searched the manual and recorded that there is none. */
+  | "SEARCHED_NONE_FOUND"
+  /** Nobody has recorded anything for this project yet. */
+  | "NOT_SEARCHED";
+
 export interface PrecedenceClassification {
   class: PrecedenceClass;
+  searchState: SearchState;
+  /**
+   * True when a construct observed in only ONE of the four manuals decided
+   * this. Travels with the finding rather than living in a document nobody
+   * re-reads. See provenance.ts.
+   */
+  provisional: boolean;
+  /** Which construct was provisional, when one was. */
+  provisionalReason: string | null;
   /** The scope of the provision actually applied; NONE_FOUND when none was. */
   scope: PrecedenceScope;
   /** Which provision decided this, by id. Null when none applied. */

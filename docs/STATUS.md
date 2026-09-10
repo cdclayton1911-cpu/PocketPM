@@ -123,16 +123,18 @@ can fail**:
 When a new gap turns up, the useful question is not "who forgot" but **"what
 comparison would have failed?"** If the answer is "none", that is the gap.
 
-## Precedence spec v1.0 needs reconciling
+## Precedence taxonomy is at v1.1
 
-`docs/precedence-spec-reconciliation.md`. Six mismatches: four where the spec
-should change, two where the implementation should. All schema changes are free
-today because `precedence_provisions` holds zero records, and expensive once a
-project has been coded.
+All six reconciliation items built — `docs/precedence-spec-v1.1.md` records the
+taxonomy as implemented, `docs/precedence-spec-reconciliation.md` records why
+each side changed. **The external spec document still needs the same six edits.**
 
-The sharpest one is not in the spec's own list: "nobody has recorded a
-provision" and "a person searched the manual and found none" currently produce
-the same answer, and they mean opposite things.
+Two collections, both at zero records: `precedence_provisions` and
+`conflict_findings`.
+
+Still undefined: `severity` has no scale (stored as free text rather than
+inventing one), and E4/E5 agreement should be reported per class rather than
+pooled — a research decision, not a schema one.
 
 ## `npm test` is red on purpose
 

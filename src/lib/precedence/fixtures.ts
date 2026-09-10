@@ -32,7 +32,9 @@ export const WCU: PrecedenceProvision = {
       ],
     },
   ],
-  resolves_drawing_vs_spec: true,
+  // Settles E1 AND E2: it ranks specifications over drawings, and large-scale
+  // detail drawings over small-scale ones. A boolean could not say this.
+  resolves: ["E1", "E2"],
   external_instrument: null,
   source_text:
     "In case of discrepancy or disagreement in the contract documents, the order of precedence " +
@@ -70,7 +72,7 @@ export const UCCS: PrecedenceProvision = {
     { type: "DISCRETION", authority: "Architect/Engineer" },
   ],
   // Looks as though it should, and does not: the tie is not a resolution.
-  resolves_drawing_vs_spec: false,
+  resolves: [],
   external_instrument: null,
   source_text:
     "...the more stringent or higher quality requirements shall apply so long as such more " +
@@ -93,7 +95,7 @@ export const NORTH_MACON: PrecedenceProvision = {
   scope: "EXTERNAL",
   scope_target: null,
   rules: [],
-  resolves_drawing_vs_spec: false,
+  resolves: [],
   external_instrument: { name: "AIA A201 Standard Agreement and General Conditions", edition: null },
   source_text:
     "The AIA, STANDARD AGREEMENT AND GENERAL CONDITIONS... are hereby made a part of these " +
@@ -114,10 +116,44 @@ export const REES: PrecedenceProvision = {
   page: 373,
   scope: "DIVISION_SCOPED",
   scope_target: "22",
-  rules: [{ type: "STRINGENCY" }],
-  resolves_drawing_vs_spec: false,
+  rules: [
+    { type: "STRINGENCY" },
+    // The same section defers conditionally to Division 01. Observed in one
+    // manual of four — see provenance.ts.
+    { type: "DEFER", to: "Division 01", condition: "when available" },
+  ],
+  resolves: [],
   external_instrument: null,
   source_text:
     "In the event there is a discrepancy between the drawings, specifications, and current code, " +
     "the more stringent shall apply.",
+};
+
+/**
+ * "Someone searched the whole manual and there is no precedence provision."
+ *
+ * NOT from one of the four manuals — this is the shape of an explicit negative
+ * finding, which is a different thing from nobody having looked yet. Without a
+ * record like this the two states are indistinguishable, and one is a finding
+ * while the other is an absence of work.
+ *
+ * `source_text` here is the searcher's note rather than a clause, because there
+ * is no clause to quote. It is still required: what was searched, and by whom,
+ * is the evidence.
+ */
+export const SEARCHED_NONE_FOUND: PrecedenceProvision = {
+  id: "searched-1",
+  project: "example",
+  section: "Full manual search",
+  page: null,
+  scope: "NONE_FOUND",
+  scope_target: null,
+  rules: [],
+  resolves: [],
+  external_instrument: null,
+  source_text:
+    "Searched all 412 pages including Division 01, the General Conditions, and every technical " +
+    "section, for precedence, shall govern, shall control, takes precedence, discrepancy, " +
+    "inconsistency, more stringent, made a part of, and incorporated by reference. " +
+    "No document-precedence provision found and none incorporated by reference.",
 };

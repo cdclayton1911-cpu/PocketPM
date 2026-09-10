@@ -51,6 +51,40 @@ export const CHANGE_ORDER_STATUS = [
 ] as const;
 export type ChangeOrderStatus = (typeof CHANGE_ORDER_STATUS)[number];
 
+/** `conflict_findings.conflict_class` */
+export const CONFLICT_FINDING_CONFLICT_CLASS = [
+  "E1",
+  "E2",
+  "E3",
+  "E4",
+  "E5",
+] as const;
+export type ConflictFindingConflictClass = (typeof CONFLICT_FINDING_CONFLICT_CLASS)[number];
+
+/** `conflict_findings.conflict_subtype` */
+export const CONFLICT_FINDING_CONFLICT_SUBTYPE = [
+  "material_type",
+  "material_thickness",
+  "system_type",
+  "frame_material",
+  "dimension_spacing",
+  "grade_standard",
+  "performance_rating",
+  "method_sequence",
+  "beneficial_exceedance",
+] as const;
+export type ConflictFindingConflictSubtype = (typeof CONFLICT_FINDING_CONFLICT_SUBTYPE)[number];
+
+/** `conflict_findings.precedence_class` */
+export const CONFLICT_FINDING_PRECEDENCE_CLASS = [
+  "PRECEDENCE_RESOLVABLE",
+  "PRECEDENCE_AMBIGUOUS",
+  "PRECEDENCE_INCORPORATED",
+  "REQUIRES_CLARIFICATION",
+  "NO_PRECEDENCE_PROVISION",
+] as const;
+export type ConflictFindingPrecedenceClass = (typeof CONFLICT_FINDING_PRECEDENCE_CLASS)[number];
+
 /** `deficiencies.severity` */
 export const DEFICIENCY_SEVERITY = [
   "minor",

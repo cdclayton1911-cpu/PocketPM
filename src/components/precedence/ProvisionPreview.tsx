@@ -1,7 +1,7 @@
 "use client";
 
 import { classifyConflict } from "@/lib/precedence/classify";
-import type { ConflictLocus, PrecedenceProvision } from "@/lib/precedence/types";
+import type { ConflictClass, ConflictLocus, PrecedenceProvision } from "@/lib/precedence/types";
 import { cn } from "@/lib/utils";
 
 /**
@@ -39,6 +39,7 @@ const spec = (over: Partial<ConflictLocus> = {}): ConflictLocus => ({
 
 interface Worked {
   label: string;
+  conflictClass: ConflictClass;
   between: [ConflictLocus, ConflictLocus];
   /** Why this case is worth showing. */
   why: string;
@@ -47,12 +48,14 @@ interface Worked {
 function workedConflicts(provision: PrecedenceProvision): Worked[] {
   const cases: Worked[] = [
     {
-      label: "A specification against a drawing",
+      label: "A specification against a drawing (E1)",
+      conflictClass: "E1",
       between: [spec(), { documentType: "Drawings" }],
       why: "The most common conflict on a job, and the one a precedence clause is usually read for.",
     },
     {
-      label: "A detail sheet against a plan sheet",
+      label: "A detail sheet against a plan sheet (E2)",
+      conflictClass: "E2",
       between: [
         { documentType: "Large-scale detail drawings", reference: "detail" },
         { documentType: "Small-scale drawings", reference: "plan" },
@@ -70,6 +73,7 @@ function workedConflicts(provision: PrecedenceProvision): Worked[] {
     if (topOfSequence) {
       cases.push({
         label: `${override.applies_to} against ${topOfSequence}`,
+        conflictClass: "E1",
         between: [{ documentType: override.applies_to }, { documentType: topOfSequence }],
         why: `${topOfSequence} is first in the sequence, so this shows whether the override really fires before it.`,
       });
@@ -79,6 +83,7 @@ function workedConflicts(provision: PrecedenceProvision): Worked[] {
   if (provision.scope === "DIVISION_SCOPED" && provision.scope_target) {
     cases.push({
       label: `A conflict outside Division ${provision.scope_target}`,
+      conflictClass: "E1",
       between: [spec({ division: "08" }), { documentType: "Drawings" }],
       why: "A section-scoped rule must not be applied to work it does not govern.",
     });
@@ -102,7 +107,7 @@ export function ProvisionPreview({ provision }: { provision: PrecedenceProvision
 
       <ul className="space-y-2">
         {cases.map((c) => {
-          const result = classifyConflict({ between: c.between }, [provision]);
+          const result = classifyConflict({ conflict_class: c.conflictClass, between: c.between }, [provision]);
           return (
             <li key={c.label} className="rounded border border-neutral-200 p-2">
               <div className="flex items-start justify-between gap-2">

@@ -50,6 +50,7 @@ const MODEL_NAMES = {
   project_documents: "ProjectDocument",
   project_roles: "ProjectRole",
   precedence_provisions: "PrecedenceProvisionRecord",
+  conflict_findings: "ConflictFinding",
   workflow_templates: "WorkflowTemplate",
   workflow_steps: "WorkflowStep",
   workflow_instances: "WorkflowInstance",

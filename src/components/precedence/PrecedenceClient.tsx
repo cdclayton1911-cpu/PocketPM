@@ -14,7 +14,20 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { fieldErrorsFromZod } from "@/lib/validation/auth";
 import { precedenceProvisionSchema } from "@/lib/validation/precedence";
-import type { PrecedenceProvision, PrecedenceRule, PrecedenceScope } from "@/lib/precedence/types";
+import type {
+  ConflictClass,
+  PrecedenceProvision,
+  PrecedenceRule,
+  PrecedenceScope,
+} from "@/lib/precedence/types";
+
+const CONFLICT_CLASS_LABELS: [ConflictClass, string][] = [
+  ["E1", "E1 spec vs drawing"],
+  ["E2", "E2 drawing vs drawing"],
+  ["E3", "E3 spec vs spec"],
+  ["E4", "E4 specified, not shown"],
+  ["E5", "E5 shown, not specified"],
+];
 import { ProvisionPreview } from "./ProvisionPreview";
 
 interface StoredProvision {
@@ -24,7 +37,7 @@ interface StoredProvision {
   scope: PrecedenceScope;
   scope_target: string;
   rules: PrecedenceRule[];
-  resolves_drawing_vs_spec: boolean;
+  resolves: ConflictClass[];
   external_instrument_name: string;
   external_instrument_edition: string;
   source_text: string;
@@ -39,7 +52,7 @@ const SCOPES: { value: PrecedenceScope; label: string; hint: string }[] = [
 
 const BLANK: Omit<StoredProvision, "id"> = {
   section: "", page: null, scope: "PROJECT_WIDE", scope_target: "", rules: [],
-  resolves_drawing_vs_spec: false, external_instrument_name: "",
+  resolves: [], external_instrument_name: "",
   external_instrument_edition: "", source_text: "", notes: "",
 };
 
@@ -89,7 +102,7 @@ export function PrecedenceClient({ projectId, projectName }: { projectId: string
       scope: draft.scope,
       scope_target: draft.scope_target || null,
       rules: draft.rules,
-      resolves_drawing_vs_spec: draft.resolves_drawing_vs_spec,
+      resolves: draft.resolves,
       external_instrument: draft.external_instrument_name
         ? { name: draft.external_instrument_name, edition: draft.external_instrument_edition || null }
         : null,
@@ -264,11 +277,33 @@ export function PrecedenceClient({ projectId, projectName }: { projectId: string
             </div>
           ) : null}
 
-          <label className="mt-4 flex items-center gap-2 text-[13px]">
-            <Checkbox checked={draft.resolves_drawing_vs_spec}
-              onCheckedChange={(v) => setDraft({ ...draft, resolves_drawing_vs_spec: v === true })} />
-            This clause settles a drawing-versus-specification conflict
-          </label>
+          <div className="mt-4">
+            <Label>Which conflicts does this clause settle?</Label>
+            <p className="mb-1 text-[11px] text-neutral-500">
+              Check the preview below against these. A clause can settle one class and not another —
+              WCU ranks specifications over drawings AND detail drawings over plans, so it settles
+              both E1 and E2.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              {CONFLICT_CLASS_LABELS.map(([value, label]) => (
+                <label key={value} className="flex items-center gap-1.5 text-[12px]">
+                  <Checkbox
+                    checked={draft.resolves.includes(value)}
+                    onCheckedChange={(v) =>
+                      setDraft({
+                        ...draft,
+                        resolves:
+                          v === true
+                            ? [...draft.resolves, value]
+                            : draft.resolves.filter((c) => c !== value),
+                      })
+                    }
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
 
           {previewProvision ? (
             <div className="mt-4 rounded border border-neutral-200 bg-neutral-50 p-3">
@@ -378,6 +413,15 @@ function RuleList({
             <Input className="mt-2" value={rule.authority} placeholder="Architect/Engineer"
               onChange={(e) => onUpdate(index, { ...rule, authority: e.target.value })} />
           ) : null}
+
+          {rule.type === "DEFER" ? (
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <Input value={rule.to} placeholder="Division 01"
+                onChange={(e) => onUpdate(index, { ...rule, to: e.target.value })} />
+              <Input value={rule.condition ?? ""} placeholder="when available"
+                onChange={(e) => onUpdate(index, { ...rule, condition: e.target.value })} />
+            </div>
+          ) : null}
         </div>
       ))}
 
@@ -394,6 +438,9 @@ function RuleList({
         <Button variant="outline" onClick={() => onChange([...rules, { type: "DISCRETION", authority: "" }])}>
           Add discretion
         </Button>
+        <Button variant="outline" onClick={() => onChange([...rules, { type: "DEFER", to: "" }])}>
+          Add deferral
+        </Button>
       </div>
     </div>
   );
@@ -404,4 +451,5 @@ const LABELS: Record<PrecedenceRule["type"], string> = {
   RANK_SEQUENCE: "Ranked sequence",
   STRINGENCY: "The more stringent requirement applies",
   DISCRETION: "Reserved to a named person",
+  DEFER: "Defers to another document",
 };

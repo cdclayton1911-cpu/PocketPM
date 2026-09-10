@@ -1,15 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import { classifyConflict, divisionOf, provisionReaches } from "./classify";
-import { NORTH_MACON, REES, UCCS, WCU } from "./fixtures";
+import { NORTH_MACON, REES, SEARCHED_NONE_FOUND, UCCS, WCU } from "./fixtures";
+import { RULE_PROVENANCE, provisionalRuleTypes } from "./provenance";
 import { NEGATIVE_FIXTURES, pendingNegativeFixtures } from "./negative-fixtures";
-import type { DetectedConflict } from "./types";
+import type { ConflictClass, DetectedConflict } from "./types";
 
 const spec = (over = {}) => ({ documentType: "Specifications", ...over });
 const drawing = (over = {}) => ({ documentType: "Drawings", ...over });
 
-const conflict = (a: object, b: object): DetectedConflict =>
-  ({ between: [a, b] }) as DetectedConflict;
+/** Every conflict carries its class: it is decided first, and required here. */
+const conflict = (a: object, b: object, cls: ConflictClass = "E1"): DetectedConflict =>
+  ({ conflict_class: cls, between: [a, b] }) as DetectedConflict;
 
 describe("WCU - an explicit ranked hierarchy", () => {
   it("resolves a specification-versus-drawing conflict in favour of the specification", () => {
@@ -95,8 +97,8 @@ describe("UCCS - a tied tier falling through to judgment", () => {
     expect(result.governing?.documentType).toBe("Change Orders");
   });
 
-  it("records that it does not settle drawing-versus-spec, despite looking as though it should", () => {
-    expect(UCCS.resolves_drawing_vs_spec).toBe(false);
+  it("claims to settle nothing, despite looking as though it should settle E1", () => {
+    expect(UCCS.resolves).toEqual([]);
   });
 });
 
@@ -174,7 +176,9 @@ describe("choosing between provisions", () => {
   it("reports no provision when the project has none recorded", () => {
     const result = classifyConflict(conflict(spec(), drawing()), []);
     expect(result.class).toBe("NO_PRECEDENCE_PROVISION");
-    expect(result.explanation).toMatch(/none is incorporated by reference/);
+    // Says nobody has looked, rather than implying a search came back empty.
+    expect(result.explanation).toMatch(/nobody has looked/i);
+    expect(result.searchState).toBe("NOT_SEARCHED");
   });
 
   /**
@@ -254,5 +258,156 @@ describe("false positives from keyword search", () => {
       pending.length,
       `${pending.length} negative fixture(s) awaiting verbatim text: ${pending.map((f) => f.id).join(", ")}`,
     ).toBe(0);
+  });
+});
+
+
+/**
+ * `resolves` is a CLAIM, and this is what makes it checkable.
+ *
+ * As a boolean it was an unverifiable assertion by whoever typed it. As a set of
+ * classes, a provision saying it settles E2 can be made to prove it.
+ */
+describe("the resolves claim is verified, not trusted", () => {
+  /** An exemplar conflict for each class a fixture claims to settle. */
+  const EXEMPLARS: Record<string, Record<string, DetectedConflict>> = {
+    "wcu-1": {
+      E1: conflict(spec(), { documentType: "Small-scale drawings" }, "E1"),
+      E2: conflict(
+        { documentType: "Large-scale detail drawings" },
+        { documentType: "Small-scale drawings" },
+        "E2",
+      ),
+    },
+  };
+
+  const claiming = [WCU, UCCS, NORTH_MACON, REES].filter((p) => p.resolves.length > 0);
+
+  it("every provision claiming a class has an exemplar to prove it", () => {
+    // Without this, a claim could be added and never exercised — the same
+    // unverifiable assertion the boolean was, in a new shape.
+    for (const provision of claiming) {
+      for (const cls of provision.resolves) {
+        expect(
+          EXEMPLARS[provision.id]?.[cls],
+          `${provision.id} claims to resolve ${cls} but no exemplar conflict exists to check it`,
+        ).toBeDefined();
+      }
+    }
+  });
+
+  it("and the classifier actually returns resolvable for it", () => {
+    for (const provision of claiming) {
+      for (const cls of provision.resolves) {
+        const exemplar = EXEMPLARS[provision.id][cls];
+        const result = classifyConflict(exemplar, [provision]);
+        expect(
+          result.class,
+          `${provision.id} claims to resolve ${cls}, but classifying its exemplar gave ${result.class}`,
+        ).toBe("PRECEDENCE_RESOLVABLE");
+      }
+    }
+  });
+
+  it("a provision claiming nothing does not resolve the common conflict", () => {
+    // The negative half: UCCS claims [] and must not resolve E1.
+    expect(classifyConflict(conflict(spec(), drawing(), "E1"), [UCCS]).class).toBe(
+      "PRECEDENCE_AMBIGUOUS",
+    );
+  });
+});
+
+describe("DEFER", () => {
+  const div22 = () => conflict(spec({ division: "22" }), drawing(), "E1");
+  /** Rees, with the stringency rule removed so DEFER is reached. */
+  const deferOnly = { ...REES, rules: REES.rules.filter((r) => r.type === "DEFER") };
+
+  it("does not fall through silently — it names what it defers to", () => {
+    const result = classifyConflict(div22(), [deferOnly]);
+    expect(result.class).toBe("REQUIRES_CLARIFICATION");
+    expect(result.explanation).toMatch(/Division 01/);
+  });
+
+  it("says so plainly when the deferred-to document is absent", () => {
+    const result = classifyConflict(div22(), [deferOnly], { availableDocuments: ["Division 22"] });
+    expect(result.explanation).toMatch(/NOT in this document set/);
+  });
+
+  it("points at it when present", () => {
+    const result = classifyConflict(div22(), [deferOnly], {
+      availableDocuments: ["Division 01", "Division 22"],
+    });
+    expect(result.explanation).toMatch(/is in this document set/);
+  });
+
+  it("admits it cannot tell when availability is unknown", () => {
+    // Whether a document is available is a fact about the SET, not the clause.
+    const result = classifyConflict(div22(), [deferOnly]);
+    expect(result.explanation).toMatch(/cannot determine/);
+  });
+
+  it("is reached only after the rules above it", () => {
+    // Rees carries STRINGENCY first, so the real fixture is ambiguous, not a
+    // clarification. Rule order is the whole model.
+    expect(classifyConflict(div22(), [REES]).class).toBe("PRECEDENCE_AMBIGUOUS");
+  });
+});
+
+describe("searched-none-found is not the same as nobody looked", () => {
+  it("reports NOT_SEARCHED when the project has no records", () => {
+    const result = classifyConflict(conflict(spec(), drawing()), []);
+    expect(result.class).toBe("NO_PRECEDENCE_PROVISION");
+    expect(result.searchState).toBe("NOT_SEARCHED");
+    expect(result.explanation).toMatch(/nobody has looked/i);
+  });
+
+  it("reports SEARCHED_NONE_FOUND when someone recorded a full-manual search", () => {
+    const result = classifyConflict(conflict(spec(), drawing()), [SEARCHED_NONE_FOUND]);
+    expect(result.class).toBe("NO_PRECEDENCE_PROVISION");
+    expect(result.searchState).toBe("SEARCHED_NONE_FOUND");
+    expect(result.provisionId).toBe("searched-1");
+  });
+
+  it("keeps the precedence class identical while the finding differs", () => {
+    // Both are NO_PRECEDENCE_PROVISION — that is the spec's enum and it stays
+    // intact. The difference lives beside it, where it can be seen.
+    const nobody = classifyConflict(conflict(spec(), drawing()), []);
+    const searched = classifyConflict(conflict(spec(), drawing()), [SEARCHED_NONE_FOUND]);
+    expect(nobody.class).toBe(searched.class);
+    expect(nobody.searchState).not.toBe(searched.searchState);
+  });
+
+  it("a NONE_FOUND record still carries evidence of what was searched", () => {
+    expect(SEARCHED_NONE_FOUND.source_text).toMatch(/Searched all/);
+  });
+});
+
+describe("provisional constructs", () => {
+  it("flags an outcome decided by a single-observation construct", () => {
+    // UCCS Article 52 is an OVERRIDE, seen in one manual of four.
+    const result = classifyConflict(
+      conflict({ documentType: "Special Provisions" }, { documentType: "Agreement" }),
+      [UCCS],
+    );
+    expect(result.class).toBe("PRECEDENCE_RESOLVABLE");
+    expect(result.provisional).toBe(true);
+    expect(result.provisionalReason).toMatch(/1 of 4/);
+  });
+
+  it("does not flag one decided by an established construct", () => {
+    const result = classifyConflict(conflict(spec(), { documentType: "Small-scale drawings" }), [WCU]);
+    expect(result.provisional).toBe(false);
+    expect(result.provisionalReason).toBeNull();
+  });
+
+  it("records provenance for every rule type, so a new one cannot skip it", () => {
+    const types = ["OVERRIDE", "RANK_SEQUENCE", "STRINGENCY", "DISCRETION", "DEFER"] as const;
+    for (const t of types) expect(RULE_PROVENANCE[t]).toBeDefined();
+  });
+
+  it("marks OVERRIDE provisional too, not only DEFER", () => {
+    // Both rest on one manual. Flagging DEFER and not OVERRIDE would apply the
+    // rule inconsistently to identical evidence.
+    expect(provisionalRuleTypes().sort()).toEqual(["DEFER", "DISCRETION", "OVERRIDE"]);
   });
 });

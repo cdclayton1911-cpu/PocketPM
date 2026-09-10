@@ -1,7 +1,7 @@
 // GENERATED — do not edit by hand.
 // Source: docs/pb_schema.json  ·  Regenerate: npm run generate:types
 //
-// 30 application collections. The architecture PDF lists 21 and names
+// 31 application collections. The architecture PDF lists 21 and names
 // closeout_items and contract_notices; neither exists on the deployed instance.
 // See docs/schema-notes.md.
 //
@@ -24,6 +24,9 @@ import type {
   ChangeOrderReason,
   ChangeOrderStatus,
   ChangeOrderType,
+  ConflictFindingConflictClass,
+  ConflictFindingConflictSubtype,
+  ConflictFindingPrecedenceClass,
   DeficiencySeverity,
   DeficiencyStatus,
   DfowPhase,
@@ -141,6 +144,26 @@ export interface ChangeOrder extends BaseRecord {
   notes: string;
   created_by: RelationId; // -> users
   attachments: FileName[]; // max 5, 50MB
+}
+
+/**
+ * `conflict_findings`
+ * Required on create: project, conflict_class, loci
+ *
+ * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
+ */
+export interface ConflictFinding extends BaseRecord {
+  project: RelationId; // required, -> projects, cascade delete
+  conflict_class: ConflictFindingConflictClass; // required
+  conflict_subtype: ConflictFindingConflictSubtype;
+  loci: unknown; // required
+  precedence_class: ConflictFindingPrecedenceClass;
+  precedence_provision: RelationId; // -> precedence_provisions
+  precedence_reasoning: string;
+  provisional: boolean;
+  severity: string;
+  notes: string;
+  coded_by: RelationId; // -> users
 }
 
 /**
@@ -314,12 +337,12 @@ export interface PrecedenceProvisionRecord extends BaseRecord {
   scope: PrecedenceProvisionRecordScope; // required
   scope_target: string;
   rules: unknown;
-  resolves_drawing_vs_spec: boolean;
   external_instrument_name: string;
   external_instrument_edition: string;
   source_text: string; // required
   recorded_by: RelationId; // -> users
   notes: string;
+  resolves: unknown;
 }
 
 /**
@@ -705,6 +728,7 @@ export interface Collections {
   aia_notices: AiaNotice;
   budget_items: BudgetItem;
   change_orders: ChangeOrder;
+  conflict_findings: ConflictFinding;
   daily_logs: DailyLog;
   deficiencies: Deficiency;
   dfow: Dfow;

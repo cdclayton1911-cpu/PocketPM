@@ -34,6 +34,11 @@ export const precedenceRuleSchema = z.discriminatedUnion("type", [
     type: z.literal("DISCRETION"),
     authority: z.string().trim().min(1, "Name who decides").max(120),
   }),
+  z.strictObject({
+    type: z.literal("DEFER"),
+    to: z.string().trim().min(1, "Name the document this defers to").max(120),
+    condition: z.string().trim().max(200).optional(),
+  }),
 ]);
 
 export const precedenceProvisionSchema = z
@@ -43,7 +48,7 @@ export const precedenceProvisionSchema = z
     scope: z.enum(["PROJECT_WIDE", "DIVISION_SCOPED", "EXTERNAL", "NONE_FOUND"]),
     scope_target: z.string().trim().max(40).optional().default(""),
     rules: z.array(precedenceRuleSchema).max(20).optional().default([]),
-    resolves_drawing_vs_spec: z.coerce.boolean().optional(),
+    resolves: z.array(z.enum(["E1", "E2", "E3", "E4", "E5"])).max(5).optional().default([]),
     external_instrument_name: z.string().trim().max(200).optional().default(""),
     external_instrument_edition: z.string().trim().max(60).optional().default(""),
     /**
@@ -102,7 +107,7 @@ export const precedenceProvisionUpdateSchema = z.strictObject({
   scope: z.enum(["PROJECT_WIDE", "DIVISION_SCOPED", "EXTERNAL", "NONE_FOUND"]).optional(),
   scope_target: z.string().trim().max(40).optional(),
   rules: z.array(precedenceRuleSchema).max(20).optional(),
-  resolves_drawing_vs_spec: z.coerce.boolean().optional(),
+  resolves: z.array(z.enum(["E1", "E2", "E3", "E4", "E5"])).max(5).optional(),
   external_instrument_name: z.string().trim().max(200).optional(),
   external_instrument_edition: z.string().trim().max(60).optional(),
   source_text: z.string().trim().min(20).max(20000).optional(),

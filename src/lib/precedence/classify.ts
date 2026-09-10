@@ -7,6 +7,7 @@
  * testable and neither imports the other.
  */
 
+import { RULE_PROVENANCE } from "./provenance";
 import {
   documentMatches,
   type ConflictLocus,
@@ -14,6 +15,7 @@ import {
   type PrecedenceClassification,
   type PrecedenceProvision,
   type PrecedenceRule,
+  type SearchState,
 } from "./types";
 
 function describe(locus: ConflictLocus): string {
@@ -84,14 +86,31 @@ function tierIndexFor(order: readonly (readonly string[])[], locus: ConflictLocu
   return order.findIndex((tier) => tier.some((entry) => documentMatches(entry, locus.documentType)));
 }
 
+type PartialClassification = Omit<
+  PrecedenceClassification,
+  "provisionId" | "scope" | "searchState" | "provisional" | "provisionalReason"
+>;
+
 interface RuleOutcome {
-  classification: Omit<PrecedenceClassification, "provisionId" | "scope"> | null;
+  classification: PartialClassification | null;
+}
+
+export interface ClassifyOptions {
+  /**
+   * Document names known to be present in this set, for DEFER.
+   *
+   * Whether a document is available is a fact about the SET, not about the
+   * clause, so the classifier cannot determine it. Supplying it changes the
+   * wording of the clarification, never the class.
+   */
+  availableDocuments?: string[];
 }
 
 function applyRule(
   rule: PrecedenceRule,
   conflict: DetectedConflict,
   provision: PrecedenceProvision,
+  options: ClassifyOptions,
 ): RuleOutcome {
   const [a, b] = conflict.between;
 
@@ -157,14 +176,46 @@ function applyRule(
     };
   }
 
+  if (rule.type === "DISCRETION") {
+    return {
+      classification: {
+        class: "PRECEDENCE_AMBIGUOUS",
+        governing: null,
+        externalInstrument: null,
+        explanation:
+          `${provision.section} reserves this decision to the ${rule.authority}. ` +
+          `The documents do not resolve it; the ${rule.authority} must.`,
+      },
+    };
+  }
+
+  // DEFER. The clause points somewhere else, conditionally. Whether the target
+  // is present is not something this can decide, so it always ends in a
+  // clarification that NAMES the target — a silent fall-through would report
+  // "no rule addressed this" when a rule addressed it precisely and pointed
+  // elsewhere.
+  const available = options.availableDocuments ?? null;
+  const targetPresent =
+    available === null
+      ? null
+      : available.some((doc) => documentMatches(rule.to, doc) || documentMatches(doc, rule.to));
+
+  const condition = rule.condition ? ` ${rule.condition}` : "";
   return {
     classification: {
-      class: "PRECEDENCE_AMBIGUOUS",
+      class: "REQUIRES_CLARIFICATION",
       governing: null,
       externalInstrument: null,
       explanation:
-        `${provision.section} reserves this decision to the ${rule.authority}. ` +
-        `The documents do not resolve it; the ${rule.authority} must.`,
+        targetPresent === true
+          ? `${provision.section} defers to ${rule.to}${condition}. ${rule.to} is in this document ` +
+            `set, so the governing requirement is there rather than here.`
+          : targetPresent === false
+            ? `${provision.section} defers to ${rule.to}${condition}, and ${rule.to} is NOT in this ` +
+              `document set. Nothing here resolves the conflict.`
+            : `${provision.section} defers to ${rule.to}${condition}. Whether ${rule.to} is available ` +
+              `is a fact about the document set that this cannot determine — check it and consult ` +
+              `${rule.to} if present.`,
     },
   };
 }
@@ -179,22 +230,36 @@ function applyRule(
 export function classifyConflict(
   conflict: DetectedConflict,
   provisions: readonly PrecedenceProvision[],
+  options: ClassifyOptions = {},
 ): PrecedenceClassification {
   const provision = selectProvision(provisions, conflict);
 
   if (!provision) {
     const scoped = provisions.filter((p) => p.scope === "DIVISION_SCOPED");
+    // An explicit "searched the full manual, found nothing" record. Without it,
+    // "nobody has looked yet" and "somebody looked and there is none" produce
+    // the same answer, and they are opposite findings.
+    const searched = provisions.find((p) => p.scope === "NONE_FOUND");
+    const searchState: SearchState = searched ? "SEARCHED_NONE_FOUND" : "NOT_SEARCHED";
+
     return {
       class: "NO_PRECEDENCE_PROVISION",
+      searchState,
       scope: "NONE_FOUND",
-      provisionId: null,
+      provisionId: searched?.id ?? null,
+      provisional: false,
+      provisionalReason: null,
       governing: null,
       externalInstrument: null,
       explanation:
         scoped.length > 0
           ? `No precedence provision reaches this conflict. ${scoped.length} provision(s) exist ` +
             `but govern only ${scoped.map((p) => p.scope_target ?? "an unnamed section").join(", ")}.`
-          : "No precedence provision was recorded for this project, and none is incorporated by reference.",
+          : searched
+            ? `The manual was searched and no precedence provision was found (recorded at ` +
+              `${searched.section}${searched.page ? `, p.${searched.page}` : ""}).`
+            : "No precedence provision has been recorded for this project yet. This is not a " +
+              "finding that none exists — nobody has looked.",
     };
   }
 
@@ -202,6 +267,9 @@ export function classifyConflict(
     const instrument = provision.external_instrument;
     return {
       class: "PRECEDENCE_INCORPORATED",
+      searchState: "PROVISION_APPLIED",
+      provisional: false,
+      provisionalReason: null,
       scope: "EXTERNAL",
       provisionId: provision.id,
       governing: null,
@@ -214,9 +282,21 @@ export function classifyConflict(
   }
 
   for (const rule of provision.rules) {
-    const { classification } = applyRule(rule, conflict, provision);
+    const { classification } = applyRule(rule, conflict, provision, options);
     if (classification) {
-      return { ...classification, scope: provision.scope, provisionId: provision.id };
+      const provenance = RULE_PROVENANCE[rule.type];
+      return {
+        ...classification,
+        searchState: "PROVISION_APPLIED",
+        scope: provision.scope,
+        provisionId: provision.id,
+        // The flag travels with the finding: this outcome rests on a construct
+        // seen in one of four manuals.
+        provisional: provenance.provisional,
+        provisionalReason: provenance.provisional
+          ? `Decided by a ${rule.type} rule, observed in ${provenance.observedIn} of 4 manuals (${provenance.manuals.join(", ")}).`
+          : null,
+      };
     }
   }
 
@@ -225,6 +305,9 @@ export function classifyConflict(
   // conflict at all.
   return {
     class: "REQUIRES_CLARIFICATION",
+    searchState: "PROVISION_APPLIED",
+    provisional: false,
+    provisionalReason: null,
     scope: provision.scope,
     provisionId: provision.id,
     governing: null,

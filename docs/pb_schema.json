@@ -7509,16 +7509,6 @@
         "type": "json"
       },
       {
-        "help": "",
-        "hidden": false,
-        "id": "bool2654322954",
-        "name": "resolves_drawing_vs_spec",
-        "presentable": false,
-        "required": false,
-        "system": false,
-        "type": "bool"
-      },
-      {
         "autogeneratePattern": "",
         "help": "",
         "hidden": false,
@@ -7611,6 +7601,17 @@
         "presentable": false,
         "system": false,
         "type": "autodate"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "json872896008",
+        "maxSize": 2000,
+        "name": "resolves",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "json"
       }
     ],
     "indexes": [
@@ -7618,7 +7619,227 @@
       "CREATE INDEX idx_precedence_project ON precedence_provisions (project)"
     ],
     "created": "2026-09-10 02:43:29.611Z",
-    "updated": "2026-09-10 02:43:29.611Z",
+    "updated": "2026-09-10 03:13:28.477Z",
+    "system": false
+  },
+  {
+    "id": "pbc_324625466",
+    "listRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "viewRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "createRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "updateRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "deleteRule": "@request.auth.id != \"\" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)",
+    "name": "conflict_findings",
+    "type": "base",
+    "fields": [
+      {
+        "autogeneratePattern": "[a-z0-9]{15}",
+        "help": "",
+        "hidden": false,
+        "id": "text3208210256",
+        "max": 15,
+        "min": 15,
+        "name": "id",
+        "pattern": "^[a-z0-9]+$",
+        "presentable": false,
+        "primaryKey": true,
+        "required": true,
+        "system": true,
+        "type": "text"
+      },
+      {
+        "cascadeDelete": true,
+        "collectionId": "ui9hu4jeh0s5dq4",
+        "help": "",
+        "hidden": false,
+        "id": "relation800313582",
+        "maxSelect": 1,
+        "minSelect": 0,
+        "name": "project",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "select3664767986",
+        "maxSelect": 1,
+        "name": "conflict_class",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "select",
+        "values": [
+          "E1",
+          "E2",
+          "E3",
+          "E4",
+          "E5"
+        ]
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "select3599471708",
+        "maxSelect": 1,
+        "name": "conflict_subtype",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "select",
+        "values": [
+          "material_type",
+          "material_thickness",
+          "system_type",
+          "frame_material",
+          "dimension_spacing",
+          "grade_standard",
+          "performance_rating",
+          "method_sequence",
+          "beneficial_exceedance"
+        ]
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "json1770125858",
+        "maxSize": 8000,
+        "name": "loci",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "json"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "select2223521727",
+        "maxSelect": 1,
+        "name": "precedence_class",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "select",
+        "values": [
+          "PRECEDENCE_RESOLVABLE",
+          "PRECEDENCE_AMBIGUOUS",
+          "PRECEDENCE_INCORPORATED",
+          "REQUIRES_CLARIFICATION",
+          "NO_PRECEDENCE_PROVISION"
+        ]
+      },
+      {
+        "cascadeDelete": false,
+        "collectionId": "pbc_2610189717",
+        "help": "",
+        "hidden": false,
+        "id": "relation4073753229",
+        "maxSelect": 1,
+        "minSelect": 0,
+        "name": "precedence_provision",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "autogeneratePattern": "",
+        "help": "",
+        "hidden": false,
+        "id": "text3881731024",
+        "max": 4000,
+        "min": 0,
+        "name": "precedence_reasoning",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "bool2426959191",
+        "name": "provisional",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "bool"
+      },
+      {
+        "autogeneratePattern": "",
+        "help": "",
+        "hidden": false,
+        "id": "text4133540203",
+        "max": 40,
+        "min": 0,
+        "name": "severity",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "autogeneratePattern": "",
+        "help": "",
+        "hidden": false,
+        "id": "text18589324",
+        "max": 4000,
+        "min": 0,
+        "name": "notes",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "cascadeDelete": false,
+        "collectionId": "_pb_users_auth_",
+        "help": "",
+        "hidden": false,
+        "id": "relation700004392",
+        "maxSelect": 1,
+        "minSelect": 0,
+        "name": "coded_by",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "hidden": false,
+        "id": "autodate2990389176",
+        "name": "created",
+        "onCreate": true,
+        "onUpdate": false,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      },
+      {
+        "hidden": false,
+        "id": "autodate3332085495",
+        "name": "updated",
+        "onCreate": true,
+        "onUpdate": true,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_finding_project ON conflict_findings (project)",
+      "CREATE INDEX idx_finding_class ON conflict_findings (project, conflict_class)"
+    ],
+    "created": "2026-09-10 03:13:28.604Z",
+    "updated": "2026-09-10 03:13:28.604Z",
     "system": false
   }
 ]
