@@ -136,22 +136,20 @@ Still undefined: `severity` has no scale (stored as free text rather than
 inventing one), and E4/E5 agreement should be reported per class rather than
 pooled — a research decision, not a schema one.
 
-## `npm test` is red on purpose
+## Precedence false positives are checked, not described
 
-Five tests in `src/lib/precedence/classify.test.ts` fail, each naming a
-false-positive passage awaiting verbatim text from the project manuals. Keyword
-search for precedence language ran at ~45% precision across four manuals, so the
-negative cases carry as much weight as the positive ones — a system that reads
-CPM "precedence format" as a document hierarchy produces confidently wrong
-classifications.
+The four documented false positives from Table 10 — plus jurisdictional
+stringency, a fifth of the same class — are asserted in
+`src/lib/precedence/classify.test.ts`, and the checker warns in the paste box.
 
-They fail rather than being skipped so they cannot quietly stay unwritten.
-Transcribe the passages into `src/lib/precedence/negative-fixtures.ts` and the
-suite goes green.
+The positive control is the half that matters: all four REAL provisions are
+asserted **not** to be flagged. A checker that warned about everything would
+pass every negative case and be worthless, and an advisory people ignore is
+worse than none.
 
-**Expiry: 2026-09-16.** If the passages have not arrived by then, convert these
-to skips with a named TODO. A permanently red suite trains people to ignore it,
-and the step after that is someone deleting the failing tests.
+**Table 10 may hold more rows.** The message supplying these truncated partway
+through item 5, and a sixth entry was named but never arrived. Recorded in
+`negative-fixtures.ts` so the gap stays visible.
 
 ## Queued, unstarted
 

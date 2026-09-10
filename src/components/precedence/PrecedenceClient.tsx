@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { fieldErrorsFromZod } from "@/lib/validation/auth";
 import { precedenceProvisionSchema } from "@/lib/validation/precedence";
+import { falsePositiveSignals } from "@/lib/precedence/false-positives";
 import type {
   ConflictClass,
   PrecedenceProvision,
@@ -205,6 +206,19 @@ export function PrecedenceClient({ projectId, projectName }: { projectId: string
               <p className="mt-1 text-[11px] text-neutral-500">
                 Verbatim. This is what a reviewer checks the classification against.
               </p>
+              {/*
+                Advisory, never a block. Roughly half of keyword hits for
+                precedence language across four manuals were not
+                document-precedence provisions at all, and choosing
+                paste-and-confirm moved that error to the person pasting rather
+                than removing it. Blocking would be worse: a false warning that
+                stops a real provision being recorded costs a whole project.
+              */}
+              {falsePositiveSignals(draft.source_text).map((signal) => (
+                <p key={signal.category} className="mt-1 rounded bg-amber-50 px-2 py-1 text-[11px] text-amber-900">
+                  Check this is the right passage. {signal.reason}
+                </p>
+              ))}
               {errors.source_text ? <p className="mt-1 text-[11px] text-red-600">{errors.source_text}</p> : null}
             </div>
 

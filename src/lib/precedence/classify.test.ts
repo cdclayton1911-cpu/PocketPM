@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import { classifyConflict, divisionOf, provisionReaches } from "./classify";
 import { NORTH_MACON, REES, SEARCHED_NONE_FOUND, UCCS, WCU } from "./fixtures";
 import { RULE_PROVENANCE, provisionalRuleTypes } from "./provenance";
-import { NEGATIVE_FIXTURES, pendingNegativeFixtures } from "./negative-fixtures";
+import { falsePositiveSignals, knownFalsePositiveCategories } from "./false-positives";
+import { NEGATIVE_FIXTURES } from "./negative-fixtures";
 import type { ConflictClass, DetectedConflict } from "./types";
 
 const spec = (over = {}) => ({ documentType: "Specifications", ...over });
@@ -231,43 +232,56 @@ describe("choosing between provisions", () => {
 });
 
 /**
- * Roughly half of keyword hits are noise. These fail by name until the verbatim
- * passages are transcribed, rather than being skipped - a pending test that
- * reports nothing is how a fixture quietly stays unwritten.
+ * The documented false positives, asserted rather than described.
  *
- * Inventing plausible text would be worse than either: it would test the
- * classifier against a fiction instead of the passages that actually fooled the
- * search.
+ * Roughly half of keyword hits across the four manuals were noise. The choice
+ * of paste-and-confirm over extraction did not remove that error — it moved it
+ * to the person pasting, who is reading the same passages.
+ *
+ * The positive control is the half that matters: a checker that flagged
+ * everything would pass every negative case here and be worthless, so the four
+ * real provisions are asserted NOT to be flagged.
  */
 describe("false positives from keyword search", () => {
   it.each(NEGATIVE_FIXTURES.map((f) => [f.id, f] as const))(
-    "%s - verbatim passage supplied",
-    (_id, fixture) => {
+    "%s is recognised as not a precedence provision",
+    (id, fixture) => {
+      const signals = falsePositiveSignals(fixture.text);
       expect(
-        fixture.text,
-        `No verbatim text yet for "${fixture.category}" (${fixture.whyItMatched}). ` +
-          `Transcribe it from the manual into negative-fixtures.ts and add the assertion ` +
-          `that it is NOT classified as a document-precedence provision.`,
-      ).not.toBeNull();
+        signals.map((s) => s.category),
+        `"${fixture.text}" should be flagged as ${id}. ${fixture.whyNot}`,
+      ).toContain(id);
     },
   );
 
-  it("reports how many are still outstanding", () => {
-    const pending = pendingNegativeFixtures();
-    expect(
-      pending.length,
-      `${pending.length} negative fixture(s) awaiting verbatim text: ${pending.map((f) => f.id).join(", ")}`,
-    ).toBe(0);
+  it.each([
+    ["WCU", WCU],
+    ["UCCS", UCCS],
+    ["North Macon", NORTH_MACON],
+    ["Rees", REES],
+  ] as const)("%s, a REAL provision, is not flagged", (_name, provision) => {
+    // Without this the checker could match on "precedence" or "shall govern"
+    // and warn about every genuine clause, which is how an advisory gets
+    // ignored — and then it is worse than absent.
+    expect(falsePositiveSignals(provision.source_text)).toEqual([]);
+  });
+
+  it("covers every documented category", () => {
+    // A fixture added without a matching pattern would silently never be
+    // checked; a pattern with no fixture would never be exercised.
+    expect(knownFalsePositiveCategories().sort()).toEqual(
+      NEGATIVE_FIXTURES.map((f) => f.id).sort(),
+    );
+  });
+
+  it("reports every signal, not just the first", () => {
+    // A passage can look like two things at once. Showing one reason would
+    // imply the others had been ruled out.
+    const both = "Manufacturer's requirements for warranties shall govern";
+    expect(falsePositiveSignals(both).length).toBeGreaterThan(1);
   });
 });
 
-
-/**
- * `resolves` is a CLAIM, and this is what makes it checkable.
- *
- * As a boolean it was an unverifiable assertion by whoever typed it. As a set of
- * classes, a provision saying it settles E2 can be made to prove it.
- */
 describe("the resolves claim is verified, not trusted", () => {
   /** An exemplar conflict for each class a fixture claims to settle. */
   const EXEMPLARS: Record<string, Record<string, DetectedConflict>> = {

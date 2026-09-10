@@ -1,63 +1,63 @@
 /**
  * Passages that a keyword search surfaces and that are NOT document-precedence
- * provisions.
+ * provisions. Verbatim from the taxonomy doc, Table 10.
  *
  * Keyword search on "precedence" and "shall govern" ran at roughly 45%
- * precision across these four manuals. These are the categories of noise it
- * returned. A system that reads CPM "precedence format" as a document hierarchy
- * will produce confidently wrong classifications, so the negative cases matter
- * as much as the positive ones.
+ * precision across four manuals. Choosing paste-and-confirm did not remove that
+ * error, it moved it to the person pasting — so these are the cases
+ * `false-positives.ts` warns about, and the ones its patterns are tuned against.
  *
- * `text: null` means THE VERBATIM PASSAGE HAS NOT BEEN SUPPLIED YET. The test
- * suite fails on each one by name rather than skipping it - invented text would
- * test the classifier against a plausible fiction instead of the thing that
- * actually fooled the search.
+ * INCOMPLETE: the message supplying these truncated partway through item 5, and
+ * a sixth entry was named but never arrived. Table 10 may hold further rows not
+ * transcribed here. Recorded so the gap is visible rather than assumed closed.
  */
 
 export interface NegativeFixture {
   id: string;
-  /** What kind of false positive this is. */
   category: string;
-  /** Where it came from, once supplied. */
-  source: string;
-  /** Verbatim passage. Null until transcribed from the manual. */
-  text: string | null;
-  /** Why a keyword search picked it up. */
-  whyItMatched: string;
+  /** Verbatim passage. */
+  text: string;
+  /** Why it is not a document-precedence provision. */
+  whyNot: string;
 }
 
 export const NEGATIVE_FIXTURES: NegativeFixture[] = [
   {
     id: "cpm-scheduling",
     category: "CPM scheduling terminology",
-    source: "TODO: manual and page",
-    text: null,
-    whyItMatched: '"precedence" as in precedence diagramming / activity relationships, not documents.',
+    text: "time-scaled precedence format",
+    whyNot: "Refers to activity sequencing logic, not document hierarchy.",
   },
   {
     id: "stated-vs-scaled",
     category: "Stated-versus-scaled dimension convention",
-    source: "TODO: manual and page",
-    text: null,
-    whyItMatched: '"shall govern" applied to figured dimensions over scaled ones - a measurement rule, not a document hierarchy.',
+    text: "Stated dimensions on the drawings shall take precedence over scaled dimensions",
+    whyNot: "Governs how to read a drawing, not which document controls.",
   },
   {
     id: "manufacturer-requirements",
     category: "Manufacturer requirement precedence",
-    source: "TODO: manual and page",
-    text: null,
-    whyItMatched: '"take precedence" applied to manufacturer instructions over the specification for a single product.',
+    text:
+      "Where requirements indicated in Contract Documents exceed manufacturer's requirements, " +
+      "Contract Documents shall govern",
+    whyNot: "Contract-versus-manufacturer, not document-versus-document.",
   },
   {
     id: "warranty-duration",
     category: "Warranty duration precedence",
-    source: "TODO: manual and page",
-    text: null,
-    whyItMatched: '"shall govern" applied to the longer of two warranty periods.',
+    text:
+      "Whenever guarantees or warranties are required for a longer period than one year, such " +
+      "longer period shall govern",
+    whyNot: "Governs a time period, not a requirement conflict.",
+  },
+  {
+    id: "jurisdictional-stringency",
+    category: "Jurisdictional stringency",
+    text:
+      "Should the requirements of local, regional or state authorities exceed... the more " +
+      "stringent shall govern",
+    whyNot:
+      "Ranks an outside authority's requirements against the contract, not one contract document " +
+      "against another. (Rationale not supplied — the source message truncated here.)",
   },
 ];
-
-/** The ones still waiting on verbatim text. */
-export function pendingNegativeFixtures(): NegativeFixture[] {
-  return NEGATIVE_FIXTURES.filter((f) => f.text === null);
-}
