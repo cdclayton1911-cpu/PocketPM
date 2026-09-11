@@ -3,9 +3,7 @@
 Ordered by what unblocks the most, not by size. `docs/STATUS.md` carries the
 narrative state and the reasoning behind each decision; this is the queue.
 
-**State:** `main` at `7db8f07`, droplet at `6794923`. The one commit between
-them touches `scripts/verify-tenancy.mjs` only — no runtime code — so the
-running app is current.
+**State:** `main` and the droplet both at `5f39910`, deployed 2026-09-11 and verified: verify:routes 22/22, verify:hooks 15/15, verify:tenancy all sections.
 
 Workflow engine complete, schema through UI. Schedule phases 1-5 and 7 complete.
 259 unit tests, 10 tenancy sections, E2E green — **all against fixtures.**
