@@ -20,6 +20,7 @@ set -Eeuo pipefail
 APP_DIR="/opt/pocketpm-web"
 SERVICE="pocketpm-web"
 HEALTH_URL="http://127.0.0.1:3001/"
+VERSION_URL="http://127.0.0.1:3001/api/version"
 RUN_AS="pocketpm"
 BRANCH="main"
 
@@ -133,6 +134,12 @@ step "Health check"
 for (( i = 1; i <= HEALTH_RETRIES; i++ )); do
 	if curl -fsS -o /dev/null --max-time 5 "$HEALTH_URL" 2>/dev/null; then
 		ok "$HEALTH_URL responding (after ${i} attempt(s))"
+		# Responding is not enough: prove it is the commit just built.
+		SERVING=$(curl -fsS --max-time 5 "$VERSION_URL" 2>/dev/null | sed -n 's/.*"commit":"\([0-9a-f]*\)".*/\1/p')
+		if [[ "$SERVING" != "$NEW_SHA" ]]; then
+			die "service answered, but /api/version reports '${SERVING:-nothing}', not $NEW_SHA."
+		fi
+		ok "serving commit ${SERVING:0:8}"
 		printf '\n%s  ✓ Deployed %s%s\n\n' "$GREEN" "${NEW_SHA:0:8}" "$OFF"
 		exit 0
 	fi
