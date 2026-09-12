@@ -59,6 +59,33 @@ resolves successfully with SMTP off, so success proves nothing. See
 Nothing else is blocked on this. Option 4 for external reviewers — record the party,
 an internal user acts on their behalf — needs no email and is already built.
 
+## Taxonomy v1.2 — decided, not started
+
+Serves the product AND the user's praxis. The `taxonomy-v1.2` git tag marks the
+praxis evaluation baseline; it is **not** a product freeze. The product may move
+to v1.3+, so the contract file supports later versions and every record carries
+`taxonomy_version`.
+
+Sequenced after deploy (done, `5f39910`) and SMTP (in progress). Decisions,
+2026-09-12:
+
+1. "End-to-end" is WCU's clause → a hand-specified E1 and E2 conflict → the
+   classifier → emitted v1.2 records, validated. It demonstrates the contract,
+   not detection; nothing in PocketPM detects conflicts yet.
+2. The severity rubric (low / medium / high, with provenance-tagged examples)
+   is added now. It is a product requirement — severity is what makes a
+   conflict list actionable for a GC — and stays unused until detection exists.
+3. `location` is `{ section, page }`, keeping the page for traceability.
+4. No provision record: the classifier refuses to emit a record; the UI turns
+   that into an onboarding prompt ("add your contract's order-of-precedence
+   clause"), never an error.
+5. "grep clean" for removed fields covers `src/` only. One-off migration
+   scripts and docs keep their history.
+
+Product rule: internal enum values never reach the UI. Classes, severity bands,
+scopes, and conflict classes map to plain GC language in one file, with a test
+that every value has a label.
+
 ## Schedule schema v2 — dates say whose they are
 
 Applied 2026-09-10, driven by the first real P6 export.
