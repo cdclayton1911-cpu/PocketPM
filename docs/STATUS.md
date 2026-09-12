@@ -59,7 +59,23 @@ resolves successfully with SMTP off, so success proves nothing. See
 Nothing else is blocked on this. Option 4 for external reviewers — record the party,
 an internal user acts on their behalf — needs no email and is already built.
 
-## Taxonomy v1.2 — decided, not started
+## Taxonomy v1.2 — built, not yet deployed or tagged
+
+Built 2026-09-12. What was built:
+
+- `src/lib/precedence/contract.ts` is authoritative. Records are emitted only through
+  `toConflictRecord` and `toProvisionRecord`, which validate what they produce.
+  Records are read by version.
+- The enums are lowercase and live in `vocabulary.ts`.
+- The classifier throws `NoProvisionRecordError` rather than guess.
+- Plain-language labels are in `labels.ts`; the rubric is in `severity-rubric.ts`.
+- Tests 1–10 pass, plus the WCU end-to-end test.
+- The schema was applied to production with `scripts/apply-precedence-v12.mjs`
+  (both collections were empty) and the snapshot re-exported.
+
+**The deploy is due now.** Production PocketBase requires `taxonomy_version` and
+`source` on provisions, and the running app does not send them yet. The
+`taxonomy-v1.2` tag waits for confirmation.
 
 Serves the product AND the user's praxis. The `taxonomy-v1.2` git tag marks the
 praxis evaluation baseline; it is **not** a product freeze. The product may move

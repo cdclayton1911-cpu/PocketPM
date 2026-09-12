@@ -25,66 +25,21 @@
  * reach the conflict in front of you.
  */
 
-/**
- * What KIND of conflict this is, decided from the documents alone.
+/*
+ * The taxonomy's enums and version live in vocabulary.ts, and the output
+ * contract — the records PocketPM emits — in contract.ts. This file is the
+ * classifier's working model; the contract is what leaves.
  *
- * Determined BEFORE precedence is assessed. That ordering is a coding-bias
- * control: knowing the contract resolves something pulls a coder toward
- * deciding no conflict existed. It is enforced structurally here — a
- * `DetectedConflict` cannot be built without a class, so precedence cannot be
- * classified for a conflict whose class was never decided.
+ * Conflict class is decided from the documents alone, BEFORE precedence is
+ * assessed: knowing the contract resolves something pulls a coder toward
+ * deciding no conflict existed. That ordering is structural here — a
+ * `DetectedConflict` cannot be built without a class.
  */
-export type ConflictClass =
-  /** Direct contradiction between a specification and a drawing. */
-  | "E1"
-  /** Drawing against drawing. */
-  | "E2"
-  /** Specification against specification. */
-  | "E3"
-  /** Specified but not shown. */
-  | "E4"
-  /** Shown but not specified. */
-  | "E5";
+import type { ConflictLocus } from "./contract";
+import type { ConflictClass, E1Subtype, PrecedenceClass, PrecedenceScope } from "./vocabulary";
 
-export const CONFLICT_CLASSES: ConflictClass[] = ["E1", "E2", "E3", "E4", "E5"];
-
-/** E1 sub-types. Only E1 is sub-typed. */
-export type E1Subtype =
-  | "material_type"
-  | "material_thickness"
-  | "system_type"
-  | "frame_material"
-  | "dimension_spacing"
-  | "grade_standard"
-  | "performance_rating"
-  | "method_sequence"
-  | "beneficial_exceedance";
-
-export const E1_SUBTYPES: E1Subtype[] = [
-  "material_type", "material_thickness", "system_type", "frame_material",
-  "dimension_spacing", "grade_standard", "performance_rating", "method_sequence",
-  "beneficial_exceedance",
-];
-
-/** What the applicable provision can do about this conflict. */
-export type PrecedenceClass =
-  /** A provision exists and deterministically settles which requirement governs. */
-  | "PRECEDENCE_RESOLVABLE"
-  /** A provision exists, but resolving needs a judgment it does not supply. */
-  | "PRECEDENCE_AMBIGUOUS"
-  /** Governed by an identified external instrument not present in the set. */
-  | "PRECEDENCE_INCORPORATED"
-  /** A provision applies here but does not address this conflict type. */
-  | "REQUIRES_CLARIFICATION"
-  /** No provision reaches this conflict, and none is incorporated. */
-  | "NO_PRECEDENCE_PROVISION";
-
-/** Where a provision applies. */
-export type PrecedenceScope =
-  | "PROJECT_WIDE"
-  | "DIVISION_SCOPED"
-  | "EXTERNAL"
-  | "NONE_FOUND";
+export { CONFLICT_CLASSES, E1_SUBTYPES, PRECEDENCE_CLASSES, PRECEDENCE_SCOPES } from "./vocabulary";
+export type { ConflictClass, ConflictLocus, E1Subtype, PrecedenceClass, PrecedenceScope };
 
 /**
  * A document type as named by a precedence clause.
@@ -137,7 +92,7 @@ export interface PrecedenceProvision {
   page: number | null;
   scope: PrecedenceScope;
   /**
-   * Which division or section this governs, when DIVISION_SCOPED.
+   * Which division or section this governs, when division_scoped.
    * e.g. "22" or "22 00 00".
    */
   scope_target: string | null;
@@ -165,22 +120,10 @@ export interface PrecedenceProvision {
    * it.
    */
   resolves: ConflictClass[];
-  /** Named instrument and edition, when scope is EXTERNAL. */
+  /** Named instrument and edition, when scope is external. */
   external_instrument: { name: string; edition: string | null } | null;
   /** The verbatim passage. Required: traceability to the page is the point. */
   source_text: string;
-}
-
-/** One side of a conflict. */
-export interface ConflictLocus {
-  /** As the manual would name it, e.g. "Specifications", "Small-scale drawings". */
-  documentType: DocumentType;
-  /** CSI division, e.g. "22". Used for scoping a DIVISION_SCOPED provision. */
-  division?: string;
-  /** Section identifier, e.g. "22 00 00". */
-  section?: string;
-  /** Sheet or page reference, carried through for traceability. */
-  reference?: string;
 }
 
 /**
@@ -204,42 +147,28 @@ export interface DetectedConflict {
   description?: string;
 }
 
-/**
- * Whether anyone has looked.
- *
- * `no_precedence_provision` means the same thing in both of these cases and
- * they are opposite: one is a finding, the other is an absence of work. Kept
- * beside the class rather than folded into it, so the five classes stay as the
- * spec defines them while the difference stays observable.
- */
-export type SearchState =
-  /** A provision was found and applied. */
-  | "PROVISION_APPLIED"
-  /** Someone searched the manual and recorded that there is none. */
-  | "SEARCHED_NONE_FOUND"
-  /** Nobody has recorded anything for this project yet. */
-  | "NOT_SEARCHED";
-
 export interface PrecedenceClassification {
   class: PrecedenceClass;
-  searchState: SearchState;
+  /** The scope of the provision cited; none_found when that is what applied. */
+  scope: PrecedenceScope;
+  /**
+   * The provision record this rests on. Never null (taxonomy v1.2): when no
+   * provision applies, it is the project's none_found record. A project with
+   * neither cannot be classified at all — classifyConflict throws.
+   */
+  provisionId: string;
+  /** Index into `between` of the locus that governs; null unless resolvable. */
+  governingIndex: 0 | 1 | null;
   /**
    * True when a construct observed in only ONE of the four manuals decided
-   * this. Travels with the finding rather than living in a document nobody
-   * re-reads. See provenance.ts.
+   * this. Travels with the finding. See provenance.ts.
    */
   provisional: boolean;
   /** Which construct was provisional, when one was. */
   provisionalReason: string | null;
-  /** The scope of the provision actually applied; NONE_FOUND when none was. */
-  scope: PrecedenceScope;
-  /** Which provision decided this, by id. Null when none applied. */
-  provisionId: string | null;
-  /** The locus that governs, when the class is PRECEDENCE_RESOLVABLE. */
-  governing: ConflictLocus | null;
   /** Why. A user needs to know why something is ambiguous, not just that it is. */
   explanation: string;
-  /** The instrument to consult, when PRECEDENCE_INCORPORATED. */
+  /** The instrument to consult, when precedence_incorporated. */
   externalInstrument: { name: string; edition: string | null } | null;
 }
 

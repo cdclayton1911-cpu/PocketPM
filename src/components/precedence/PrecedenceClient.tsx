@@ -15,6 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { fieldErrorsFromZod } from "@/lib/validation/auth";
 import { precedenceProvisionSchema } from "@/lib/validation/precedence";
 import { falsePositiveSignals } from "@/lib/precedence/false-positives";
+import { CONFLICT_CLASS_LABEL, ONBOARDING_NO_PROVISION, SCOPE_LABEL } from "@/lib/precedence/labels";
+import { CONFLICT_CLASSES } from "@/lib/precedence/vocabulary";
 import type {
   ConflictClass,
   PrecedenceProvision,
@@ -22,13 +24,7 @@ import type {
   PrecedenceScope,
 } from "@/lib/precedence/types";
 
-const CONFLICT_CLASS_LABELS: [ConflictClass, string][] = [
-  ["E1", "E1 spec vs drawing"],
-  ["E2", "E2 drawing vs drawing"],
-  ["E3", "E3 spec vs spec"],
-  ["E4", "E4 specified, not shown"],
-  ["E5", "E5 shown, not specified"],
-];
+const CONFLICT_CLASS_LABELS: [ConflictClass, string][] = CONFLICT_CLASSES.map((c) => [c, CONFLICT_CLASS_LABEL[c]]);
 import { ProvisionPreview } from "./ProvisionPreview";
 
 interface StoredProvision {
@@ -46,13 +42,14 @@ interface StoredProvision {
 }
 
 const SCOPES: { value: PrecedenceScope; label: string; hint: string }[] = [
-  { value: "PROJECT_WIDE", label: "Project-wide", hint: "In Division 01 or the General Conditions; governs all contract documents." },
-  { value: "DIVISION_SCOPED", label: "One division or section", hint: "Inside a technical section; governs that work only." },
-  { value: "EXTERNAL", label: "Incorporated by reference", hint: "Names a standard form that is not in this document set." },
+  { value: "project_wide", label: SCOPE_LABEL.project_wide, hint: "In Division 01 or the General Conditions; governs all contract documents." },
+  { value: "division_scoped", label: SCOPE_LABEL.division_scoped, hint: "Inside a technical section; governs that work only." },
+  { value: "external", label: SCOPE_LABEL.external, hint: "Names a standard form that is not in this document set." },
+  { value: "none_found", label: SCOPE_LABEL.none_found, hint: "You searched the whole manual and there is no order-of-precedence clause. Say what you searched." },
 ];
 
 const BLANK: Omit<StoredProvision, "id"> = {
-  section: "", page: null, scope: "PROJECT_WIDE", scope_target: "", rules: [],
+  section: "", page: null, scope: "project_wide", scope_target: "", rules: [],
   resolves: [], external_instrument_name: "",
   external_instrument_edition: "", source_text: "", notes: "",
 };
@@ -158,8 +155,8 @@ export function PrecedenceClient({ projectId, projectName }: { projectId: string
 
         {items.length === 0 ? (
           <EmptyState
-            title="No provision recorded"
-            description="Until one is recorded, every conflict on this project classifies as 'no precedence provision' — which is a finding in itself, but only if it is true."
+            title={ONBOARDING_NO_PROVISION.title}
+            description={ONBOARDING_NO_PROVISION.body}
           />
         ) : (
           <ul className="divide-y divide-neutral-200">
@@ -170,7 +167,7 @@ export function PrecedenceClient({ projectId, projectName }: { projectId: string
                     {p.section}
                     {p.page ? <span className="text-neutral-400"> · p.{p.page}</span> : null}
                     <span className="ml-2 rounded-full bg-neutral-200 px-2 py-0.5 text-[10px]">
-                      {SCOPES.find((s) => s.value === p.scope)?.label ?? p.scope}
+                      {SCOPE_LABEL[p.scope]}
                       {p.scope_target ? ` ${p.scope_target}` : ""}
                     </span>
                   </div>
@@ -195,7 +192,9 @@ export function PrecedenceClient({ projectId, projectName }: { projectId: string
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <Label htmlFor="source">The clause, exactly as printed</Label>
+              <Label htmlFor="source">
+                {draft.scope === "none_found" ? "What you searched, and what you found" : "The clause, exactly as printed"}
+              </Label>
               <Textarea
                 id="source" rows={4} value={draft.source_text}
                 placeholder="In case of discrepancy or disagreement in the contract documents, the order of precedence shall be…"
@@ -245,7 +244,7 @@ export function PrecedenceClient({ projectId, projectName }: { projectId: string
               <Label htmlFor="scope">Where it applies</Label>
               <select id="scope" className="h-9 w-full rounded border border-neutral-300 px-2 text-[13px]"
                 value={draft.scope}
-                onChange={(e) => setDraft({ ...draft, scope: e.target.value as PrecedenceScope, rules: e.target.value === "EXTERNAL" ? [] : draft.rules })}>
+                onChange={(e) => setDraft({ ...draft, scope: e.target.value as PrecedenceScope, rules: e.target.value === "external" || e.target.value === "none_found" ? [] : draft.rules })}>
                 {SCOPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
               <p className="mt-1 text-[11px] text-neutral-500">
@@ -253,7 +252,7 @@ export function PrecedenceClient({ projectId, projectName }: { projectId: string
               </p>
             </div>
 
-            {draft.scope === "DIVISION_SCOPED" ? (
+            {draft.scope === "division_scoped" ? (
               <div className="sm:col-span-2">
                 <Label htmlFor="target">Which division or section</Label>
                 <Input id="target" value={draft.scope_target} placeholder="22"
@@ -265,7 +264,7 @@ export function PrecedenceClient({ projectId, projectName }: { projectId: string
               </div>
             ) : null}
 
-            {draft.scope === "EXTERNAL" ? (
+            {draft.scope === "external" ? (
               <>
                 <div>
                   <Label htmlFor="inst">Instrument</Label>
@@ -282,7 +281,7 @@ export function PrecedenceClient({ projectId, projectName }: { projectId: string
             ) : null}
           </div>
 
-          {draft.scope !== "EXTERNAL" ? (
+          {draft.scope !== "external" && draft.scope !== "none_found" ? (
             <div className="mt-4">
               <h3 className="mb-1 text-[12px] font-semibold uppercase tracking-wide text-neutral-500">
                 The decision procedure, in order

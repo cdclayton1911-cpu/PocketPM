@@ -77,13 +77,27 @@ export type ConflictFindingConflictSubtype = (typeof CONFLICT_FINDING_CONFLICT_S
 
 /** `conflict_findings.precedence_class` */
 export const CONFLICT_FINDING_PRECEDENCE_CLASS = [
-  "PRECEDENCE_RESOLVABLE",
-  "PRECEDENCE_AMBIGUOUS",
-  "PRECEDENCE_INCORPORATED",
-  "REQUIRES_CLARIFICATION",
-  "NO_PRECEDENCE_PROVISION",
+  "precedence_resolvable",
+  "precedence_ambiguous",
+  "precedence_incorporated",
+  "requires_clarification",
+  "no_precedence_provision",
 ] as const;
 export type ConflictFindingPrecedenceClass = (typeof CONFLICT_FINDING_PRECEDENCE_CLASS)[number];
+
+/** `conflict_findings.taxonomy_version` */
+export const CONFLICT_FINDING_TAXONOMY_VERSION = [
+  "1.2",
+] as const;
+export type ConflictFindingTaxonomyVersion = (typeof CONFLICT_FINDING_TAXONOMY_VERSION)[number];
+
+/** `conflict_findings.ai_severity_band` */
+export const CONFLICT_FINDING_AI_SEVERITY_BAND = [
+  "low",
+  "medium",
+  "high",
+] as const;
+export type ConflictFindingAiSeverityBand = (typeof CONFLICT_FINDING_AI_SEVERITY_BAND)[number];
 
 /** `deficiencies.severity` */
 export const DEFICIENCY_SEVERITY = [
@@ -167,12 +181,24 @@ export type PayApplicationStatus = (typeof PAY_APPLICATION_STATUS)[number];
 
 /** `precedence_provisions.scope` */
 export const PRECEDENCE_PROVISION_RECORD_SCOPE = [
-  "PROJECT_WIDE",
-  "DIVISION_SCOPED",
-  "EXTERNAL",
-  "NONE_FOUND",
+  "project_wide",
+  "division_scoped",
+  "external",
+  "none_found",
 ] as const;
 export type PrecedenceProvisionRecordScope = (typeof PRECEDENCE_PROVISION_RECORD_SCOPE)[number];
+
+/** `precedence_provisions.taxonomy_version` */
+export const PRECEDENCE_PROVISION_RECORD_TAXONOMY_VERSION = [
+  "1.2",
+] as const;
+export type PrecedenceProvisionRecordTaxonomyVersion = (typeof PRECEDENCE_PROVISION_RECORD_TAXONOMY_VERSION)[number];
+
+/** `precedence_provisions.source` */
+export const PRECEDENCE_PROVISION_RECORD_SOURCE = [
+  "human_supplied_and_confirmed",
+] as const;
+export type PrecedenceProvisionRecordSource = (typeof PRECEDENCE_PROVISION_RECORD_SOURCE)[number];
 
 /** `project_documents.category` */
 export const PROJECT_DOCUMENT_CATEGORY = [

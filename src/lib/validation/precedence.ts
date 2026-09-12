@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+import {
+  CONFLICT_CLASSES,
+  PRECEDENCE_SCOPES,
+  PROVISION_SOURCE,
+  TAXONOMY_VERSION,
+} from "@/lib/precedence/vocabulary";
+
 /**
  * A recorded precedence provision.
  *
@@ -45,10 +52,10 @@ export const precedenceProvisionSchema = z
   .strictObject({
     section: z.string().trim().min(1, "Give the section identifier").max(60),
     page: z.coerce.number().int().min(1).max(20000).nullable().optional(),
-    scope: z.enum(["PROJECT_WIDE", "DIVISION_SCOPED", "EXTERNAL", "NONE_FOUND"]),
+    scope: z.enum(PRECEDENCE_SCOPES),
     scope_target: z.string().trim().max(40).optional().default(""),
     rules: z.array(precedenceRuleSchema).max(20).optional().default([]),
-    resolves: z.array(z.enum(["E1", "E2", "E3", "E4", "E5"])).max(5).optional().default([]),
+    resolves: z.array(z.enum(CONFLICT_CLASSES)).max(5).optional().default([]),
     external_instrument_name: z.string().trim().max(200).optional().default(""),
     external_instrument_edition: z.string().trim().max(60).optional().default(""),
     /**
@@ -62,32 +69,43 @@ export const precedenceProvisionSchema = z
       .min(20, "Paste the provision text exactly as it appears in the manual")
       .max(20000),
     notes: z.string().trim().max(4000).optional().default(""),
+    /**
+     * Stamped by the route on create, never chosen by the client. Accepted here
+     * only as the one allowed value, because the schema is strict and the route
+     * merges its defaults before validating.
+     */
+    taxonomy_version: z.literal(TAXONOMY_VERSION).optional(),
+    source: z.literal(PROVISION_SOURCE).optional(),
   })
   .superRefine((v, ctx) => {
-    if (v.scope === "DIVISION_SCOPED" && !v.scope_target) {
+    if (v.scope === "division_scoped" && !v.scope_target) {
       ctx.addIssue({
         code: "custom",
         path: ["scope_target"],
         message: "Say which division or section this governs — otherwise it cannot be applied.",
       });
     }
-    if (v.scope === "EXTERNAL" && !v.external_instrument_name) {
+    if (v.scope === "external" && !v.external_instrument_name) {
       ctx.addIssue({
         code: "custom",
         path: ["external_instrument_name"],
         message: "Name the incorporated instrument, e.g. AIA A201.",
       });
     }
-    // An EXTERNAL provision points elsewhere; rules recorded against it would
-    // never be reached and would misrepresent what is known.
-    if (v.scope === "EXTERNAL" && v.rules.length > 0) {
+    // An external or none_found record points elsewhere or at nothing; rules
+    // recorded against it would never be reached and would misrepresent what
+    // is known.
+    if ((v.scope === "external" || v.scope === "none_found") && v.rules.length > 0) {
       ctx.addIssue({
         code: "custom",
         path: ["rules"],
-        message: "An incorporated instrument is not in this set, so no rules can be recorded from it.",
+        message:
+          v.scope === "external"
+            ? "An incorporated instrument is not in this set, so no rules can be recorded from it."
+            : "A record that the manual has no clause cannot carry rules.",
       });
     }
-    if (v.scope !== "EXTERNAL" && v.rules.length === 0) {
+    if ((v.scope === "project_wide" || v.scope === "division_scoped") && v.rules.length === 0) {
       ctx.addIssue({
         code: "custom",
         path: ["rules"],
@@ -104,10 +122,10 @@ export const precedenceProvisionSchema = z
 export const precedenceProvisionUpdateSchema = z.strictObject({
   section: z.string().trim().min(1).max(60).optional(),
   page: z.coerce.number().int().min(1).max(20000).nullable().optional(),
-  scope: z.enum(["PROJECT_WIDE", "DIVISION_SCOPED", "EXTERNAL", "NONE_FOUND"]).optional(),
+  scope: z.enum(PRECEDENCE_SCOPES).optional(),
   scope_target: z.string().trim().max(40).optional(),
   rules: z.array(precedenceRuleSchema).max(20).optional(),
-  resolves: z.array(z.enum(["E1", "E2", "E3", "E4", "E5"])).max(5).optional(),
+  resolves: z.array(z.enum(CONFLICT_CLASSES)).max(5).optional(),
   external_instrument_name: z.string().trim().max(200).optional(),
   external_instrument_edition: z.string().trim().max(60).optional(),
   source_text: z.string().trim().min(20).max(20000).optional(),

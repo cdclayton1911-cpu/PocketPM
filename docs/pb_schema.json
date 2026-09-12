@@ -7563,10 +7563,10 @@
         "system": false,
         "type": "select",
         "values": [
-          "PROJECT_WIDE",
-          "DIVISION_SCOPED",
-          "EXTERNAL",
-          "NONE_FOUND"
+          "project_wide",
+          "division_scoped",
+          "external",
+          "none_found"
         ]
       },
       {
@@ -7699,6 +7699,34 @@
         "required": false,
         "system": false,
         "type": "json"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "select951861929",
+        "maxSelect": 1,
+        "name": "taxonomy_version",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "select",
+        "values": [
+          "1.2"
+        ]
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "select1602912115",
+        "maxSelect": 1,
+        "name": "source",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "select",
+        "values": [
+          "human_supplied_and_confirmed"
+        ]
       }
     ],
     "indexes": [
@@ -7706,7 +7734,7 @@
       "CREATE INDEX idx_precedence_project ON precedence_provisions (project)"
     ],
     "created": "2026-09-10 02:43:29.611Z",
-    "updated": "2026-09-10 03:13:28.477Z",
+    "updated": "2026-09-12 04:58:58.707Z",
     "system": false
   },
   {
@@ -7793,7 +7821,7 @@
         "hidden": false,
         "id": "json1770125858",
         "maxSize": 8000,
-        "name": "loci",
+        "name": "between",
         "presentable": false,
         "required": true,
         "system": false,
@@ -7806,15 +7834,15 @@
         "maxSelect": 1,
         "name": "precedence_class",
         "presentable": false,
-        "required": false,
+        "required": true,
         "system": false,
         "type": "select",
         "values": [
-          "PRECEDENCE_RESOLVABLE",
-          "PRECEDENCE_AMBIGUOUS",
-          "PRECEDENCE_INCORPORATED",
-          "REQUIRES_CLARIFICATION",
-          "NO_PRECEDENCE_PROVISION"
+          "precedence_resolvable",
+          "precedence_ambiguous",
+          "precedence_incorporated",
+          "requires_clarification",
+          "no_precedence_provision"
         ]
       },
       {
@@ -7827,7 +7855,7 @@
         "minSelect": 0,
         "name": "precedence_provision",
         "presentable": false,
-        "required": false,
+        "required": true,
         "system": false,
         "type": "relation"
       },
@@ -7842,7 +7870,7 @@
         "pattern": "",
         "presentable": false,
         "primaryKey": false,
-        "required": false,
+        "required": true,
         "system": false,
         "type": "text"
       },
@@ -7850,26 +7878,11 @@
         "help": "",
         "hidden": false,
         "id": "bool2426959191",
-        "name": "provisional",
+        "name": "provisional_construct_used",
         "presentable": false,
         "required": false,
         "system": false,
         "type": "bool"
-      },
-      {
-        "autogeneratePattern": "",
-        "help": "",
-        "hidden": false,
-        "id": "text4133540203",
-        "max": 40,
-        "min": 0,
-        "name": "severity",
-        "pattern": "",
-        "presentable": false,
-        "primaryKey": false,
-        "required": false,
-        "system": false,
-        "type": "text"
       },
       {
         "autogeneratePattern": "",
@@ -7919,6 +7932,49 @@
         "presentable": false,
         "system": false,
         "type": "autodate"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "select951861929",
+        "maxSelect": 1,
+        "name": "taxonomy_version",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "select",
+        "values": [
+          "1.2"
+        ]
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "number3608987730",
+        "max": 1,
+        "min": 0,
+        "name": "governing_index",
+        "onlyInt": true,
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "number"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "select1593113453",
+        "maxSelect": 1,
+        "name": "ai_severity_band",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "select",
+        "values": [
+          "low",
+          "medium",
+          "high"
+        ]
       }
     ],
     "indexes": [
@@ -7926,7 +7982,7 @@
       "CREATE INDEX idx_finding_class ON conflict_findings (project, conflict_class)"
     ],
     "created": "2026-09-10 03:13:28.604Z",
-    "updated": "2026-09-10 03:13:28.604Z",
+    "updated": "2026-09-12 04:58:58.824Z",
     "system": false
   },
   {

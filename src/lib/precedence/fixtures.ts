@@ -19,7 +19,7 @@ export const WCU: PrecedenceProvision = {
   project: "wcu",
   section: "Division 01",
   page: 89,
-  scope: "PROJECT_WIDE",
+  scope: "project_wide",
   scope_target: null,
   rules: [
     {
@@ -53,7 +53,7 @@ export const UCCS: PrecedenceProvision = {
   project: "uccs",
   section: "SC-6.23",
   page: 66,
-  scope: "PROJECT_WIDE",
+  scope: "project_wide",
   scope_target: null,
   rules: [
     { type: "OVERRIDE", applies_to: "Special Provisions", precedence: "ABSOLUTE", note: "Article 52" },
@@ -92,7 +92,7 @@ export const NORTH_MACON: PrecedenceProvision = {
   project: "north-macon",
   section: "00 0100",
   page: 16,
-  scope: "EXTERNAL",
+  scope: "external",
   scope_target: null,
   rules: [],
   resolves: [],
@@ -114,7 +114,7 @@ export const REES: PrecedenceProvision = {
   project: "rees",
   section: "22 00 00",
   page: 373,
-  scope: "DIVISION_SCOPED",
+  scope: "division_scoped",
   scope_target: "22",
   rules: [
     { type: "STRINGENCY" },
@@ -146,7 +146,7 @@ export const SEARCHED_NONE_FOUND: PrecedenceProvision = {
   project: "example",
   section: "Full manual search",
   page: null,
-  scope: "NONE_FOUND",
+  scope: "none_found",
   scope_target: null,
   rules: [],
   resolves: [],
@@ -156,4 +156,28 @@ export const SEARCHED_NONE_FOUND: PrecedenceProvision = {
     "section, for precedence, shall govern, shall control, takes precedence, discrepancy, " +
     "inconsistency, more stringent, made a part of, and incorporated by reference. " +
     "No document-precedence provision found and none incorporated by reference.",
+};
+
+/**
+ * Rees had no project-level precedence clause anywhere in the manual; its only
+ * precedence language is the Division 22 rule.
+ *
+ * Under taxonomy v1.2 that fact is RECORDED rather than implied: without this
+ * record a conflict outside Division 22 has no provision to cite, and the
+ * classifier refuses rather than inventing "no provision".
+ */
+export const REES_NONE_FOUND: PrecedenceProvision = {
+  id: "rees-none-found",
+  project: "rees",
+  section: "Full manual search",
+  page: null,
+  scope: "none_found",
+  scope_target: null,
+  rules: [],
+  resolves: [],
+  external_instrument: null,
+  source_text:
+    "Searched the complete project manual for a project-wide order-of-precedence clause. None " +
+    "found; the only precedence language is Section 22 00 00 (Plumbing), which governs Division 22 " +
+    "work only.",
 };

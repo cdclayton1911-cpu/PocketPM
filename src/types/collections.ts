@@ -24,9 +24,11 @@ import type {
   ChangeOrderReason,
   ChangeOrderStatus,
   ChangeOrderType,
+  ConflictFindingAiSeverityBand,
   ConflictFindingConflictClass,
   ConflictFindingConflictSubtype,
   ConflictFindingPrecedenceClass,
+  ConflictFindingTaxonomyVersion,
   DeficiencySeverity,
   DeficiencyStatus,
   DfowPhase,
@@ -36,6 +38,8 @@ import type {
   InvitationRole,
   PayApplicationStatus,
   PrecedenceProvisionRecordScope,
+  PrecedenceProvisionRecordSource,
+  PrecedenceProvisionRecordTaxonomyVersion,
   ProjectContractType,
   ProjectDocumentCategory,
   ProjectRoleRole,
@@ -151,7 +155,7 @@ export interface ChangeOrder extends BaseRecord {
 
 /**
  * `conflict_findings`
- * Required on create: project, conflict_class, loci
+ * Required on create: project, conflict_class, between, precedence_class, precedence_provision, precedence_reasoning, taxonomy_version, ai_severity_band
  *
  * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
  */
@@ -159,14 +163,16 @@ export interface ConflictFinding extends BaseRecord {
   project: RelationId; // required, -> projects, cascade delete
   conflict_class: ConflictFindingConflictClass; // required
   conflict_subtype: ConflictFindingConflictSubtype;
-  loci: unknown; // required
-  precedence_class: ConflictFindingPrecedenceClass;
-  precedence_provision: RelationId; // -> precedence_provisions
-  precedence_reasoning: string;
-  provisional: boolean;
-  severity: string;
+  between: unknown; // required
+  precedence_class: ConflictFindingPrecedenceClass; // required
+  precedence_provision: RelationId; // required, -> precedence_provisions
+  precedence_reasoning: string; // required
+  provisional_construct_used: boolean;
   notes: string;
   coded_by: RelationId; // -> users
+  taxonomy_version: ConflictFindingTaxonomyVersion; // required
+  governing_index: number; // 0..1
+  ai_severity_band: ConflictFindingAiSeverityBand; // required
 }
 
 /**
@@ -329,7 +335,7 @@ export interface PayApplication extends BaseRecord {
 
 /**
  * `precedence_provisions`
- * Required on create: project, section, scope, source_text
+ * Required on create: project, section, scope, source_text, taxonomy_version, source
  *
  * listRule: @request.auth.id != "" && (project.owner = @request.auth.id || project.members.id ?= @request.auth.id)
  */
@@ -346,6 +352,8 @@ export interface PrecedenceProvisionRecord extends BaseRecord {
   recorded_by: RelationId; // -> users
   notes: string;
   resolves: unknown;
+  taxonomy_version: PrecedenceProvisionRecordTaxonomyVersion; // required
+  source: PrecedenceProvisionRecordSource; // required
 }
 
 /**
