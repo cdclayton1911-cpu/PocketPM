@@ -8,14 +8,12 @@ import { FILE_FIELDS, fileFieldsFor } from "@/types/file-fields";
 /**
  * Authenticated download for a stored file.
  *
- * Every file field on the deployed schema is `protected: false`, which means
- * PocketBase serves it to anyone holding the URL — no session required. The
- * record id is random, so it is not enumerable, but a URL that leaks through a
- * forwarded email, a referrer header, or browser history grants permanent
- * access to that document. For a system holding subcontractor financial
- * statements and executed contracts that is the wrong default.
+ * Every file field is `protected: true` (all 14, checked against live
+ * 2026-09-12), so PocketBase serves a file only with a valid, short-lived file
+ * token, and every file collection's View rule requires project membership. A
+ * leaked file URL without a token gets nothing.
  *
- * So links point here instead of at PocketBase directly. This handler:
+ * Links point here rather than at PocketBase directly. This handler:
  *
  *   1. requires a session,
  *   2. fetches the record **as that user**, so PocketBase's project-scoped view
@@ -24,10 +22,8 @@ import { FILE_FIELDS, fileFieldsFor } from "@/types/file-fields";
  *   3. confirms the filename is actually attached to the field it claims, and
  *   4. redirects to PocketBase with a short-lived file token.
  *
- * The token is what makes flipping the fields to `protected: true` a settings
- * change rather than an app change. Until that flip, the redirect target is
- * still publicly fetchable by anyone who captures it — this handler controls
- * who can *obtain* a link, not who can use one. See docs/documents.md.
+ * The token expires within minutes, so a captured redirect URL stops working
+ * shortly after it is issued. See docs/documents.md.
  */
 export async function GET(
   _request: Request,
