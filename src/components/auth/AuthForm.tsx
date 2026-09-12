@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
@@ -79,10 +80,12 @@ export function AuthForm({
   const [errors, setErrors] = useState<FieldErrors>({});
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState(false);
+  const [emailTaken, setEmailTaken] = useState(false);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrors({});
+    setEmailTaken(false);
 
     const raw = {
       ...(Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>),
@@ -106,8 +109,9 @@ export function AuthForm({
       });
 
       if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { errors?: FieldErrors };
+        const data = (await res.json().catch(() => ({}))) as { errors?: FieldErrors; code?: string };
         setErrors(data.errors ?? { form: "Something went wrong. Try again." });
+        setEmailTaken(data.code === "email_taken");
         setPending(false);
         return;
       }
@@ -147,6 +151,19 @@ export function AuthForm({
           className="rounded-r6 border-l-[3px] border-danger bg-danger-subtle px-3 py-2 text-sm text-danger"
         >
           {errors.form}
+          {emailTaken ? (
+            <>
+              {" "}
+              <Link href="/login" className="font-semibold underline">
+                Sign in
+              </Link>{" "}
+              or{" "}
+              <Link href="/forgot-password" className="font-semibold underline">
+                reset your password
+              </Link>
+              .
+            </>
+          ) : null}
         </p>
       ) : null}
 

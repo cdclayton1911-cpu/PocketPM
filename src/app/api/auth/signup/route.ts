@@ -38,12 +38,13 @@ export async function POST(request: Request) {
   } catch (err) {
     const fields = pbFieldErrors(err);
 
-    // PocketBase reports a duplicate address as a validation error on `email`.
-    // Rewrite it so the response cannot be used to enumerate accounts: the
-    // caller sees the same generic message either way.
+    // PocketBase reports a duplicate address as a validation error on `email`
+    // (format is already checked by signupSchema). Say so plainly: a vague
+    // message protects nothing, since signup inherently reveals whether an
+    // address is registered, and it only confuses a legitimate customer.
     if (fields.email) {
       return NextResponse.json(
-        { errors: { form: "Could not create that account. Try signing in instead." } },
+        { errors: { form: "That email is already registered." }, code: "email_taken" },
         { status: 409 },
       );
     }
