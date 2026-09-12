@@ -1,7 +1,7 @@
 "use client";
 
 import { Info, RefreshCw, TriangleAlert } from "lucide-react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,10 @@ import { DataTable, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import type { CalendarSource } from "@/lib/schedule/analyze";
 import type { CpmResult } from "@/lib/schedule/cpm";
 import type { DivergenceReport, DivergenceRow } from "@/lib/schedule/divergence";
+import { constraintLabel, DIVERGENCE_CAUSE_LABEL } from "@/lib/schedule/labels";
 import { formatDays } from "@/lib/schedule/units";
 
 interface Row extends CpmResult {
@@ -21,6 +23,19 @@ interface Row extends CpmResult {
   imported_finish: string | null;
 }
 
+function calendarPhrase(source: CalendarSource): string {
+  if (source.kind === "project") return "the project working calendar";
+  return source.name
+    ? `the “${source.name}” calendar from the latest schedule import`
+    : "the calendar from the latest schedule import";
+}
+
+function Tag({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "sky" }) {
+  return (
+    <span className={cn("ml-1 text-[10px]", tone === "sky" ? "text-sky-700" : "text-neutral-500")}>{children}</span>
+  );
+}
+
 export function ScheduleAnalysisClient({
   rows,
   divergence,
@@ -28,6 +43,8 @@ export function ScheduleAnalysisClient({
   error,
   freshness,
   computedAt,
+  calendarSource,
+  dataDate,
 }: {
   rows: Row[];
   divergence: DivergenceReport | null;
@@ -36,6 +53,10 @@ export function ScheduleAnalysisClient({
   /** Whether the SAVED results still match the inputs. */
   freshness: "fresh" | "stale" | "never-computed";
   computedAt: string | null;
+  /** Which calendar the dates were computed on. Always shown. */
+  calendarSource: CalendarSource;
+  /** The latest import's data date; null when there is none. */
+  dataDate: string | null;
 }) {
   const [tab, setTab] = useState<"cpm" | "divergence">("cpm");
   const [saving, setSaving] = useState(false);
@@ -63,7 +84,7 @@ export function ScheduleAnalysisClient({
             {error === "cycle"
               ? "The schedule contains a circular dependency, so no dates can be calculated. Find and remove the loop in the relationships."
               : error === "no_working_days"
-                ? "The project calendar has no working days, so no dates can be calculated."
+                ? "The working calendar has no working days, so no dates can be calculated."
                 : "There are no schedule activities yet."}
           </p>
         </Card>
@@ -88,14 +109,19 @@ export function ScheduleAnalysisClient({
     {
       key: "computed",
       header: "Computed (early)",
-      cell: (r) => (
-        <span className="tabular-nums">
-          {r.early_start ?? "—"} → {r.early_finish ?? "—"}
-          {r.pinned_start || r.pinned_finish ? (
-            <span className="ml-1 text-[10px] text-sky-700">actual</span>
-          ) : null}
-        </span>
-      ),
+      cell: (r) =>
+        r.excluded ? (
+          <span className="text-[11px] text-neutral-500">
+            Level of effort: spans other work, not scheduled by logic
+          </span>
+        ) : (
+          <span className="tabular-nums">
+            {r.early_start ?? "—"} → {r.early_finish ?? "—"}
+            {r.pinned_start || r.pinned_finish ? <Tag tone="sky">actual</Tag> : null}
+            {r.floored_by_data_date ? <Tag>data date</Tag> : null}
+            {r.as_late_as_possible ? <Tag>as late as possible</Tag> : null}
+          </span>
+        ),
     },
     { key: "float", header: "Total float", align: "right", cell: (r) => formatDays(r.total_float) },
     {
@@ -141,25 +167,52 @@ export function ScheduleAnalysisClient({
     },
     {
       key: "why",
-      header: "",
-      cell: (r) =>
-        r.pinned ? (
-          <span className="text-[11px] text-neutral-500">actual progress</span>
-        ) : r.likely_constrained ? (
-          <span className="text-[11px] text-amber-800">likely constrained in P6</span>
-        ) : null,
+      header: "Why",
+      cell: (r) => {
+        if (!r.cause) return null;
+        const cause = DIVERGENCE_CAUSE_LABEL[r.cause];
+        const constraint = r.cause === "constraint_not_applied" ? constraintLabel(r.constraint_type) : null;
+        return (
+          <span
+            title={cause.hint}
+            className={cn("text-[11px]", r.cause === "unexplained" ? "font-medium text-red-700" : "text-neutral-600")}
+          >
+            {cause.label}
+            {constraint ? `: ${constraint}` : null}
+            {r.cause === "unexplained" && r.likely_constrained ? (
+              <span className="block font-normal text-amber-800">
+                Source date is later: possibly a constraint the file didn&rsquo;t include
+              </span>
+            ) : null}
+          </span>
+        );
+      },
     },
   ];
+
+  const excludedCount = divergence?.excluded.length ?? 0;
 
   return (
     <div className="space-y-4 p-4">
       <div>
         <h1 className="text-base font-semibold">Schedule analysis</h1>
         <p className="mt-0.5 text-[12px] text-neutral-500">
-          Calculated from the activity logic and the project working calendar.
-          {projectFinish ? `計 Project finish: ${projectFinish}.` : null}
+          Calculated from the activity logic and {calendarPhrase(calendarSource)}.
+          {dataDate ? ` Data date ${dataDate}: no remaining work is scheduled before it.` : null}
+          {projectFinish ? ` Project finish: ${projectFinish}.` : null}
         </p>
       </div>
+
+      {calendarSource.kind === "import" && calendarSource.warnings.length > 0 ? (
+        <div className="flex items-start gap-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+          <ul className="space-y-0.5">
+            {calendarSource.warnings.map((w) => (
+              <li key={w}>{w}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {/*
         Visible, not a tooltip. The figures ON THIS PAGE are always computed
@@ -186,7 +239,7 @@ export function ScheduleAnalysisClient({
             </p>
             <Button className="mt-2" variant="outline" onClick={recalculate} disabled={saving}>
               <RefreshCw className={cn("mr-1 size-3", saving && "animate-spin")} />
-              {saving ? "Saving\u2026" : "Save these results to the activities"}
+              {saving ? "Saving…" : "Save these results to the activities"}
             </Button>
           </div>
         </div>
@@ -203,7 +256,9 @@ export function ScheduleAnalysisClient({
               tab === t ? "border-neutral-800 font-medium" : "border-transparent text-neutral-500",
             )}
           >
-            {t === "cpm" ? "Critical path" : `Divergence${divergence ? ` (${divergence.likelyConstrained.length})` : ""}`}
+            {t === "cpm"
+              ? "Critical path"
+              : `Divergence${divergence ? ` (${divergence.unexplained.length} unexplained)` : ""}`}
           </button>
         ))}
       </div>
@@ -220,25 +275,21 @@ export function ScheduleAnalysisClient({
         <div className="space-y-3">
           {/*
             Without this, the first PM to open the report concludes the CPM is
-            broken. A divergence is usually correct behaviour meeting a missing
-            feature, and saying so is the difference between a useful diagnostic
-            and a bug report.
+            broken. Most differences have a known cause, and saying which is the
+            difference between a useful diagnostic and a bug report.
           */}
           <div className="flex gap-2 rounded border border-sky-200 bg-sky-50 px-3 py-2 text-[12px] text-sky-900">
             <Info className="mt-0.5 size-4 shrink-0" />
             <div>
               <p className="font-medium">A difference here usually is not an error.</p>
               <p className="mt-0.5">
-                These dates are calculated from activity logic alone. Date constraints —
-                start-no-earlier-than, must-finish-on, deadlines — are not yet supported, and P6
-                schedules are full of them. When an imported date is <strong>later</strong> than the
-                calculated one, P6 is normally holding that activity with a constraint this
-                calculation cannot see. That is what &ldquo;likely constrained&rdquo; marks, and it
-                is the best signal available for finding constrained activities.
+                These dates come from activity logic, the calendar, actual progress and the data
+                date. P6 constraints other than as-late-as-possible aren&rsquo;t applied yet, so where
+                P6 holds a date with one, the row says which constraint.
               </p>
               <p className="mt-1">
-                An imported date <strong>earlier</strong> than the calculated one is different — it
-                usually means a relationship is missing or wrong, which is worth investigating.
+                Rows marked <strong>unexplained</strong> are the ones worth checking: usually a
+                missing or wrong relationship, or a calendar difference.
               </p>
             </div>
           </div>
@@ -248,6 +299,14 @@ export function ScheduleAnalysisClient({
               {divergence.missingSourceDates} activit{divergence.missingSourceDates === 1 ? "y has" : "ies have"} no
               early dates from the source schedule, so there is nothing to compare them against. No
               difference shown for {divergence.missingSourceDates === 1 ? "it" : "them"} means not compared, not agreed.
+            </p>
+          ) : null}
+
+          {excludedCount > 0 ? (
+            <p className="rounded border border-neutral-300 bg-neutral-50 px-3 py-2 text-[12px] text-neutral-700">
+              {excludedCount} level-of-effort activit{excludedCount === 1 ? "y spans" : "ies span"} other work
+              and {excludedCount === 1 ? "isn’t" : "aren’t"} scheduled by logic, so{" "}
+              {excludedCount === 1 ? "it’s" : "they’re"} left out of this comparison.
             </p>
           ) : null}
 

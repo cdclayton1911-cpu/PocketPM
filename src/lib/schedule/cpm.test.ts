@@ -266,3 +266,185 @@ describe("imported dates are never written", () => {
     expect(JSON.stringify(activities)).toBe(snapshot);
   });
 });
+
+function runWith(
+  activities: CpmActivity[],
+  relationships: CpmRelationship[],
+  options: { dataDate?: string | null } = {},
+) {
+  const outcome = computeCpm(activities, relationships, MON_FRI, { projectStart: START, ...options });
+  if (!outcome.ok) throw new Error(`cpm failed: ${outcome.error}`);
+  const by = new Map(outcome.report.activities.map((a) => [a.id, a]));
+  return { report: outcome.report, by };
+}
+
+describe("milestones sit at a point in the day", () => {
+  it("a finish milestone lands on its predecessor's finish day, not the day after", () => {
+    // A: Mon 05 – Fri 09. P6 puts the finish milestone at the end of Fri 09.
+    const { by } = run([act("A", 5), act("M", 0, { activity_type: "finish_milestone" })], [rel("A", "M")]);
+    expect(by.get("M")?.early_start).toBe("2026-01-09");
+    expect(by.get("M")?.early_finish).toBe("2026-01-09");
+  });
+
+  it("a successor of a finish milestone starts the next working day", () => {
+    const { by } = run(
+      [act("A", 5), act("M", 0, { activity_type: "finish_milestone" }), act("B", 3)],
+      [rel("A", "M"), rel("M", "B")],
+    );
+    expect(by.get("B")?.early_start).toBe("2026-01-12");
+  });
+
+  it("a start milestone after a task sits on the next working day", () => {
+    const { by } = run([act("A", 5), act("S", 0, { activity_type: "start_milestone" })], [rel("A", "S")]);
+    expect(by.get("S")?.early_start).toBe("2026-01-12");
+  });
+
+  it("a successor of a start milestone starts the milestone's day, not a day later", () => {
+    // Was Tue 13 before milestones had a position in the day: every successor
+    // of a start milestone started one day late.
+    const { by } = run(
+      [act("A", 5), act("S", 0, { activity_type: "start_milestone" }), act("B", 3)],
+      [rel("A", "S"), rel("S", "B")],
+    );
+    expect(by.get("B")?.early_start).toBe("2026-01-12");
+  });
+
+  it("keeps a chain through either milestone type on the critical path, with zero float", () => {
+    for (const type of ["start_milestone", "finish_milestone"] as const) {
+      const { by } = run([act("A", 5), act("M", 0, { activity_type: type }), act("B", 3)], [rel("A", "M"), rel("M", "B")]);
+      for (const id of ["A", "M", "B"]) {
+        expect(by.get(id)?.total_float, `${type} ${id}`).toEqual({ value: 0, basis: "working" });
+      }
+    }
+  });
+});
+
+describe("level of effort", () => {
+  const acts = () => [act("A", 5), act("L", 20, { activity_type: "level_of_effort" }), act("B", 3)];
+  const rels = () => [rel("A", "B"), rel("A", "L", "SS"), rel("L", "B", "FF")];
+
+  it("is left out of the pass, with null dates and a reason", () => {
+    const { by, report } = runWith(acts(), rels());
+    const l = by.get("L");
+    expect(l?.excluded).toBe(true);
+    expect(l?.early_start).toBeNull();
+    expect(l?.is_critical).toBe(false);
+    expect(report.excluded.map((e) => e.id)).toEqual(["L"]);
+    expect(report.excluded[0].reason).toMatch(/level of effort/);
+  });
+
+  it("drives nothing: its relationships do not push a successor", () => {
+    // Included, L (20 days) would hold B's finish to Fri 30 through the FF.
+    const { by } = runWith(acts(), rels());
+    expect(by.get("B")?.early_start).toBe("2026-01-12");
+  });
+
+  it("does not extend the project finish", () => {
+    const { report } = runWith(acts(), rels());
+    expect(report.projectFinish).toBe("2026-01-14");
+  });
+});
+
+describe("as late as possible", () => {
+  // A(10) and B(2) both feed C. B has 8 working days of free float.
+  const acts = (bOver: Partial<CpmActivity> = {}) => [act("A", 10), act("B", 2, bOver), act("C", 1)];
+  const rels = () => [rel("A", "C"), rel("B", "C")];
+
+  it("moves an ALAP activity to finish just before its successor", () => {
+    const { by } = runWith(acts({ constraint_type: "as_late_as_possible" }), rels());
+    expect(by.get("B")?.early_start).toBe("2026-01-15");
+    expect(by.get("B")?.early_finish).toBe("2026-01-16");
+    expect(by.get("B")?.as_late_as_possible).toBe(true);
+    expect(by.get("B")?.free_float).toEqual({ value: 0, basis: "working" });
+  });
+
+  it("never moves the successor", () => {
+    const plain = runWith(acts(), rels()).by.get("C")?.early_start;
+    const alap = runWith(acts({ constraint_type: "as_late_as_possible" }), rels()).by.get("C")?.early_start;
+    expect(alap).toBe(plain);
+    expect(alap).toBe("2026-01-19");
+  });
+
+  it("runs an ALAP activity with no successors to the project finish", () => {
+    const { by } = runWith([act("A", 10), act("B", 2, { constraint_type: "as_late_as_possible" })], []);
+    expect(by.get("B")?.early_finish).toBe("2026-01-16");
+  });
+
+  it("does not move an activity that has started", () => {
+    const { by } = runWith(acts({ constraint_type: "as_late_as_possible", actual_start: START }), rels());
+    expect(by.get("B")?.early_start).toBe(START);
+    expect(by.get("B")?.as_late_as_possible).toBe(false);
+  });
+
+  it("applies no other constraint type", () => {
+    const { by } = runWith(acts({ constraint_type: "start_on_or_after" }), rels());
+    expect(by.get("B")?.early_start).toBe(START);
+  });
+});
+
+describe("data date", () => {
+  it("holds an unstarted activity to the data date", () => {
+    const { by, report } = runWith([act("A", 3)], [], { dataDate: "2026-01-14" });
+    expect(by.get("A")?.early_start).toBe("2026-01-14");
+    expect(by.get("A")?.early_finish).toBe("2026-01-16");
+    expect(by.get("A")?.floored_by_data_date).toBe(true);
+    expect(report.dataDate).toBe("2026-01-14");
+  });
+
+  it("moves a weekend data date to the next working day", () => {
+    const { report } = runWith([act("A", 3)], [], { dataDate: "2026-01-10" });
+    expect(report.dataDate).toBe("2026-01-12");
+  });
+
+  it("schedules no remaining work before the data date, even where logic allows it", () => {
+    // A is complete; logic alone would start B on Wed 07.
+    const acts = [act("A", 2, { actual_start: START, actual_finish: "2026-01-06" }), act("B", 3)];
+    const { by } = runWith(acts, [rel("A", "B")], { dataDate: "2026-01-12" });
+    expect(by.get("B")?.early_start).toBe("2026-01-12");
+    expect(by.get("A")?.floored_by_data_date).toBe(false);
+    for (const r of by.values()) {
+      if (!r.pinned_finish) expect(r.early_start! >= "2026-01-12", r.id).toBe(true);
+    }
+  });
+
+  it("floors nothing without a data date, which is the CSV behaviour", () => {
+    const acts = [act("A", 2, { actual_start: START, actual_finish: "2026-01-06" }), act("B", 3)];
+    const { by, report } = runWith(acts, [rel("A", "B")]);
+    expect(by.get("B")?.early_start).toBe("2026-01-07");
+    expect(report.dataDate).toBeNull();
+  });
+
+  it("finishes an in-progress activity's REMAINING duration from the data date", () => {
+    const acts = [act("A", 10, { actual_start: START, remaining_duration_days: 3 }), act("B", 2)];
+    const { by } = runWith(acts, [rel("A", "B")], { dataDate: "2026-01-14" });
+    expect(by.get("A")?.early_start).toBe(START);
+    expect(by.get("A")?.early_finish).toBe("2026-01-16");
+    expect(by.get("A")?.floored_by_data_date).toBe(true);
+    expect(by.get("B")?.early_start).toBe("2026-01-19");
+  });
+
+  it("without a remaining duration, takes the planned duration less the days already worked", () => {
+    // Started Mon 05, 5 working days elapsed by Mon 12, so 5 of 10 remain.
+    const { by } = runWith([act("A", 10, { actual_start: START })], [], { dataDate: "2026-01-12" });
+    expect(by.get("A")?.early_finish).toBe("2026-01-16");
+  });
+
+  it("schedules an unstarted activity for its remaining duration", () => {
+    const { by } = runWith([act("A", 10, { remaining_duration_days: 4 })], [], { dataDate: START });
+    expect(by.get("A")?.early_finish).toBe("2026-01-08");
+  });
+
+  it("ignores remaining duration without a data date", () => {
+    const { by } = runWith([act("A", 10, { remaining_duration_days: 4 })], []);
+    expect(by.get("A")?.early_finish).toBe("2026-01-16");
+  });
+
+  it("gives an in-progress activity finish float, not float measured from its past start", () => {
+    // Start-based float here would be 7 days: the distance from a start that
+    // already happened to a late start that no longer means anything.
+    const { by } = runWith([act("A", 10, { actual_start: START, remaining_duration_days: 3 })], [], {
+      dataDate: "2026-01-14",
+    });
+    expect(by.get("A")?.total_float).toEqual({ value: 0, basis: "working" });
+  });
+});

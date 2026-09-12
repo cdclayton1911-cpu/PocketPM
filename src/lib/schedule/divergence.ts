@@ -1,22 +1,28 @@
 /**
- * Where our computed dates disagree with the imported schedule, and by how much.
+ * Where our computed dates disagree with the imported schedule, by how much,
+ * and why.
  *
- * ## Why this is a primary deliverable, not a diagnostic afterthought
+ * ## Every difference carries a cause
  *
- * `schedule_items` carries NO constraint fields — no must-start-on, no
- * start-no-earlier-than, no deadline — and constraints are out of scope for
- * this pass. Real P6 schedules are full of them, and a constrained activity's
- * date is held by the constraint rather than derived from logic.
+ * A difference is only useful if it says why, so every row that differs gets
+ * one:
  *
- * So for any constrained activity our computed date will disagree with the
- * imported one. That is a correct pure-logic answer and a wrong mirror, and the
- * disagreement is not noise: **it is the only signal we have for which
- * activities are constrained**, since there is no field to read. A large
- * divergence on an otherwise unremarkable activity almost always means P6 is
- * holding a date that logic does not support.
+ *   - `actual_progress`: pinned by actual dates, so a difference is expected.
+ *   - `constraint_not_applied`: the source schedule holds a constraint
+ *     (start-on, finish-on-or-before, mandatory dates...) that the CPM pass
+ *     carries but does not apply. Only as-late-as-possible is applied.
+ *   - `unexplained`: none of the above. These are the ones worth investigating:
+ *     a missing or wrong relationship, a calendar mismatch, or an engine bug.
+ *     The XER importer's acceptance test counts them, and the target is zero.
  *
- * That makes this both a PM-facing report and our instrument for finding
- * constrained activities without a constraint field.
+ * Level-of-effort activities are left out of the pass, so there is nothing to
+ * compare. They are listed in `excluded`: not as rows, and not as unmatched.
+ *
+ * ## likely_constrained
+ *
+ * A LATER imported date was the only signal for a constraint when schedules
+ * arrived without constraint fields, and a CSV still does. The flag is kept for
+ * those; when the constraint is actually known, `cause` is the better answer.
  *
  * ## Deltas are CALENDAR days
  *
@@ -31,6 +37,14 @@ import { calendarDays, type Days } from "./units";
 import type { CpmResult } from "./cpm";
 
 export type DivergenceMagnitude = "none" | "minor" | "notable" | "severe";
+
+export type DivergenceCause = "actual_progress" | "constraint_not_applied" | "unexplained";
+
+export const DIVERGENCE_CAUSES: readonly DivergenceCause[] = [
+  "actual_progress",
+  "constraint_not_applied",
+  "unexplained",
+];
 
 export interface DivergenceRow {
   id: string;
@@ -49,6 +63,10 @@ export interface DivergenceRow {
   start_delta: Days | null;
   finish_delta: Days | null;
   magnitude: DivergenceMagnitude;
+  /** Why it differs; null when it does not. */
+  cause: DivergenceCause | null;
+  /** The source schedule's constraint type, when it has one. */
+  constraint_type: string | null;
   /** The imported date is materially LATER than logic allows. */
   likely_constrained: boolean;
   /** Pinned by actual progress, so a divergence here is expected, not suspicious. */
@@ -59,9 +77,14 @@ export interface DivergenceReport {
   rows: DivergenceRow[];
   /** Rows whose imported date is later than logic allows, worst first. */
   likelyConstrained: DivergenceRow[];
+  /** Rows that differ with no known cause, worst first. The number to drive to zero. */
+  unexplained: DivergenceRow[];
   /** Activities present in the schedule but absent from the CPM result. */
   unmatched: string[];
+  /** Level-of-effort activities: left out of the pass, so not compared. */
+  excluded: string[];
   counts: Record<DivergenceMagnitude, number>;
+  causes: Record<DivergenceCause, number>;
   /**
    * Activities with no source early dates to compare against — a CSV without
    * an Early Start column, say. Counted, because a row with nothing to compare
@@ -93,13 +116,31 @@ function magnitudeOf(delta: number, t: DivergenceThresholds): DivergenceMagnitud
   return "severe";
 }
 
+function causeOf(
+  magnitude: DivergenceMagnitude,
+  pinned: boolean,
+  constraintType: string | null,
+): DivergenceCause | null {
+  if (magnitude === "none") return null;
+  if (pinned) return "actual_progress";
+  // ALAP is applied, so it explains nothing: an ALAP activity that still
+  // differs is unexplained.
+  if (constraintType && constraintType !== "as_late_as_possible") return "constraint_not_applied";
+  return "unexplained";
+}
+
 export interface DivergenceInput {
   id: string;
   activity_id?: string;
   activity?: string;
   source_early_start?: string;
   source_early_finish?: string;
+  constraint_type?: string;
 }
+
+const worstFirst = (a: DivergenceRow, b: DivergenceRow) =>
+  Math.max(Math.abs(b.start_delta?.value ?? 0), Math.abs(b.finish_delta?.value ?? 0)) -
+  Math.max(Math.abs(a.start_delta?.value ?? 0), Math.abs(a.finish_delta?.value ?? 0));
 
 export function computeDivergence(
   items: readonly DivergenceInput[],
@@ -109,6 +150,7 @@ export function computeDivergence(
   const byId = new Map(results.map((r) => [r.id, r]));
   const rows: DivergenceRow[] = [];
   const unmatched: string[] = [];
+  const excluded: string[] = [];
 
   for (const item of items) {
     const result = byId.get(item.id);
@@ -117,6 +159,10 @@ export function computeDivergence(
       // missingFromCurrent. An activity absent from a report reads as "no
       // divergence", which is the most misleading answer available.
       unmatched.push(item.activity_id || item.id);
+      continue;
+    }
+    if (result.excluded) {
+      excluded.push(item.activity_id || item.id);
       continue;
     }
 
@@ -135,6 +181,7 @@ export function computeDivergence(
     const magnitude = startDelta || finishDelta ? magnitudeOf(worst, thresholds) : "none";
 
     const pinned = result.pinned_start || result.pinned_finish;
+    const constraintType = item.constraint_type || null;
 
     rows.push({
       id: item.id,
@@ -147,6 +194,8 @@ export function computeDivergence(
       start_delta: startDelta,
       finish_delta: finishDelta,
       magnitude,
+      cause: causeOf(magnitude, pinned, constraintType),
+      constraint_type: constraintType,
       // Only a LATER imported date suggests a constraint. An earlier one means
       // our logic is more restrictive than the source, which is a different
       // problem — usually a missing relationship.
@@ -157,7 +206,15 @@ export function computeDivergence(
   }
 
   const counts: Record<DivergenceMagnitude, number> = { none: 0, minor: 0, notable: 0, severe: 0 };
-  for (const row of rows) counts[row.magnitude] += 1;
+  const causes: Record<DivergenceCause, number> = {
+    actual_progress: 0,
+    constraint_not_applied: 0,
+    unexplained: 0,
+  };
+  for (const row of rows) {
+    counts[row.magnitude] += 1;
+    if (row.cause) causes[row.cause] += 1;
+  }
 
   return {
     rows,
@@ -165,8 +222,11 @@ export function computeDivergence(
     likelyConstrained: rows
       .filter((r) => r.likely_constrained)
       .sort((a, b) => (b.start_delta?.value ?? 0) - (a.start_delta?.value ?? 0)),
+    unexplained: rows.filter((r) => r.cause === "unexplained").sort(worstFirst),
     unmatched,
+    excluded,
     counts,
+    causes,
   };
 }
 

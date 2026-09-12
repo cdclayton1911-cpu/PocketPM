@@ -80,6 +80,40 @@ describe("every other input", () => {
     expect(freshness(next)).toBe("stale");
   });
 
+  it("reports stale when the data date changed", () => {
+    // A new P6 import moves the data date and nothing else can be seen to
+    // change on the activities; every floored date moves with it.
+    expect(freshness({ ...BASE, dataDate: "2026-01-12" })).toBe("stale");
+  });
+
+  it("reports stale when a remaining duration changed", () => {
+    const next: CpmInputs = {
+      ...BASE,
+      activities: [{ ...BASE.activities[0], remaining_duration_days: 2 }, BASE.activities[1]],
+    };
+    expect(freshness(next)).toBe("stale");
+  });
+
+  it("reports stale when an activity became as-late-as-possible", () => {
+    const next: CpmInputs = {
+      ...BASE,
+      activities: [{ ...BASE.activities[0], constraint_type: "as_late_as_possible" }, BASE.activities[1]],
+    };
+    expect(freshness(next)).toBe("stale");
+  });
+
+  it("reports stale when an activity type changed", () => {
+    const next: CpmInputs = {
+      ...BASE,
+      activities: [{ ...BASE.activities[0], activity_type: "level_of_effort" }, BASE.activities[1]],
+    };
+    expect(freshness(next)).toBe("stale");
+  });
+
+  it("treats a missing data date and a null one alike", () => {
+    expect(freshness({ ...BASE, dataDate: null })).toBe("fresh");
+  });
+
   it("reports fresh when nothing changed", () => {
     expect(freshness({ ...BASE })).toBe("fresh");
   });

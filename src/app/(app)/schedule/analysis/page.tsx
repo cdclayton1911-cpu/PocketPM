@@ -27,6 +27,8 @@ export default async function ScheduleAnalysisPage() {
         error={analysis.outcome.error}
         freshness={analysis.freshness.state}
         computedAt={analysis.computedAt}
+        calendarSource={analysis.calendarSource}
+        dataDate={analysis.dataDate}
       />
     );
   }
@@ -56,6 +58,8 @@ export default async function ScheduleAnalysisPage() {
       error={null}
       freshness={analysis.freshness.state}
       computedAt={analysis.computedAt}
+      calendarSource={analysis.calendarSource}
+      dataDate={analysis.dataDate}
     />
   );
 }

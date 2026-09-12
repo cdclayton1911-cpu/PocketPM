@@ -15,20 +15,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { fieldErrorsFromZod, type FieldErrors } from "@/lib/validation/auth";
 import { scheduleItemSchema } from "@/lib/validation/schedule";
-import { SCHEDULE_ITEM_STATUS, type ScheduleItem } from "@/types";
+import { ACTIVITY_TYPE_LABEL } from "@/lib/schedule/labels";
+import { SCHEDULE_ITEM_ACTIVITY_TYPE, SCHEDULE_ITEM_STATUS, type ScheduleItem } from "@/types";
 
 /**
  * One field for what an activity is. Replaced an is_milestone checkbox, which
  * could not say which end a milestone marks — and editing a finish milestone
  * through a checkbox would have saved it back as the only kind it knew.
+ * Options come from the schema and labels from lib/schedule/labels.ts, so the
+ * two cannot drift apart.
  */
-const ACTIVITY_TYPES = ["task", "start_milestone", "finish_milestone", "level_of_effort"] as const;
-const ACTIVITY_TYPE_LABEL: Record<(typeof ACTIVITY_TYPES)[number], string> = {
-  task: "Task",
-  start_milestone: "Start milestone",
-  finish_milestone: "Finish milestone",
-  level_of_effort: "Level of effort",
-};
+const ACTIVITY_TYPES = SCHEDULE_ITEM_ACTIVITY_TYPE;
 
 import { scheduleHooks } from "./ScheduleClient";
 

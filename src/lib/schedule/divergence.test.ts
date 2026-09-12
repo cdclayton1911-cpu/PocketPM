@@ -118,6 +118,63 @@ describe("progress and gaps", () => {
   });
 });
 
+describe("every difference carries a cause", () => {
+  const rels: CpmRelationship[] = [{ predecessor: "a", successor: "b", type: "FS", lag_days: 0 }];
+  // b's logic start is Mon 12; the source holds it to Mon 19.
+  const held = (over: Partial<CpmActivity & DivergenceInput> = {}): Array<CpmActivity & DivergenceInput> => [
+    { id: "a", duration_days: 5, source_early_start: START, source_early_finish: "2026-01-09" },
+    { id: "b", duration_days: 3, source_early_start: "2026-01-19", source_early_finish: "2026-01-21", ...over },
+  ];
+
+  it("names a constraint the pass does not apply", () => {
+    const acts = held({ constraint_type: "start_on_or_after" });
+    const report = computeDivergence(acts, cpm(acts, rels));
+    const b = report.rows.find((r) => r.id === "b");
+    expect(b?.cause).toBe("constraint_not_applied");
+    expect(b?.constraint_type).toBe("start_on_or_after");
+    expect(report.unexplained).toHaveLength(0);
+    expect(report.causes).toEqual({ actual_progress: 0, constraint_not_applied: 1, unexplained: 0 });
+  });
+
+  it("calls a difference with no known cause unexplained", () => {
+    const acts = held();
+    const report = computeDivergence(acts, cpm(acts, rels));
+    expect(report.unexplained.map((r) => r.id)).toEqual(["b"]);
+    expect(report.rows.find((r) => r.id === "b")?.cause).toBe("unexplained");
+  });
+
+  it("does not let as-late-as-possible explain a difference, because the pass applies it", () => {
+    // b has no successors and sets the project finish, so ALAP cannot move it:
+    // the seven days stay, and nothing on record accounts for them.
+    const acts = held({ constraint_type: "as_late_as_possible" });
+    const report = computeDivergence(acts, cpm(acts, rels));
+    expect(report.rows.find((r) => r.id === "b")?.cause).toBe("unexplained");
+  });
+
+  it("attributes a pinned difference to actual progress", () => {
+    const acts = held({ actual_start: "2026-01-19", source_early_start: "2026-01-26", source_early_finish: "2026-01-28" });
+    const report = computeDivergence(acts, cpm(acts, rels));
+    expect(report.rows.find((r) => r.id === "b")?.cause).toBe("actual_progress");
+  });
+
+  it("gives no cause where nothing differs", () => {
+    const acts = held();
+    const report = computeDivergence(acts, cpm(acts, rels));
+    expect(report.rows.find((r) => r.id === "a")?.cause).toBeNull();
+  });
+
+  it("lists level of effort as excluded: not a row, and not unmatched", () => {
+    const acts: Array<CpmActivity & DivergenceInput> = [
+      { id: "a", duration_days: 5, source_early_start: START },
+      { id: "l", activity_id: "LOE-1", activity_type: "level_of_effort", duration_days: 20, source_early_start: START },
+    ];
+    const report = computeDivergence(acts, cpm(acts, []));
+    expect(report.excluded).toEqual(["LOE-1"]);
+    expect(report.rows.map((r) => r.id)).toEqual(["a"]);
+    expect(report.unmatched).toEqual([]);
+  });
+});
+
 describe("thresholds", () => {
   it("are configurable, since tolerance differs by schedule", () => {
     const activities: Array<CpmActivity & DivergenceInput> = [

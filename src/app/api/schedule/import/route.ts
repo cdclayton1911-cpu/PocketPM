@@ -139,6 +139,18 @@ export async function PUT(request: Request) {
     );
   }
 
+  // Recorded FIRST. The latest import decides which calendar and data date the
+  // analysis uses, and a CSV carries neither, so this record is what stops an
+  // earlier P6 import's calendar and data-date floor being applied to a CSV
+  // schedule. Written before the replace, so a replace that fails partway can
+  // never leave the previous import's settings governing the new rows.
+  await pb.collection("schedule_imports").create({
+    project: projectId,
+    imported_by: session.user.id,
+    source_format: "csv",
+    activity_count: activities.length,
+  });
+
   // Replace: the schedule is mirrored, not authored, so a re-import is the
   // source of truth. Relationships go first — they cascade from activities and
   // would otherwise be orphaned mid-write.

@@ -30,7 +30,9 @@
  * contract value changes nothing the CPM reads, and marking the cache stale for
  * it trains people to ignore the marker - which costs more than the stale read
  * it was meant to prevent. A holiday's *label* is excluded for the same reason:
- * it has no effect on any computed date.
+ * it has no effect on any computed date. So is a constraint's *date*: only the
+ * as-late-as-possible TYPE changes the computation, and the other types are
+ * carried for the divergence report, not applied.
  */
 
 import type { ProjectCalendar } from "./calendar";
@@ -42,6 +44,8 @@ export interface CpmInputs {
   calendar: ProjectCalendar;
   criticalThreshold?: number;
   projectStart?: string;
+  /** The source schedule's data date; null or absent when it has none. */
+  dataDate?: string | null;
 }
 
 /**
@@ -57,17 +61,19 @@ export function canonicalInputs(inputs: CpmInputs): string {
       [
         a.id,
         a.duration_days ?? "",
+        a.remaining_duration_days ?? "",
         a.target_start ?? "",
         a.target_finish ?? "",
         a.actual_start ?? "",
         a.actual_finish ?? "",
         a.activity_type ?? "task",
-      ].join("\u0001"),
+        a.constraint_type ?? "",
+      ].join(""),
     )
     .sort();
 
   const relationships = [...inputs.relationships]
-    .map((r) => [r.predecessor, r.successor, r.type, r.lag_days ?? 0].join("\u0001"))
+    .map((r) => [r.predecessor, r.successor, r.type, r.lag_days ?? 0].join(""))
     .sort();
 
   // Only the fields that change an answer. Labels are documentation.
@@ -78,13 +84,14 @@ export function canonicalInputs(inputs: CpmInputs): string {
     .join(",");
 
   return [
-    `activities:${activities.join("\u0002")}`,
-    `relationships:${relationships.join("\u0002")}`,
+    `activities:${activities.join("")}`,
+    `relationships:${relationships.join("")}`,
     `work_days:${workDays}`,
     `holidays:${holidays}`,
     `threshold:${inputs.criticalThreshold ?? 0}`,
     `projectStart:${inputs.projectStart ?? ""}`,
-  ].join("\u0003");
+    `dataDate:${inputs.dataDate ?? ""}`,
+  ].join("");
 }
 
 /**

@@ -25,18 +25,46 @@ export default async function CalendarSettingsPage() {
     .filter((d): d is string => Boolean(d))
     .reduce((max, d) => (d > max ? d : max), activeProject.end_date || "");
 
+  // When the latest import brought its own calendar, the schedule analysis runs
+  // on that one, and edits here change nothing a PM sees there. Saying so is
+  // the difference between a setting and a trap.
+  const latestImport = (
+    await pb.collection("schedule_imports").getList(1, 1, {
+      filter: pb.filter("project = {:p}", { p: activeProject.id }),
+      sort: "-created",
+    })
+  ).items[0];
+  const importedCalendar =
+    latestImport && Array.isArray(latestImport.work_days) && latestImport.work_days.length > 0
+      ? {
+          name: (latestImport.calendar_name as string) || null,
+          importedOn: String(latestImport.created).slice(0, 10),
+        }
+      : null;
+
   return (
-    <CalendarSettingsClient
-      projectId={activeProject.id}
-      projectName={activeProject.name}
-      isOwner={activeProject.owner === session.user.id}
-      initial={normalizeCalendar({
-        work_days: activeProject.work_days as number[] | undefined,
-        holidays: activeProject.holidays as { date: string; label?: string }[] | undefined,
-      })}
-      projectStart={activeProject.start_date || ""}
-      projectEnd={activeProject.end_date || ""}
-      scheduleEnds={scheduleEnds}
-    />
+    <>
+      {importedCalendar ? (
+        <div className="px-4 pt-4">
+          <p className="rounded border border-sky-200 bg-sky-50 px-3 py-2 text-[12px] text-sky-900">
+            Schedule analysis uses the {importedCalendar.name ? `“${importedCalendar.name}” ` : ""}calendar
+            from your latest schedule import ({importedCalendar.importedOn}). Changes here apply to
+            schedules imported without a calendar of their own, such as a CSV.
+          </p>
+        </div>
+      ) : null}
+      <CalendarSettingsClient
+        projectId={activeProject.id}
+        projectName={activeProject.name}
+        isOwner={activeProject.owner === session.user.id}
+        initial={normalizeCalendar({
+          work_days: activeProject.work_days as number[] | undefined,
+          holidays: activeProject.holidays as { date: string; label?: string }[] | undefined,
+        })}
+        projectStart={activeProject.start_date || ""}
+        projectEnd={activeProject.end_date || ""}
+        scheduleEnds={scheduleEnds}
+      />
+    </>
   );
 }

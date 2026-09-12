@@ -6,7 +6,7 @@ and this file is stale, so fix it.
 The prioritised queue lives in [CHECKLIST.md](CHECKLIST.md); this file carries
 the state and the reasoning.
 
-Last updated: 2026-09-05 · `d6a549d`
+Last updated: 2026-09-12 · `e6343be` deployed
 
 ## Where things stand
 
@@ -33,12 +33,12 @@ migrates. Also, the backup covers `data.db` and `auxiliary.db` only, not
 uploaded files: it protects a schema change, it isn't disaster recovery.
 
 **Deployed:** droplet at `app.pocketpm.fyi`, PocketBase 0.40.1 behind it.
-The droplet is on **`d6a549d`**, deployed 2026-09-05 via `deploy/deploy.sh`.
-`ed83cee` is on `origin/main` but not released — it is docs and the E2E harness
-only, nothing under `src/`, so the running app is identical to a redeploy.
+The droplet is on **`e6343be`**, deployed 2026-09-12 via `deploy/deploy.sh`.
+`fbd62fb` (signup wording) and `27f5cf7` (`/api/version`) are on `origin/main`
+and not yet deployed.
 
-Post-deploy verification: `verify:tenancy` all 8 sections PASS against live,
-including the section 8 positive control. New routes present and gated.
+Post-deploy verification of `e6343be`: `verify:routes` 22/22, `verify:hooks`
+15/15, `verify:tenancy` all 10 sections, against live.
 
 `/opt/pocketpm-web` is also the `pocketpm` user's home directory, so `.bashrc`,
 `.profile`, `.npm/` and `.config/` sit untracked inside the repo. Harmless — but a
@@ -56,32 +56,21 @@ story after a deploy.
 | AI (7 modules, 14 tasks) | Live in production. Auth gate + 20/hr per-user rate limit. |
 | Documents + revisions | `project_documents`, `document_revisions`, revision UI, `protected: true` on every file field. |
 | Retrieval | Stage 1 (metadata selection) and stage 2 (metadata-only answers). Nothing leaves the droplet. |
-| Schedule | Relationships, baselines, variance, working calendar, and CPM with the divergence report (phases 1–3). Pure logic, 100 tests. Phases 1-5 and 7 done, including the CPM cache staleness marker. XER (6) is the only schedule work left, blocked on real files. |
+| Schedule | Relationships, baselines, variance, working calendar, CPM with the divergence report, and the P6 engine behaviours below. Pure logic. The XER import (phase 6) is next; a real file is in hand, and never committed. |
 | Project roles | `project_roles`, additive to `projects.members` — a role grants no access on its own. |
 | Workflows | Schema, engine, API routes, and UI: template builder at `/settings/workflows`, approval panel on submittal/RFI detail pages, inbox at `/approvals`. Submittal/RFI creation starts a workflow when a template is active. `workflow_actions` is append-only (null update/delete rules). |
 | Tenancy | `verify:tenancy` (10 sections), `verify:hooks` (15), `verify:routes` (22, over real HTTP through the Next routes — workflow engine, CPM cache, file scoping, AI gate). `npm run verify:schema` checks the snapshot matches live. |
 | E2E | Playwright against an **ephemeral local PocketBase per run**. Never production. |
 
-**Password reset** is code-complete and unverifiable: `requestPasswordReset()`
-resolves successfully with SMTP off, so success proves nothing. See
-`docs/password-reset.md`.
+**Password reset** works end to end, verified 2026-09-12 with SPF, DKIM and
+DMARC passing. See `docs/password-reset.md`.
 
 ## In flight
 
-**SMTP.** The split is settled and the ball is with you:
+**SMTP:** done. Resend via `send.pocketpm.fyi`, verified end to end
+2026-09-12. The two reset-email template items are queued in CHECKLIST.md.
 
-- *You:* pick a transactional provider (not Gmail), add SPF/DKIM on `pocketpm.fyi`,
-  enter host/port/username/password in PocketBase admin → Settings → Mail, send the
-  test email. I don't take the SMTP password — same line as the Anthropic key.
-- *Me:* `node scripts/apply-mail-settings.mjs --apply` sets `meta.appURL` (still
-  `http://localhost:8090`, so every emailed link currently points at your laptop),
-  sender address/name, and the reset template.
-- Order: your part, then mine, then a real end-to-end reset.
-
-Nothing else is blocked on this. Option 4 for external reviewers — record the party,
-an internal user acts on their behalf — needs no email and is already built.
-
-## Taxonomy v1.2 — built, not yet deployed or tagged
+## Taxonomy v1.2 — deployed and tagged
 
 Built 2026-09-12. What was built:
 
@@ -95,9 +84,9 @@ Built 2026-09-12. What was built:
 - The schema was applied to production with `scripts/apply-precedence-v12.mjs`
   (both collections were empty) and the snapshot re-exported.
 
-**The deploy is due now.** Production PocketBase requires `taxonomy_version` and
-`source` on provisions, and the running app does not send them yet. The
-`taxonomy-v1.2` tag waits for confirmation.
+Deployed as `e6343be` on 2026-09-12 and verified in production: routes 22/22,
+hooks 15/15, tenancy all sections. Tagged `taxonomy-v1.2`, the praxis baseline.
+The product moves on from it; records carry their own `taxonomy_version`.
 
 Serves the product AND the user's praxis. The `taxonomy-v1.2` git tag marks the
 praxis evaluation baseline; it is **not** a product freeze. The product may move
@@ -124,6 +113,35 @@ Sequenced after deploy (done, `5f39910`) and SMTP (done, verified end to end
 Product rule: internal enum values never reach the UI. Classes, severity bands,
 scopes, and conflict classes map to plain GC language in one file, with a test
 that every value has a label.
+
+## Scheduling engine: P6 behaviours (built 2026-09-12, not deployed)
+
+`src/lib/schedule/cpm.ts` now does the following:
+
+- **Milestones sit at a point in the day.** A finish milestone lands on its
+  predecessor's finish day, not the day after. This also fixed a bug: every
+  successor of a start milestone used to start one day late.
+- **As late as possible:** these activities move into their free float
+  without moving any successor.
+- **Level of effort:** left out of the pass and listed, not dropped. Their
+  relationships drive nothing.
+- **Data date:** unstarted work is held to it, and in-progress work finishes
+  its remaining duration counted from it. With no data date (a CSV), nothing
+  is held back.
+- **Other constraint types** are carried but not applied.
+
+**Calendar:** the analysis uses the latest import's calendar when that import
+brought one, and otherwise the project's. It says which it used, and the
+calendar settings page says so when an imported calendar governs.
+
+**Data date:** it comes only from the latest import. A CSV import now writes a
+`schedule_imports` record, so an earlier P6 data date can't hold back a CSV
+schedule.
+
+**Divergence:** every difference now has a cause: actual progress, a P6
+constraint not applied, or unexplained. "Unexplained" is the count the XER
+importer's acceptance test drives to zero. Plain-language labels for schedule
+values live in `src/lib/schedule/labels.ts`, with an every-value test.
 
 ## Schedule schema v2 — dates say whose they are
 
