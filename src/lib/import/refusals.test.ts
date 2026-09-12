@@ -99,13 +99,18 @@ describe("a refused import says why", () => {
     expect(outcome.report.canImport).toBe(false);
     expect(outcome.report.problems[0].message).toMatch(/Primavera P6 XER export/);
     expect(outcome.report.problems[0].message).toMatch(/TASK/);
-    expect(outcome.report.refusal).toMatch(/XER import is not supported yet/);
+    expect(outcome.report.problems[0].message).toMatch(/XER import is not supported yet/);
+    // Under the button: the reason in one line, not the paragraph again. The
+    // paragraph is listed above it, so repeating it showed the same text twice.
+    expect(outcome.report.refusal).toMatch(/P6 XER export/);
+    expect(outcome.report.refusal).not.toBe(outcome.report.problems[0].message);
   });
 
   it("does the same when the XER was only renamed, still tab-separated", () => {
     const outcome = preview(FLATTENED_XER.replace(/,/g, "\t"));
     if (!outcome.ok) throw new Error(outcome.message);
-    expect(outcome.report.refusal).toMatch(/Primavera P6 XER export/);
+    expect(outcome.report.problems[0].message).toMatch(/Primavera P6 XER export/);
+    expect(outcome.report.refusal).toMatch(/P6 XER export/);
   });
 
   it("gives one reason, not a copy per line", () => {

@@ -6,7 +6,7 @@
  * to produce the same two things and then slots into this seam unchanged.
  */
 
-import { parseBoolCell, parseDateCell, parseNumberCell, type DateOrder, type ParsedCell } from "./dates";
+import { parseDateCell, parseNumberCell, type DateOrder, type ParsedCell } from "./dates";
 
 /** Fields an import can populate. `planned_*` are the mirrored source dates. */
 export const TARGET_FIELDS = [
@@ -21,7 +21,7 @@ export const TARGET_FIELDS = [
   "actual_finish",
   "pct_complete",
   "status",
-  "is_milestone",
+  "activity_type",
   "notes",
   "sort_order",
   "predecessors",
@@ -61,7 +61,7 @@ const HEADER_HINTS: Record<TargetField, RegExp> = {
   actual_finish: /^(actual[\s_-]*finish|act[\s_-]*finish|actual[\s_-]*end)$/i,
   pct_complete: /^(%|pct|percent)[\s_-]*(complete|done)?$|^complete$/i,
   status: /^(status|state)$/i,
-  is_milestone: /^(milestone|is[\s_-]*milestone)$/i,
+  activity_type: /^(activity[\s_-]*type|task[\s_-]*type|type|milestone|is[\s_-]*milestone)$/i,
   notes: /^(notes?|comments?|remarks?)$/i,
   sort_order: /^(sort([\s_-]*order)?|seq(uence)?|order|line)$/i,
   predecessors: /^(pred(ecessors?)?|depends[\s_-]*on|logic)$/i,
@@ -131,6 +131,41 @@ export function parsePredecessorToken(token: string): ParsedPredecessor | null {
   return { activity_id: rest, type, lag_days: lag, raw };
 }
 
+export type ActivityType = "task" | "start_milestone" | "finish_milestone" | "level_of_effort";
+
+/**
+ * What an activity is, from whatever the file says.
+ *
+ * Reads P6's own labels as a spreadsheet export writes them ("Task Dependent",
+ * "Start Milestone", "Level of Effort", ...) and a plain yes/no milestone
+ * column. A yes/no column cannot say which end a milestone marks, so "yes" is a
+ * start milestone: the behaviour before activity_type replaced is_milestone.
+ * A WBS summary spans its WBS the way level of effort spans its work, so it is
+ * read as level of effort, with a note saying so. Empty or unmapped is a task.
+ */
+export function parseActivityTypeCell(raw: string): ParsedCell<ActivityType> & { note?: string } {
+  const text = (raw ?? "").trim().toLowerCase().replace(/[\s_-]+/g, " ");
+  if (!text) return { raw, value: "task" };
+  if (["task", "task dependent", "resource dependent"].includes(text)) return { raw, value: "task" };
+  if (text === "start milestone") return { raw, value: "start_milestone" };
+  if (text === "finish milestone") return { raw, value: "finish_milestone" };
+  if (text === "level of effort" || text === "loe") return { raw, value: "level_of_effort" };
+  if (text === "wbs summary") {
+    return {
+      raw,
+      value: "level_of_effort",
+      note: "A WBS summary spans its WBS like level of effort, so it is imported as level of effort.",
+    };
+  }
+  if (["y", "yes", "true", "1", "x", "milestone"].includes(text)) return { raw, value: "start_milestone" };
+  if (["n", "no", "false", "0"].includes(text)) return { raw, value: "task" };
+  return {
+    raw,
+    value: null,
+    problem: "not an activity type this can read (Task, Start milestone, Finish milestone, Level of effort, or yes/no)",
+  };
+}
+
 export function parsePredecessorCell(cell: string): ParsedPredecessor[] {
   return (cell ?? "")
     .split(/[,;]/)
@@ -151,7 +186,7 @@ export interface MappedActivity {
   duration_days: number | null;
   pct_complete: number | null;
   status: string;
-  is_milestone: boolean;
+  activity_type: ActivityType;
   notes: string;
   sort_order: number | null;
   predecessors: ParsedPredecessor[];
@@ -164,6 +199,11 @@ export interface RowProblem {
   field?: TargetField;
   message: string;
   severity: "error" | "warning";
+  /**
+   * One line for under the import button, where the full message would repeat
+   * what the problem list above already shows. File-level errors only.
+   */
+  summary?: string;
 }
 
 export interface MappedResult {
@@ -229,9 +269,13 @@ export function mapRows(
       numbers[field] = parsed.value;
     }
 
-    const milestoneRaw = cellAt(row, mapping.is_milestone);
-    const milestone = parseBoolCell(milestoneRaw);
-    cells.is_milestone = milestone;
+    const typeCell = parseActivityTypeCell(cellAt(row, mapping.activity_type));
+    cells.activity_type = typeCell;
+    if (typeCell.value === null) {
+      problems.push({ rowNumber, field: "activity_type", severity: "error", message: `"${typeCell.raw}" is ${typeCell.problem}.` });
+    } else if (typeCell.note) {
+      problems.push({ rowNumber, field: "activity_type", severity: "warning", message: typeCell.note });
+    }
 
     const pct = numbers.pct_complete;
     if (pct !== null && (pct < 0 || pct > 100)) {
@@ -290,7 +334,7 @@ export function mapRows(
       duration_days: numbers.duration_days,
       pct_complete: pct,
       status: cellAt(row, mapping.status).trim(),
-      is_milestone: milestone.value === true,
+      activity_type: typeCell.value ?? "task",
       notes: cellAt(row, mapping.notes).trim(),
       sort_order: numbers.sort_order,
       predecessors,

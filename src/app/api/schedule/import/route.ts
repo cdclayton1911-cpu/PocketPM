@@ -178,9 +178,9 @@ export async function PUT(request: Request) {
       duration_days: a.duration_days ?? undefined,
       pct_complete: a.pct_complete ?? undefined,
       status: a.status || undefined,
-      // A CSV milestone column cannot say which end it marks; a start milestone
-      // keeps the behaviour this had before activity_type existed.
-      activity_type: a.is_milestone ? "start_milestone" : "task",
+      // Read by parseActivityTypeCell: P6's own labels, or a yes/no milestone
+      // column, where yes is a start milestone since it cannot say which end.
+      activity_type: a.activity_type,
       notes: a.notes,
       sort_order: a.sort_order ?? index,
     });

@@ -236,8 +236,11 @@ export function buildDryRun(input: DryRunInput): DryRunReport {
  * the list is long.
  */
 function refusalFor(problems: RowProblem[], errors: number): string {
+  // A file-level error is already listed in full above the button, so the line
+  // under it summarises rather than repeating the paragraph. It still says the
+  // reason: never a pointer at errors that might not be shown.
   const fileError = problems.find((p) => p.rowNumber === 0 && p.severity === "error");
-  if (fileError) return fileError.message;
+  if (fileError) return fileError.summary ?? fileError.message;
   const first = problems.find((p) => p.severity === "error");
   return (
     `${errors} row${errors === 1 ? " has an error" : "s have errors"}, listed above` +

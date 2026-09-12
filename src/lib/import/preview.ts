@@ -71,7 +71,14 @@ export function previewImport(input: {
         activities: [],
         problems: [],
         skipped: table.rows.length,
-        fileProblems: [{ rowNumber: 0, severity: "error", message: shape }],
+        fileProblems: [
+          {
+            rowNumber: 0,
+            severity: "error",
+            message: shape,
+            summary: "Can't import this file: it's a P6 XER export, not a list of activities.",
+          },
+        ],
       }),
     };
   }
