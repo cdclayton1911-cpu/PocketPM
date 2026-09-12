@@ -67,21 +67,20 @@ Workflow engine complete, schema through UI. Schedule phases 1-5 and 7 complete.
 - [ ] **Schedule phase 6, the XER parser.** Blocked on Tier 0. The mapping seam
   from `cf6defe` is ready; XER needs only to produce headers and rows.
 
-## Tier 4 — infrastructure, unblocks the notification layer
+## Tier 4 — email
 
-- [ ] **Pick an SMTP provider.** Resend is a candidate, not the incumbent. DKIM
-  is already verified on Cloudflare.
-- [ ] **Set `meta.appURL`, `meta.senderAddress`, `meta.senderName`.** `appURL`
-  is still `http://localhost:8090`, so any PocketBase email links to a laptop.
-  `senderAddress` must be on the verified domain or DKIM will not sign it.
-  `scripts/apply-mail-settings.mjs --apply` does this.
-- [ ] **DMARC at `p=none`**, then tighten after watching reports.
-- [ ] **Send from a subdomain** — `notifications@mail.pocketpm.fyi` — to keep
-  transactional reputation separate.
-
-Password reset is code-complete and unverifiable until this lands:
-`requestPasswordReset()` resolves successfully with SMTP off, so success proves
-nothing (`docs/password-reset.md`).
+- [x] **SMTP live, verified end to end 2026-09-12.** Resend on port 2587.
+  `meta.appURL` is `https://app.pocketpm.fyi`; sender `no-reply@pocketpm.fyi`.
+  A real reset through the app: SPF pass (via `send.pocketpm.fyi`), DKIM pass
+  (`d=pocketpm.fyi`, selector `resend`), DMARC pass. The link opened
+  `/reset-password` and the new password worked at login.
+- [x] **DMARC at `p=none`**, reports to Cloudflare. Tighten after watching reports.
+- [ ] **Reset email, plain-text part:** the link is raw markdown and renders as
+  literal brackets in text-only mail clients.
+- [ ] **Reset email, HTML:** PocketBase's stock styling rather than PocketPM
+  branding.
+- [ ] **Send from a subdomain** (`notifications@mail.pocketpm.fyi`). Needs its own
+  domain verification in Resend and its own DNS records before switching.
 
 ## Tier 5 — housekeeping
 

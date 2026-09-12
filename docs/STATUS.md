@@ -66,7 +66,8 @@ praxis evaluation baseline; it is **not** a product freeze. The product may move
 to v1.3+, so the contract file supports later versions and every record carries
 `taxonomy_version`.
 
-Sequenced after deploy (done, `5f39910`) and SMTP (in progress). Decisions,
+Sequenced after deploy (done, `5f39910`) and SMTP (done, verified end to end
+2026-09-12). Decisions,
 2026-09-12:
 
 1. "End-to-end" is WCU's clause → a hand-specified E1 and E2 conflict → the
