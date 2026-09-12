@@ -35,7 +35,8 @@ function loadEnv(file) {
 const fileEnv = loadEnv(path.join(process.cwd(), ".env.local"));
 const env = { ...fileEnv, ...process.env };
 
-const URL_ = env.NEXT_PUBLIC_PB_URL;
+// PB_URL first, so it can run through the admin SSH tunnel (deploy/ADMIN-ACCESS.md).
+const URL_ = process.env.PB_URL || env.NEXT_PUBLIC_PB_URL;
 const EMAIL = env.PB_ADMIN_EMAIL;
 const PASS = env.PB_ADMIN_PASS;
 

@@ -27,6 +27,12 @@ No `--dir` and no `--hooksDir`, so PocketBase uses its defaults relative to the
 working directory: data at `/opt/pocketbase/pb_data`, hooks at
 **`/opt/pocketbase/pb_hooks`**. The service unit is `pocketbase`.
 
+PocketBase runs as the `pocketbase` user (see `deploy/ADMIN-ACCESS.md`). Hooks
+stay owned by root, so PocketBase cannot rewrite its own hooks, but they must be
+readable by `pocketbase`; the copy step below sets that. Never run anything as
+root that writes inside `pb_data`: a root-owned file there leaves PocketBase
+able to read but not save.
+
 Re-check with the command below if the unit ever changes; the defaults move
 with `--dir`.
 
@@ -43,7 +49,7 @@ tar czf ~/pb_pre_hooks_$(date +%F-%H%M).tar.gz /opt/pocketbase/pb_data
 ```
 
 ```bash
-sudo mkdir -p /opt/pocketbase/pb_hooks && sudo cp -r /opt/pocketpm-web/pb_hooks/. /opt/pocketbase/pb_hooks/
+sudo mkdir -p /opt/pocketbase/pb_hooks && sudo cp -r /opt/pocketpm-web/pb_hooks/. /opt/pocketbase/pb_hooks/ && sudo chmod -R a+rX /opt/pocketbase/pb_hooks
 ```
 
 ```bash

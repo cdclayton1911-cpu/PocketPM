@@ -304,7 +304,8 @@ try {
   // or an account, and leaving probe fixtures on production is not acceptable.
   if (env.PB_ADMIN_EMAIL && env.PB_ADMIN_PASS && env.NEXT_PUBLIC_PB_URL) {
     const { default: PocketBase } = await import("pocketbase");
-    const pb = new PocketBase(env.NEXT_PUBLIC_PB_URL);
+    // PB_URL first, so superuser setup can run through the admin SSH tunnel.
+    const pb = new PocketBase(process.env.PB_URL || env.NEXT_PUBLIC_PB_URL);
     await pb.collection("_superusers").authWithPassword(env.PB_ADMIN_EMAIL, env.PB_ADMIN_PASS);
     if (projectId) {
       await pb.collection("projects").delete(projectId).catch(() => {});

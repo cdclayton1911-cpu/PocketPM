@@ -57,7 +57,12 @@ PB_DATA="${PB_DATA:-/opt/pocketbase/pb_data}"
 PB_MIGRATIONS="${PB_MIGRATIONS:-/opt/pocketbase/pb_migrations}"
 # Empty PB_SERVICE: do not manage a service (local rehearsal).
 PB_SERVICE="${PB_SERVICE-pocketbase}"
-PB_USER="${PB_USER:-}"
+# The user PocketBase runs as. "auto" reads it from the service unit, so this
+# follows the unit rather than needing to be kept in step with it. Every
+# PocketBase and sqlite3 command below runs as this user: a sqlite3 read made
+# as root while PocketBase is stopped can leave root-owned -shm/-wal files in
+# pb_data, which PocketBase, running as its own user, then cannot open.
+PB_USER="${PB_USER-auto}"
 PB_HEALTH="${PB_HEALTH:-http://127.0.0.1:8090/api/health}"
 REPO_MIGRATIONS="${REPO_MIGRATIONS:-$HERE/../pb_migrations}"
 BACKUP_DIR="${BACKUP_DIR:-/opt/pocketbase/backups}"
@@ -81,6 +86,14 @@ ok()   { printf '%s  ✓%s %s\n' "$GREEN" "$OFF" "$1"; }
 warn() { printf '%s  !%s %s\n' "$YELLOW" "$OFF" "$1"; }
 fail() { printf '\n%s  ✗ SCHEMA:%s %s\n\n' "$RED" "$OFF" "$1" >&2; exit 1; }
 
+if [[ "$PB_USER" == "auto" ]]; then
+	PB_USER=""
+	if [[ -n "$PB_SERVICE" ]] && command -v systemctl >/dev/null; then
+		PB_USER="$(systemctl show -p User --value "$PB_SERVICE" 2>/dev/null || true)"
+	fi
+	[[ "$PB_USER" == "root" ]] && PB_USER=""
+fi
+
 as_pb() { if [[ -n "$PB_USER" ]]; then sudo -u "$PB_USER" "$@"; else "$@"; fi; }
 
 DB="$PB_DATA/data.db"
@@ -90,7 +103,7 @@ DB="$PB_DATA/data.db"
 # there would make EVERY migration look pending — including applied ones.
 q() {
 	local out
-	if ! out="$(sqlite3 "$@" 2>&1)"; then
+	if ! out="$(as_pb sqlite3 "$@" 2>&1)"; then
 		printf '%s  ✗ sqlite3 failed on %s: %s%s\n' "$RED" "$1" "$out" "$OFF" >&2
 		return 1
 	fi
@@ -217,7 +230,7 @@ if [[ -n "$PB_USER" ]]; then chown -R "$PB_USER" "$SCRATCH"; fi
 
 if [[ "$RESTORE_SELFTEST_CORRUPT" == "1" ]]; then
 	warn "SELF-TEST: deleting one row from the restored copy; this check must now fail"
-	sqlite3 "$SCRATCH/data.db" "delete from _superusers where rowid = (select min(rowid) from _superusers);"
+	as_pb sqlite3 "$SCRATCH/data.db" "delete from _superusers where rowid = (select min(rowid) from _superusers);"
 fi
 
 # Compared BEFORE any PocketBase opens the copy. PocketBase repairs some things

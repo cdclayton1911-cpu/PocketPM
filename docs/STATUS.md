@@ -27,6 +27,20 @@ files are history. To look at a change before deploying,
 `sudo PLAN_ONLY=1 deploy/pb-migrate.sh` shows what's pending on the server,
 and `npm run schema:plan` shows its effect locally.
 
+**Security hardening (built 2026-09-12, server steps pending).** The steps are
+in `deploy/ADMIN-ACCESS.md`, in order, each with a check and a rollback:
+
+1. PocketBase runs as a `pocketbase` user with `--automigrate=false`.
+   `deploy/verify-pocketbase-user.sh` proves the running server can write.
+2. Admin access goes through an SSH tunnel.
+3. A superuser IP allowlist (`scripts/apply-admin-lockdown.mjs`).
+4. Caddy stops serving the superuser surface: every spelling PocketBase
+   accepts, checked by `npm run verify:admin`. The `api.pocketpm.fyi` block is
+   removed.
+
+Checked against live and already fine: all 14 file fields are
+`protected: true`, and no file collection has an empty View rule.
+
 **Revisit before customers depend on uptime:** a deploy that carries a schema
 change stops PocketBase for a few seconds while it backs up, restore-tests and
 migrates. Also, the backup covers `data.db` and `auxiliary.db` only, not

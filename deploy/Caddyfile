@@ -6,22 +6,31 @@ app.pocketpm.fyi {
 }
 
 pb.pocketpm.fyi {
-    reverse_proxy 127.0.0.1:8090
+    # The superuser surface is not served publicly. Admin access is through an
+    # SSH tunnel straight to 127.0.0.1:8090; see deploy/ADMIN-ACCESS.md.
+    #
+    # PocketBase reaches the same endpoints through several spellings (tested on
+    # 0.40.1): the collection name in any letter case, with the underscore
+    # percent-encoded (%5F), and by collection id; the admin UI answers at /_,
+    # /_/ and /%5F/. So the match is a case-insensitive regexp on the DECODED
+    # path, tolerant of doubled slashes, covering the name and the id. The
+    # superuser IP allowlist inside PocketBase is the backstop if any form ever
+    # slips past this. `npm run verify:admin` probes every known form.
+    @superuser path_regexp superuser (?i)^/+(_(/.*)?|api/+collections/+(_superusers|pbc_3142635823)(/.*)?)$
+    respond @superuser 404
+
+    reverse_proxy 127.0.0.1:8090 {
+        # OVERWRITES any client-supplied value, so it cannot be forged. PocketBase
+        # reads this header (settings: trustedProxy.headers) to decide the client
+        # address for its superuser allowlist, which is 127.0.0.1 only. Anything
+        # through Caddy carries a non-local address and is refused superuser
+        # access; only the SSH tunnel arrives as 127.0.0.1. Tested: a client that
+        # sends this header as 127.0.0.1 itself IS let through by PocketBase,
+        # which is why Caddy must set it rather than pass it on.
+        header_up X-Real-Client-IP {remote_host}
+    }
 }
 
-api.pocketpm.fyi {
-    @options {
-        method OPTIONS
-    }
-    respond @options 204
-
-    reverse_proxy 127.0.0.1:3000
-
-    header {
-        Access-Control-Allow-Origin *
-        Access-Control-Allow-Methods "GET, POST, PATCH, DELETE, OPTIONS"
-        Access-Control-Allow-Headers "Content-Type, Authorization, X-PB-Token"
-        Access-Control-Max-Age 86400
-        defer
-    }
-}
+# api.pocketpm.fyi (the legacy Express proxy) was removed 2026-09-12. It
+# answered 502 with its service down, which meant the route came back with the
+# service after a reboot. With no site block, Caddy serves nothing for it.
