@@ -122,6 +122,18 @@ fi
 
 ok "build succeeded"
 
+# ── schema ───────────────────────────────────────────────────────────────────
+# After the build, before the restart: the schema and the code that needs it
+# land seconds apart. A schema step that fails leaves PocketBase on the
+# unchanged schema and stops here, so the old code keeps serving against the
+# schema it was written for. See deploy/pb-migrate.sh.
+step "Schema migrations"
+
+if ! LABEL="${NEW_SHA:0:8}" ALLOW_BREAKING="${ALLOW_BREAKING:-0}" "$APP_DIR/deploy/pb-migrate.sh"; then
+	die "schema step did not complete — web app NOT restarted, previous version still
+     serving against the unchanged schema. See the output above."
+fi
+
 # ── restart ──────────────────────────────────────────────────────────────────
 step "Restarting $SERVICE"
 

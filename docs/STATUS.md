@@ -10,6 +10,28 @@ Last updated: 2026-09-05 · `d6a549d`
 
 ## Where things stand
 
+**Schema changes ship with deploy (built 2026-09-12, not yet run on production).**
+From now on, each schema change is a PocketBase migration file in `pb_migrations/`,
+applied by `deploy/pb-migrate.sh` after the build and before the web restart.
+That script:
+
+- refuses if the installed PocketBase doesn't match the pinned version
+  (`deploy/POCKETBASE_VERSION`)
+- refuses any migration not marked `// compat: additive`, unless
+  `ALLOW_BREAKING=1` is set
+- backs up the database and restore-tests the copy before applying anything
+- stops deploy, without restarting the web app, if the migration fails
+
+No credentials are stored for any of this. The older `scripts/apply-*.mjs`
+files are history. To look at a change before deploying,
+`sudo PLAN_ONLY=1 deploy/pb-migrate.sh` shows what's pending on the server,
+and `npm run schema:plan` shows its effect locally.
+
+**Revisit before customers depend on uptime:** a deploy that carries a schema
+change stops PocketBase for a few seconds while it backs up, restore-tests and
+migrates. Also, the backup covers `data.db` and `auxiliary.db` only, not
+uploaded files: it protects a schema change, it isn't disaster recovery.
+
 **Deployed:** droplet at `app.pocketpm.fyi`, PocketBase 0.40.1 behind it.
 The droplet is on **`d6a549d`**, deployed 2026-09-05 via `deploy/deploy.sh`.
 `ed83cee` is on `origin/main` but not released — it is docs and the E2E harness
