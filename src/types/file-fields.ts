@@ -37,7 +37,7 @@ export const FILE_FIELDS = {
   "daily_logs": {
     "attachments": {
       maxSelect: 10,
-      maxSize: 10485760,
+      maxSize: 26214400,
       mimeTypes: [],
       required: false,
     },
@@ -45,7 +45,7 @@ export const FILE_FIELDS = {
   "deficiencies": {
     "photos": {
       maxSelect: 5,
-      maxSize: 10485760,
+      maxSize: 26214400,
       mimeTypes: [],
       required: false,
     },
@@ -77,7 +77,7 @@ export const FILE_FIELDS = {
   "punch_list": {
     "photos": {
       maxSelect: 5,
-      maxSize: 10485760,
+      maxSize: 26214400,
       mimeTypes: [],
       required: false,
     },
@@ -93,7 +93,7 @@ export const FILE_FIELDS = {
   "safety_observations": {
     "photos": {
       maxSelect: 5,
-      maxSize: 10485760,
+      maxSize: 26214400,
       mimeTypes: [],
       required: false,
     },

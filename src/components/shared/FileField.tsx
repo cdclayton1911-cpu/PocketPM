@@ -4,24 +4,31 @@ import { Download, FileText, Paperclip, X } from "lucide-react";
 import { useId, useRef, useState } from "react";
 
 import { Field } from "@/components/shared/FormField";
+import { describePending, MAX_SAVE_BYTES } from "@/lib/files/pending";
 import { cn } from "@/lib/utils";
 import { fileFieldsFor } from "@/types/file-fields";
 
 /**
  * Attach files to a record.
  *
- * One component for all eleven file fields on the schema rather than a bespoke
- * one per module: the limits differ, the behaviour does not. Limits are read
- * from the generated FILE_FIELDS spec, so a schema change to `maxSelect` or
+ * One component for every file field on the schema rather than a bespoke one
+ * per module: the limits differ, the behaviour does not. Limits are read from
+ * the generated FILE_FIELDS spec, so a schema change to `maxSelect` or
  * `maxSize` reaches the UI by regenerating types rather than by editing markup.
  *
  * The parent form submits FormData; this contributes three kinds of entry:
  *
- *   - `<field>` file parts for new uploads,
+ *   - `<field>` file parts for new uploads. The route turns these into
+ *     PocketBase's append form on a multi-file field, so an upload ADDS to what
+ *     is there; a single-file field replaces, and says so first.
  *   - `<field>-` string parts naming existing files to delete (PocketBase's
  *     own removal syntax),
  *   - nothing at all when the user touched neither, so an edit that does not
  *     mention files leaves them alone.
+ *
+ * Whatever a save will do to the stored files is stated above the input before
+ * it happens (see lib/files/pending.ts). A removed file stays in the list,
+ * struck through, with an undo, until the save.
  */
 
 function humanSize(bytes: number): string {
@@ -74,9 +81,13 @@ export function FileField({
    */
   const dragDepth = useRef(0);
 
+  const maxSelect = spec?.maxSelect ?? 1;
+  const multiple = maxSelect > 1;
   const kept = existing.filter((name) => !removed.includes(name));
-  const multiple = (spec?.maxSelect ?? 1) > 1;
-  const remaining = (spec?.maxSelect ?? 1) - kept.length;
+  // A single-file field can always take one pick: it replaces what is there,
+  // and the summary says so before anything is saved.
+  const remaining = multiple ? maxSelect - kept.length : 1;
+  const summary = describePending({ existing, removed, picked: picked.map((f) => f.name), maxSelect });
 
   /**
    * The single validation path, shared by the picker and by drop.
@@ -87,16 +98,23 @@ export function FileField({
    */
   function reject(files: File[]): string | null {
     if (files.length === 0) return null;
+    if (!multiple && files.length > 1) return "Only one file can be attached here";
     if (files.length > remaining) {
       return remaining <= 0
-        ? "Remove an existing file before adding another"
-        : `Only ${remaining} more file${remaining === 1 ? "" : "s"} can be attached`;
+        ? `This already has ${kept.length} files, the most it can hold. Remove one before adding another.`
+        : `Only ${remaining} more file${remaining === 1 ? "" : "s"} can be attached; this already has ${kept.length}.`;
     }
     if (spec && spec.maxSize > 0) {
       const tooBig = files.find((f) => f.size > spec.maxSize);
       if (tooBig) {
         return `${tooBig.name} is ${humanSize(tooBig.size)}; the limit is ${humanSize(spec.maxSize)}`;
       }
+    }
+    const total = files.reduce((sum, f) => sum + f.size, 0);
+    if (total > MAX_SAVE_BYTES) {
+      return files.length === 1
+        ? `${files[0].name} is ${humanSize(total)}; one upload through the site can carry ${humanSize(MAX_SAVE_BYTES)}.`
+        : `These files total ${humanSize(total)}; one save can carry ${humanSize(MAX_SAVE_BYTES)}. Save them in smaller batches.`;
     }
     if (spec && spec.mimeTypes.length > 0) {
       const wrong = files.find((f) => f.type && !spec.mimeTypes.includes(f.type));
@@ -121,8 +139,9 @@ export function FileField({
     }
 
     if (inputRef.current) {
-      // Replaces rather than appends, matching what the picker does — two
-      // controls on one field behaving differently is its own bug.
+      // Replaces the pending selection rather than appending to it, matching
+      // what the picker does — two controls on one field behaving differently
+      // is its own bug. Stored files are unaffected either way.
       const transfer = new DataTransfer();
       for (const file of files) transfer.items.add(file);
       inputRef.current.files = transfer.files;
@@ -142,40 +161,70 @@ export function FileField({
     accept(Array.from(event.dataTransfer.files));
   }
 
+  const limits = spec
+    ? multiple
+      ? `Up to ${maxSelect} files, ${humanSize(spec.maxSize)} each.`
+      : `One file, up to ${humanSize(spec.maxSize)}.`
+    : "";
+
   return (
     <Field id={inputId} label={label} error={problem ?? undefined}>
       <div className="flex flex-col gap-2">
-        {kept.length > 0 ? (
+        {existing.length > 0 ? (
           <ul className="flex flex-col gap-1">
-            {kept.map((name) => (
-              <li
-                key={name}
-                className="flex items-center gap-2 rounded-r6 border bg-secondary/40 px-2 py-1.5 text-[13px]"
-              >
-                <FileText className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                <span className="min-w-0 flex-1 truncate">{name}</span>
-                {recordId ? (
-                  <a
-                    href={`/api/files/${collection}/${recordId}/${encodeURIComponent(name)}`}
-                    className="shrink-0 text-muted-foreground hover:text-primary"
-                    title={`Download ${name}`}
-                  >
-                    <Download className="size-3.5" aria-hidden />
-                    <span className="sr-only">Download {name}</span>
-                  </a>
-                ) : null}
-                <button
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => setRemoved((r) => [...r, name])}
-                  className="shrink-0 text-muted-foreground hover:text-danger disabled:opacity-50"
-                  title={`Remove ${name}`}
+            {existing.map((name) => {
+              const going = removed.includes(name);
+              return (
+                <li
+                  key={name}
+                  className={cn(
+                    "flex items-center gap-2 rounded-r6 border bg-secondary/40 px-2 py-1.5 text-[13px]",
+                    going && "border-danger/40 bg-danger-subtle/40",
+                  )}
                 >
-                  <X className="size-3.5" aria-hidden />
-                  <span className="sr-only">Remove {name}</span>
-                </button>
-              </li>
-            ))}
+                  <FileText className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className={cn("min-w-0 flex-1 truncate", going && "text-muted-foreground line-through")}>
+                    {name}
+                  </span>
+                  {going ? (
+                    <>
+                      <span className="shrink-0 text-[11px] text-danger">removed on save</span>
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => setRemoved((r) => r.filter((n) => n !== name))}
+                        className="shrink-0 text-[11px] font-medium text-muted-foreground underline hover:text-foreground disabled:opacity-50"
+                      >
+                        Undo
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {recordId ? (
+                        <a
+                          href={`/api/files/${collection}/${recordId}/${encodeURIComponent(name)}`}
+                          className="shrink-0 text-muted-foreground hover:text-primary"
+                          title={`Download ${name}`}
+                        >
+                          <Download className="size-3.5" aria-hidden />
+                          <span className="sr-only">Download {name}</span>
+                        </a>
+                      ) : null}
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => setRemoved((r) => [...r, name])}
+                        className="shrink-0 text-muted-foreground hover:text-danger disabled:opacity-50"
+                        title={`Remove ${name}`}
+                      >
+                        <X className="size-3.5" aria-hidden />
+                        <span className="sr-only">Remove {name}</span>
+                      </button>
+                    </>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         ) : null}
 
@@ -238,15 +287,13 @@ export function FileField({
           </div>
         </div>
 
-        <p aria-live="polite" className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <Paperclip className="size-3" aria-hidden />
-          {hint ??
-            (spec
-              ? `Up to ${spec.maxSelect} file${spec.maxSelect === 1 ? "" : "s"}, ${humanSize(spec.maxSize)} each.`
-              : "")}
-          {picked.length
-            ? ` ${picked.length} file${picked.length === 1 ? "" : "s"} ready to upload.`
-            : ""}
+        <p aria-live="polite" className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+          <Paperclip className="mt-px size-3 shrink-0" aria-hidden />
+          <span>
+            {summary ? <strong className="font-medium text-foreground">{summary} </strong> : null}
+            {hint ? `${hint} ` : ""}
+            {limits}
+          </span>
         </p>
       </div>
     </Field>

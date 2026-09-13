@@ -198,7 +198,7 @@ export interface DailyLog extends BaseRecord {
   signed_by: string;
   signed_date: string;
   created_by: RelationId; // -> users
-  attachments: FileName[]; // max 10, 10MB
+  attachments: FileName[]; // max 10, 25MB
 }
 
 /**
@@ -224,7 +224,7 @@ export interface Deficiency extends BaseRecord {
   verified_by: string;
   status: DeficiencyStatus;
   logged_by: RelationId; // -> users
-  photos: FileName[]; // max 5, 10MB
+  photos: FileName[]; // max 5, 25MB
 }
 
 /**
@@ -445,7 +445,7 @@ export interface PunchListItem extends BaseRecord {
   closed_date: string;
   assigned_to: RelationId; // -> users
   notes: string;
-  photos: FileName[]; // max 5, 10MB
+  photos: FileName[]; // max 5, 25MB
 }
 
 /**
@@ -497,7 +497,7 @@ export interface SafetyObservation extends BaseRecord {
   corrective_action: string;
   status: SafetyObservationStatus;
   reported_by: RelationId; // -> users
-  photos: FileName[]; // max 5, 10MB
+  photos: FileName[]; // max 5, 25MB
 }
 
 /**

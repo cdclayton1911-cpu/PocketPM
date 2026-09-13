@@ -193,6 +193,7 @@ function toPayload(
   validated: Record<string, unknown>,
   body: ParsedBody,
   injected: Record<string, unknown>,
+  specs: Record<string, FileFieldSpec>,
 ): Record<string, unknown> | FormData {
   const hasFiles = Object.keys(body.files).length > 0 || Object.keys(body.removals).length > 0;
   if (!hasFiles) return { ...validated, ...injected };
@@ -203,12 +204,54 @@ function toPayload(
     form.append(key, String(value));
   }
   for (const [field, list] of Object.entries(body.files)) {
-    for (const file of list) form.append(field, file);
+    // ADD, never replace, on a multi-file field. PocketBase reads a bare
+    // `attachments` on an update as "replace every file with these", and it did
+    // exactly that: four progress photos, then a mix ticket, left only the
+    // ticket, with a 200. `attachments+` appends; on a create it is the same
+    // thing. A single-file field keeps the bare key: replacing is what it means,
+    // and the dialog says "will be replaced by" before anything is saved.
+    const key = (specs[field]?.maxSelect ?? 1) > 1 ? `${field}+` : field;
+    for (const file of list) form.append(key, file);
   }
   for (const [field, names] of Object.entries(body.removals)) {
     for (const name of names) form.append(`${field}-`, name);
   }
   return form;
+}
+
+/**
+ * On an update, the count that matters is what the record will END with:
+ * existing files, less the ones being removed, plus the ones being added.
+ * Checked here so the refusal can say what is already there. PocketBase
+ * refuses too, but only with a bare "The maximum allowed files is 10."
+ */
+async function filesWouldExceed(
+  pb: ReturnType<typeof createClient>,
+  collection: CollectionName,
+  id: string,
+  body: ParsedBody,
+): Promise<Record<string, string> | null> {
+  const specs = fileFieldsFor(collection);
+  const adding = Object.keys(body.files).filter((f) => (specs[f]?.maxSelect ?? 1) > 1);
+  if (adding.length === 0) return null;
+
+  const current = await pb.collection(collection).getOne<Record<string, unknown>>(id);
+  for (const field of adding) {
+    const existing = Array.isArray(current[field]) ? (current[field] as string[]) : [];
+    const removing = (body.removals[field] ?? []).filter((name) => existing.includes(name)).length;
+    const add = body.files[field].length;
+    const total = existing.length - removing + add;
+    const max = specs[field].maxSelect;
+    if (total > max) {
+      return {
+        [field]:
+          `This already has ${existing.length} file${existing.length === 1 ? "" : "s"}` +
+          (removing ? ` (${removing} being removed)` : "") +
+          `; adding ${add} would make ${total}, and the limit is ${max}. Remove some first, or add fewer.`,
+      };
+    }
+  }
+  return null;
 }
 
 export function createCollectionRoute<K extends CollectionName>(options: CrudRouteOptions<K>) {
@@ -286,10 +329,15 @@ export function createCollectionRoute<K extends CollectionName>(options: CrudRou
       const pb = createClient(session.token);
       const record = await pb.collection(collection).create<RecordOf<K>>(
         // project and owner go in last, so neither can be overridden by the body.
-        toPayload({ ...createDefaults, ...parsed.data }, parsedBody.body, {
-          ...(ownerField ? { [ownerField]: session.user.id } : {}),
-          project: projectId,
-        }),
+        toPayload(
+          { ...createDefaults, ...parsed.data },
+          parsedBody.body,
+          {
+            ...(ownerField ? { [ownerField]: session.user.id } : {}),
+            project: projectId,
+          },
+          fileFieldsFor(collection),
+        ),
       );
       if (afterCreate) {
         try {
@@ -327,11 +375,14 @@ export function createCollectionRoute<K extends CollectionName>(options: CrudRou
 
     try {
       const pb = createClient(session.token);
+      const tooMany = await filesWouldExceed(pb, collection, id, parsedBody.body);
+      if (tooMany) return NextResponse.json({ errors: tooMany }, { status: 400 });
+
       // `project` is not in the update schema and is not injected here, so a
       // record cannot be moved into another project by editing it.
       const record = await pb
         .collection(collection)
-        .update<RecordOf<K>>(id, toPayload(parsed.data, parsedBody.body, {}));
+        .update<RecordOf<K>>(id, toPayload(parsed.data, parsedBody.body, {}, fileFieldsFor(collection)));
       return NextResponse.json({ record });
     } catch (err) {
       // PocketBase 404s records the rule excludes, so a non-member sees the same

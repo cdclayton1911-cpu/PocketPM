@@ -108,6 +108,9 @@ function normalise(collections) {
               ...(f.type === "select" ? { values: [...(f.values ?? [])] } : {}),
               ...(f.type === "relation" ? { cascadeDelete: Boolean(f.cascadeDelete), maxSelect: f.maxSelect } : {}),
               ...(f.type === "number" ? { min: f.min ?? null, max: f.max ?? null } : {}),
+              ...(f.type === "file"
+                ? { maxSelect: f.maxSelect, maxSize: f.maxSize, protected: Boolean(f.protected), mimeTypes: [...(f.mimeTypes ?? [])] }
+                : {}),
             },
           ]),
       ),

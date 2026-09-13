@@ -41,6 +41,35 @@ in `deploy/ADMIN-ACCESS.md`, in order, each with a check and a rollback:
 Checked against live and already fine: all 14 file fields are
 `protected: true`, and no file collection has an empty View rule.
 
+**File uploads add; they never replace (fixed 2026-09-13).** Uploading to a
+record that already had files replaced all of them, and reported success.
+PocketBase reads a bare `attachments` on an update as "replace every file", and
+`crud-route.ts` sent exactly that. The fix:
+
+- Multi-file fields now use `field+`, which appends.
+- On an edit, the server counts existing files, minus removals, plus new ones
+  against `maxSelect`, and says so in its refusal.
+- The dialog states what a save will do before it happens: added, kept,
+  removed, or replaced (`lib/files/pending.ts`). A removed file stays listed,
+  struck through, with an Undo, until the save.
+- `e2e/file-attachments.spec.ts` uploads twice and asserts both are still
+  there. It fails against the old code, which proves it can catch this.
+
+In production, one record was affected: the owner's own test daily log, whose
+concrete mix ticket is gone for good. Every other multi-file field had no files
+on any record, so nothing else could have lost any.
+
+**Photo fields raised to 25 MB** by `pb_migrations/pocketpm_0001_photo_size_limits.js`,
+the first repo migration. It covers daily log attachments and punch-list,
+deficiency and safety photos; a 48-megapixel phone photo is often 10 to 15 MB.
+The deploy that brings the new `deploy.sh` still runs the old one, so apply
+this migration with `sudo /opt/pocketpm-web/deploy/pb-migrate.sh` after that
+deploy. Until then, `verify:schema` flags those four fields and PocketBase
+refuses photos over 10 MB with a clear message.
+
+Cloudflare refuses any request over 100 MB, so the dialog refuses more than
+95 MB per save. That makes the 100 MB drawing limit effectively 95 MB.
+
 **Revisit before customers depend on uptime:** a deploy that carries a schema
 change stops PocketBase for a few seconds while it backs up, restore-tests and
 migrates. Also, the backup covers `data.db` and `auxiliary.db` only, not
